@@ -1,6 +1,6 @@
 #lang racket
 
-(provide state empty-state parse)
+(provide state empty-state parse parse-file parse-string)
 
 (require lens threading)
 
@@ -9,6 +9,16 @@
 (struct/lens state (token stack program error) #:prefab)
 
 (define empty-state (state "" #f empty #f))
+
+(define (parse-file filename)
+  (parse-string (file->string filename)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (parse-string string [state empty-state])
+  (foldl parse state (string->list string)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (parse character [state empty-state])
   (cond
@@ -45,7 +55,7 @@
           ([not (list? stack)]  (set-error state* "Unmatched closing parenthesis"))
           ([= (length stack) 1] (move-stack-to-program state*))
           ([> (length stack) 1] (lens-transform state-stack-lens state* (lambda (x) (cons (cons (first x) (second x)) (rest (rest x))))))
-          (else                 (set-error state* "What the...")))))
+          (else                 (set-error state* "Unable to process closing parenthesis")))))
 
 (define (otherwise character state)
   (lens-transform state-token-lens state (curryr string-append (string character))))
