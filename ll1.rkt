@@ -2,10 +2,5 @@
 #lang racket
 
 (require lens threading "parse.rkt")
+(parse-file "input")
 
-(define in (string->list (file->string "input")))
-
-(define (parse-string string [state empty-state])
-  (foldl parse state string))
-
-(parse-string in)
