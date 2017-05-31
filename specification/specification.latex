@@ -23,10 +23,10 @@ This section provides the grammar of the \pln\space programming language.
 program = { expression } ;
 expression = `(' { expression } `)'
              | atom ;
-atom = ?[^[:blank:]\(\)]+? ;
+atom = ?[^[:space:]\(\)]+? ;
 \end{lstlisting}
 
-Grammar \ref{grammar: syntax} uses ISO/IEC 14977 \cite{ISO/IEC14977} Extended BNF with the special sequence ?...? defined as a Posix Extended Regular Syntax \cite{IEEE/STD1003.1-2008}.
+Grammar \ref{grammar: syntax} uses ISO/IEC 14977 \cite{ISO/IEC14977} Extended BNF with the special sequence ?...? defined as a POSIX Extended Regular Expressions \cite{IEEE/STD1003.1-2008}.
 
 \section{Semantics}
 This section provides the semantics of the \pln\space programming language.\\
@@ -36,8 +36,8 @@ $$ \mathrm{program = (expr_1, expr_2, ..., expr_n)} $$
 A program is evaluated by
 $$ \lim_{\mathrm{i}\rightarrow \infty}\mathrm{env_{i+1} = eval(expr_i, env_i)} $$
 
-\subsection{Specific Semantics}
-The following equations define the semantics of the \pln\space programming language.\\
+\subsection{Core Semantics}
+The following equations define the core semantics of the \pln\space programming language.\\
 Semantics are encoded in a mathematical language specified in section \ref{sec: maths}.
 
 \begin{equation} \label{define}
@@ -51,7 +51,7 @@ Semantics are encoded in a mathematical language specified in section \ref{sec: 
 \begin{split}
 \mathrm{env_{i+1}} & = \mathrm{eval((expr\ args*), env_i)} \\
 & = \mathrm{eval(Q.return, Q)} \\
-\text{where}\ Q & = \\
+\text{where Q} & = \\
 & \mathrm{env_i[return = call} \\
 & \mathrm{(eval(expr, env_i), env_i[formals \rightarrow args])]} \\
 \end{split}
@@ -66,14 +66,14 @@ Semantics are encoded in a mathematical language specified in section \ref{sec: 
 
 \begin{equation} \label{function}
 \begin{split}
-\mathrm{env_{i+1}} & = \mathrm{eval((fn\ formals\ args*), env_i)} \\
+\mathrm{env_{i+1}} & = \mathrm{eval((fn\ formals\ args+), env_i)} \\
 & = \mathrm{env_i[return = (\lambda\ formals\ args)]}
 \end{split}
 \end{equation}
 
 \begin{equation} \label{function}
 \begin{split}
-\mathrm{env_{i+1}} & = \mathrm{eval((mo\ formals\ args*), env_i)} \\
+\mathrm{env_{i+1}} & = \mathrm{eval((mo\ formals\ args+), env_i)} \\
 & = \mathrm{env_i[return = (\tau\ formals\ args)]}
 \end{split}
 \end{equation}
@@ -88,7 +88,18 @@ Semantics are encoded in a mathematical language specified in section \ref{sec: 
 \begin{equation} \label{let}
 \begin{split}
 \mathrm{env_{i+1}} & = \mathrm{eval((let\ q\ p\ expr), env_i)} \\
-& = \mathrm{eval(expr, env_i[q \rightarrow p])}
+& = \mathrm{env_i[return = eval(expr, env_i[q \rightarrow p]])}
+\end{split}
+\end{equation}
+
+\begin{equation} \label{if}
+\begin{split}
+\mathrm{env_{i+1}} & = \mathrm{eval((if\ test\ then\ else), env_i)} \\
+& = \begin{cases}
+	\mathrm{eval(then, env_i), Q\ is\ not\ false} \\
+	\mathrm{eval(else, env_i), Q\ is\ false}
+\end{cases} \\
+\mathrm{where\ Q} & = \mathrm{eval(test, env_i)}
 \end{split}
 \end{equation}
 
@@ -101,6 +112,11 @@ Semantics are encoded in a mathematical language specified in section \ref{sec: 
 \item $ \mathrm{env_i[q \rightarrow p]} $ pushes $ \mathrm{p} $ onto the $ \mathrm{env_i.q} $ stack.
 \item $ \mathrm{env_i.q} $ accesses the top element of $ \mathrm{q} $ inside $ \mathrm{env_i} $.
 \end{enumerate}
+
+\subsection{Calling}
+Calling invokes an object using $ \mathrm{env_i.formals} $ as its argument list.\\
+When an `fn' type is called, all formals are to be evaluated before being bound to the function's formals.\\
+When a `mo' type is called, all formals are to remain unevaluated, and the returned syntax must be evaluated.
 
 \bibliography{specification}
 \bibliographystyle{plain}
