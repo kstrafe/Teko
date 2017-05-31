@@ -22,9 +22,22 @@
              (eval xs env))
         ("*" (hash-set! env 'return *)
              (eval xs env))
+        ("/" (hash-set! env 'return /)
+             (eval xs env))
+        ("-" (hash-set! env 'return -)
+             (eval xs env))
         ([list "define" atom "return"] (hash-set! env atom (hash-ref env 'return))
                                        (eval xs env))
-        ([list "define" atom value]    (eval (cons value (cons `("define" ,atom "return") xs)) env))
+        ([list "set!" atom "return"]   (hash-set! env atom (hash-ref env 'return))
+                                       (eval xs env))
+        ([list "set!" atom value]      (eval (cons value
+                                                   (cons `("set!" ,atom "return")
+                                                         xs))
+                                             env))
+        ([list "define" atom value]    (eval (cons value
+                                                   (cons `("define" ,atom "return")
+                                                         xs))
+                                             env))
         ([list 'return=>arguments] (hash-set! env 'arguments
                                               (cons (hash-ref env 'return)
                                                     (hash-ref env 'arguments)))
