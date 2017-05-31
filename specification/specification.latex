@@ -1,0 +1,107 @@
+\documentclass[11pt, a4paper, USenglish]{article}
+
+\usepackage[fleqn]{amsmath}
+\usepackage{hyperref, lipsum, listings}
+\usepackage[margin=0.5in]{geometry}
+\usepackage[utf8x]{inputenc}
+
+\date{\the\year-\ifnum\month<10\relax0\fi\the\month-\ifnum\day<10\relax0\fi\the\day}
+
+\twocolumn
+\newcommand{\pln}{Cxy}
+
+\title{\pln\space Language Specification \\ \small{Version 0.1.0-alpha}}
+\author{Kevin Robert Stravers \\ email \href{mailto:macocio@gmail.com}{macocio@gmail.com}}
+\begin{document}
+\maketitle
+
+\section{Syntax}
+This section provides the grammar of the \pln\space programming language.
+
+\renewcommand{\lstlistingname}{Grammar}
+\begin{lstlisting}[caption=\pln\space grammar,label=grammar: syntax]
+program = { expression } ;
+expression = `(' { expression } `)'
+             | atom ;
+atom = ?[^[:blank:]\(\)]+? ;
+\end{lstlisting}
+
+Grammar \ref{grammar: syntax} uses ISO/IEC 14977 \cite{ISO/IEC14977} Extended BNF with the special sequence ?...? defined as a Posix Extended Regular Syntax \cite{IEEE/STD1003.1-2008}.
+
+\section{Semantics}
+This section provides the semantics of the \pln\space programming language.\\
+Let expression be denoted by expr, environment as env, and evaluate as eval.
+A program is represented as a list.
+$$ \mathrm{program = (expr_1, expr_2, ..., expr_n)} $$
+A program is evaluated by
+$$ \lim_{\mathrm{i}\rightarrow \infty}\mathrm{env_{i+1} = eval(expr_i, env_i)} $$
+
+\subsection{Specific Semantics}
+The following equations define the semantics of the \pln\space programming language.\\
+Semantics are encoded in a mathematical language specified in section \ref{sec: maths}.
+
+\begin{equation} \label{define}
+\begin{split}
+\mathrm{env_{i+1}} & = \mathrm{eval((define\ atom\ value), env_i)} \\
+& = \mathrm{env_i[atom := value]}
+\end{split}
+\end{equation}
+
+\begin{equation} \label{apply}
+\begin{split}
+\mathrm{env_{i+1}} & = \mathrm{eval((expr\ args*), env_i)} \\
+& = \mathrm{eval(Q.return, Q)} \\
+\text{where}\ Q & = \\
+& \mathrm{env_i[return = call} \\
+& \mathrm{(eval(expr, env_i), env_i[formals \rightarrow args])]} \\
+\end{split}
+\end{equation}
+
+\begin{equation} \label{return}
+\begin{split}
+\mathrm{env_{i+1}} & = \mathrm{eval(atom, env_i)} \\
+& = \mathrm{env_i[return = env_i.atom]}
+\end{split}
+\end{equation}
+
+\begin{equation} \label{function}
+\begin{split}
+\mathrm{env_{i+1}} & = \mathrm{eval((fn\ formals\ args*), env_i)} \\
+& = \mathrm{env_i[return = (\lambda\ formals\ args)]}
+\end{split}
+\end{equation}
+
+\begin{equation} \label{function}
+\begin{split}
+\mathrm{env_{i+1}} & = \mathrm{eval((mo\ formals\ args*), env_i)} \\
+& = \mathrm{env_i[return = (\tau\ formals\ args)]}
+\end{split}
+\end{equation}
+
+\begin{equation} \label{set}
+\begin{split}
+\mathrm{env_{i+1}} & = \mathrm{eval((set!\ atom\ value), env_i)} \\
+& = \mathrm{env_i[atom = value]}
+\end{split}
+\end{equation}
+
+\begin{equation} \label{let}
+\begin{split}
+\mathrm{env_{i+1}} & = \mathrm{eval((let\ q\ p\ expr), env_i)} \\
+& = \mathrm{eval(expr, env_i[q \rightarrow p])}
+\end{split}
+\end{equation}
+
+\subsection{Mathematical Language} \label{sec: maths}
+\begin{enumerate}
+\item $ \mathrm{env_i} $ denotes the i-th element of the list $ \mathrm{env} $.
+\item $ \mathrm{eval(Q, P)} $ calls the evaluate function with program $ \mathrm{Q} $ and environment $ \mathrm{P} $.
+\item $ \mathrm{env_i[q := p]} $ defines the symbol $ \mathrm{q} $ equal to $ \mathrm{p} $ in the i-th environment. $ \mathrm{q} $ can not be defined once it is already present in the environment.
+\item $ \mathrm{env_i[q = p]} $ sets the value on top element of $ \mathrm{env_i.q} $ equal to $ \mathrm{p} $.
+\item $ \mathrm{env_i[q \rightarrow p]} $ pushes $ \mathrm{p} $ onto the $ \mathrm{env_i.q} $ stack.
+\item $ \mathrm{env_i.q} $ accesses the top element of $ \mathrm{q} $ inside $ \mathrm{env_i} $.
+\end{enumerate}
+
+\bibliography{specification}
+\bibliographystyle{plain}
+\end{document}
