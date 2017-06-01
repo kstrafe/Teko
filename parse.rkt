@@ -1,11 +1,9 @@
 #lang racket
 
 ; (provide state empty-state parse parse-file parse-string)
-(provide (all-defined-out))
+(provide finish-parsing parse parse-file parse-string)
 
 (require "logger.rkt" "skeltal.rkt" lens threading)
-
-(define prepend cons)
 
 (skeltals
   (position (line column))
@@ -23,9 +21,16 @@
                           ([character (string->list string)])
                           #:break (state-error state)
                           (parse character state))])
-       (if (state-stack state*)
-         (set-error state* "Unmatched opening parenthesis")
-         (state-program state*))))
+       (finish-parsing state*)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (finish-parsing state)
+  (trce state)
+  (define (deep-reverse lst) (if (list? lst) (reverse (map deep-reverse lst)) lst))
+  (if (state-stack state)
+      (set-error state "Unmatched opening parenthesis")
+      (deep-reverse (state-program state))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -35,15 +40,16 @@
                (count-characters-and-lines character _))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Internal                                               ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (count-characters-and-lines character state)
   (lens-transform state-position-lens
                   state
                   (lambda (position)
-                    (cond
-                      ([char=? character #\newline] (~> (lens-transform position-line-lens position add1)
-                                                        (lens-set position-column-lens     _     1)))
-                      (else                         (lens-transform position-column-lens   position add1))))))
+                          (cond ([char=? character #\newline] (~> (lens-transform position-line-lens position add1)
+                                                                  (lens-set position-column-lens     _        1)))
+                                (else                         (lens-transform position-column-lens   position add1))))))
 
 (define (parse-internal escape character state)
   (cond
@@ -55,14 +61,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (whitespace state)
-  (trce state (state-token state))
+  (trce state)
   (if (non-empty-string? (state-token state))
       (~>
         (lens-transform (if (state-stack state)
                           (lens-compose first-lens state-stack-lens)
                           (lens-compose state-program-lens))
-                        state (curry prepend (state-token state)))
-        trce*
+                        state (curry cons (state-token state)))
         clear-token)
       state))
 
@@ -82,10 +87,8 @@
           ([= (length stack) 1] (move-stack-to-program state*))
           ([> (length stack) 1] (lens-transform state-stack-lens
                                                 state*
-                                                (lambda (x)
-                                                        (cons (cons (reverse (first x))
-                                                                             (second x))
-                                                              (rest (rest x))))))
+                                                (lambda (x) (cons (cons (first x) (second x))
+                                                                  (rest (rest x))))))
           (else                 (escape (set-error state* "Unable to process closing parenthesis"))))))
 
 (define (otherwise character state)
@@ -97,7 +100,7 @@
 
 (define (move-stack-to-program state)
   (~>
-    (lens-transform state-program-lens state (curryr append (list (reverse (first (state-stack state))))))
+    (lens-transform state-program-lens state (curry cons (first (state-stack state))))
     (lens-set state-stack-lens _ #f)))
 
 (define (set-error state error)
@@ -111,12 +114,11 @@
   (lens-transform state-unmatched-opening-parentheses-lens
                   state
                   (lambda (x)
-                    (cons (state-position state) x))))
+                          (cons (state-position state) x))))
 
 (define (pop-previous-opening-parenthesis state escape)
   (lens-transform state-unmatched-opening-parentheses-lens
                   state
-                  (lambda (x)
-                    (if (empty? x)
-                      (escape (set-error state "Unmatched closing parenthesis"))
-                      (rest x)))))
+                  (lambda (x) (if (empty? x)
+                                  (escape (set-error state "Unmatched closing parenthesis"))
+                                  (rest x)))))
