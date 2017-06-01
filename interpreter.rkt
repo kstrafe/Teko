@@ -4,6 +4,8 @@
 (provide (all-defined-out))
 (require "parse.rkt" "logger.rkt" "skeltal.rkt" lens threading syntax/parse/define)
 
+(skeltals (fn (parameters code)))
+
 (define (interpret program [env (make-hash)])
   (hash-set! env 'arguments empty)
   (hash-set! env 'calls empty)
@@ -11,13 +13,14 @@
   (trce env))
 
 (define (eval program env)
-  (trce program env)
   (if (empty? program)
     (void)
     (let ([x  (first program)]
           [xs (rest program)])
-      (dbug x)
+      (trce x xs env)
       (match x
+        ("sleep" (hash-set! env 'return sleep)
+             (eval xs env))
         ("+" (hash-set! env 'return +)
              (eval xs env))
         ("*" (hash-set! env 'return *)
@@ -26,9 +29,12 @@
              (eval xs env))
         ("-" (hash-set! env 'return -)
              (eval xs env))
-        ([list "define" atom "return"] (hash-set! env atom (hash-ref env 'return))
+        ([list "fn" (list atom ...) expr ...]
+                                       (hash-set! env 'return (fn atom expr))
                                        (eval xs env))
-        ([list "set!" atom "return"]   (hash-set! env atom (hash-ref env 'return))
+        ([list "define" atom "return"] (hash-set! env atom (list (hash-ref env 'return)))
+                                       (eval xs env))
+        ([list "set!" atom "return"]   (hash-set! env atom (cons (hash-ref env 'return) (rest (hash-ref env atom))))
                                        (eval xs env))
         ([list "set!" atom value]      (eval (cons value
                                                    (cons `("set!" ,atom "return")
@@ -38,36 +44,62 @@
                                                    (cons `("define" ,atom "return")
                                                          xs))
                                              env))
-        ([list 'return=>arguments] (hash-set! env 'arguments
-                                              (cons (hash-ref env 'return)
-                                                    (hash-ref env 'arguments)))
+        ([list 'return=>arguments] (let ([args (hash-ref env 'arguments)])
+                                     (hash-set! env 'arguments
+                                                (cons
+                                                  (cons (hash-ref env 'return) (first args))
+                                                  (rest args))))
                                    (eval xs env))
+        ([list 'pop-arguments arg ...] (for ([i arg])
+                                         (let ([h (hash-ref env i)])
+                                           (hash-set! env i (rest h))))
+                                       (eval xs env))
         ([list 'return=>calls]     (let ([tmp (cons (hash-ref env 'return)
-                                                    (hash-ref env 'calls))])
-                                     (hash-set! env 'calls tmp))
-                                   (eval xs env))
+                                                    (hash-ref env 'calls))]
+                                         [args (hash-ref env 'arguments)])
+                                     (hash-set! env 'calls tmp)
+                                   (eval xs env)))
         ([list 'call]         (let* ([calls (hash-ref env 'calls)]
                                      [call  (first calls)]
                                      [args  (hash-ref env 'arguments)])
                                     (hash-set! env 'calls (rest calls))
-                                    (when (procedure? call) ; builtin?
-                                      (hash-set! env 'return (apply call args))
-                                      (hash-set! env 'arguments empty)
-                                      (eval xs env))))
+                                    (cond
+                                      ([procedure? call] ; builtin?
+                                        (hash-set! env 'return (apply call (first args)))
+                                        (hash-set! env 'arguments (rest args))
+                                        (eval xs env))
+                                      ([fn? call] ; User-defined?
+                                        (if (= (length (fn-parameters call))
+                                               (length (first args)))
+                                          (begin
+                                            (for ([f (fn-parameters call)]
+                                                  [i (first args)])
+                                              (if (hash-has-key? env f)
+                                                (let ([old (hash-ref env f)])
+                                                  (hash-set! env f (cons i old)))
+                                                (hash-set! env f (cons i empty))))
+                                            (let ([args (hash-ref env 'arguments)])
+                                              (hash-set! env 'arguments (rest args)))
+                                            (eval (append (fn-code call) `((pop-arguments ,@(fn-parameters call))) xs) env))
+                                          (exit)
+                                        )))))
         ([list ''call arg ...] (let ([call (first (hash-ref env 'calls))])
-                                   (when (procedure? call) ; builtin?
-                                     (~>
-                                       (for/fold ([xn (cons '(call) xs)])
-                                                 ([a arg])
-                                         (cons a (append (list '(return=>arguments)) xn)))
-                                       (eval env)))))
+                                  (cond
+                                    ([or (procedure? call) (fn? call)] ; builtin?
+                                      (let ([args (hash-ref env 'arguments)])
+                                        (hash-set! env 'arguments (cons empty args)))
+                                      (~>
+                                        (for/fold ([xn (cons '(call) xs)])
+                                                  ([a arg])
+                                          (cons a (append (list '(return=>arguments)) xn)))
+                                        (eval env))))))
         ([list expr arg ...] (eval (append (list expr '(return=>calls) `('call ,@arg))
                                            xs)
                                    env))
         (atom (cond
                 ([all-digits? atom] (hash-set! env 'return (string->number atom))
                                     (eval xs env))
-                (else (hash-set! env 'return (hash-ref env atom))
+                (else (hash-set! env 'return (first (hash-ref env atom)))
                       (eval xs env))
                 ))
         ))))
