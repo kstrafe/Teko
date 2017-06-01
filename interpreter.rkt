@@ -72,12 +72,6 @@
                                         (if (= (length (fn-parameters call))
                                                (length (first args)))
                                           (begin
-                                            (for ([f (fn-parameters call)]
-                                                  [i (first args)])
-                                              (if (hash-has-key? env f)
-                                                (let ([old (hash-ref env f)])
-                                                  (hash-set! env f (cons i old)))
-                                                (hash-set! env f (cons i empty))))
                                             (let ([args (hash-ref env 'arguments)])
                                               (hash-set! env 'arguments (rest args)))
                                             (if (and (not (empty? xs))
@@ -86,8 +80,22 @@
                                                      (symbol? (first (first xs)))
                                                      (symbol=? (first (first xs)) 'pop-arguments)
                                                      (equal? call (second (first xs))))
-                                              (eval (append (fn-code call) xs) env)
-                                              (eval (append (fn-code call) `((pop-arguments ,call ,@(fn-parameters call))) xs) env)))
+                                              (begin
+                                                (for ([f (fn-parameters call)]
+                                                      [i (first args)])
+                                                  (if (hash-has-key? env f)
+                                                    (let ([old (hash-ref env f)])
+                                                      (hash-set! env f (cons i (rest old))))
+                                                    (hash-set! env f (cons i empty))))
+                                                (eval (append (fn-code call) xs) env))
+                                              (begin
+                                                (for ([f (fn-parameters call)]
+                                                      [i (first args)])
+                                                  (if (hash-has-key? env f)
+                                                    (let ([old (hash-ref env f)])
+                                                      (hash-set! env f (cons i old)))
+                                                    (hash-set! env f (cons i empty))))
+                                                (eval (append (fn-code call) `((pop-arguments ,call ,@(fn-parameters call))) xs) env))))
                                           (exit)
                                         )))))
         ([list ''call arg ...] (let ([call (first (hash-ref env 'calls))])
