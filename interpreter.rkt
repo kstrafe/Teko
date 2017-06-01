@@ -4,7 +4,8 @@
 (provide (all-defined-out))
 (require "parse.rkt" "logger.rkt" "skeltal.rkt" lens threading syntax/parse/define)
 
-(skeltals (fn (parameters code)))
+(skeltals (fn (parameters code))
+          (mo (parameter code)))
 
 (define (interpret program [env (make-hash)])
   (hash-set! env 'arguments empty)
@@ -29,11 +30,23 @@
              (eval xs env))
         ("-" (hash-set! env 'return -)
              (eval xs env))
+        ("<" (hash-set! env 'return <)
+             (eval xs env))
+        (">" (hash-set! env 'return >)
+             (eval xs env))
+        ("=" (hash-set! env 'return =)
+             (eval xs env))
+        ([list "mo" atom expr ...]     (hash-set! env 'return (mo atom expr))
+                                       (eval xs env))
         ([list "fn" (list atom ...) expr ...]
                                        (hash-set! env 'return (fn atom expr))
                                        (eval xs env))
         ([list "define" atom "return"] (hash-set! env atom (list (hash-ref env 'return)))
                                        (eval xs env))
+        ([list "if" "return" then otherwise] (if (zero? (hash-ref env 'return))
+                                               (eval (append (list otherwise) xs) env)
+                                               (eval (append (list then) xs) env)))
+        ([list "if" test then otherwise] (eval (append (list test `("if" "return" ,then ,otherwise)) xs) env))
         ([list "set!" atom "return"]   (hash-set! env atom (cons (hash-ref env 'return) (rest (hash-ref env atom))))
                                        (eval xs env))
         ([list "set!" atom value]      (eval (cons value
