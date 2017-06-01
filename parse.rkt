@@ -1,6 +1,7 @@
 #lang racket
 
-(provide state empty-state parse parse-file parse-string)
+; (provide state empty-state parse parse-file parse-string)
+(provide (all-defined-out))
 
 (require "logger.rkt" "skeltal.rkt" lens threading)
 
@@ -24,7 +25,7 @@
                           (parse character state))])
        (if (state-stack state*)
          (set-error state* "Unmatched opening parenthesis")
-         state*)))
+         (state-program state*))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -54,12 +55,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (whitespace state)
+  (trce state (state-token state))
   (if (non-empty-string? (state-token state))
       (~>
         (lens-transform (if (state-stack state)
                           (lens-compose first-lens state-stack-lens)
                           (lens-compose state-program-lens))
                         state (curry prepend (state-token state)))
+        trce*
         clear-token)
       state))
 
@@ -80,7 +83,9 @@
           ([> (length stack) 1] (lens-transform state-stack-lens
                                                 state*
                                                 (lambda (x)
-                                                  (cons (cons (first x) (second x)) (rest (rest x))))))
+                                                        (cons (cons (reverse (first x))
+                                                                             (second x))
+                                                              (rest (rest x))))))
           (else                 (escape (set-error state* "Unable to process closing parenthesis"))))))
 
 (define (otherwise character state)
@@ -92,7 +97,7 @@
 
 (define (move-stack-to-program state)
   (~>
-    (lens-transform state-program-lens state (curry cons (first (state-stack state))))
+    (lens-transform state-program-lens state (curryr append (list (reverse (first (state-stack state))))))
     (lens-set state-stack-lens _ #f)))
 
 (define (set-error state error)
