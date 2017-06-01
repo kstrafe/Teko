@@ -1,14 +1,14 @@
 \documentclass[11pt, a4paper, USenglish]{article}
 
 \usepackage[fleqn]{amsmath}
-\usepackage{hyperref, lipsum, listings}
+\usepackage{amssymb, empheq, hyperref, lipsum, listings, url}
 \usepackage[margin=0.5in]{geometry}
 \usepackage[utf8x]{inputenc}
 
 \date{\the\year-\ifnum\month<10\relax0\fi\the\month-\ifnum\day<10\relax0\fi\the\day}
 
 \twocolumn
-\newcommand{\pln}{Cxy}
+\newcommand{\pln}{Teko}
 
 \title{\pln\space Language Specification \\ \small{Version 0.1.0-alpha}}
 \author{Kevin Robert Stravers \\ email \href{mailto:macocio@gmail.com}{macocio@gmail.com}}
@@ -17,106 +17,135 @@
 
 \section{Syntax}
 This section provides the grammar of the \pln\space programming language.
-
 \renewcommand{\lstlistingname}{Grammar}
-\begin{lstlisting}[caption=\pln\space grammar,label=grammar: syntax]
-program = { expression } ;
-expression = `(' { expression } `)'
-             | atom ;
-atom = ?[^[:space:]\(\)]+? ;
+\begin{lstlisting}[frame=single,caption=\pln\space grammar,label=grammar: syntax]
+program = { expr } ;
+expr    = `(' { expr } `)'
+        | atom ;
+atom    = ? [^[:space:]\(\)]+ ? ;
 \end{lstlisting}
-
-Grammar \ref{grammar: syntax} uses ISO/IEC 14977 \cite{ISO/IEC14977} Extended BNF with the special sequence ?...? defined as a POSIX Extended Regular Expressions \cite{IEEE/STD1003.1-2008}.
+Grammar \ref{grammar: syntax} uses ISO/IEC 14977 \cite{ISO/IEC14977} Extended BNF with the special sequence `? ... ?' defined as a POSIX Extended Regular Expressions \cite{IEEE/STD1003.1-2008}.
 
 \section{Semantics}
 This section provides the semantics of the \pln\space programming language.\\
-Let expression be denoted by expr, environment as env, and evaluate as eval.
-A program is represented as a list.
+A program is represented as a list of $\mathrm{n} \in \mathbb{N}$ expressions.
 $$ \mathrm{program = (expr_1, expr_2, ..., expr_n)} $$
+An environment $\mathrm{env_k}$ is a set of symbol-list pairs.
+$$ \mathrm{env_k} = \mathrm{\{(s_1, L_1), (s_2, L_2), ...\}}, \mathrm{k} \in \mathbb{N}, \mathrm{k} \leq \mathrm{n}+1 $$
 A program is evaluated by
-$$ \lim_{\mathrm{i}\rightarrow \infty}\mathrm{env_{i+1} = eval(expr_i, env_i)} $$
+$$ \lim_{\mathrm{i}\rightarrow \mathrm{n}}\ \mathrm{env_{i+1}.return} $$
 
-\subsection{Core Semantics}
-The following equations define the core semantics of the \pln\space programming language.\\
-Semantics are encoded in a mathematical language specified in section \ref{sec: maths}.
-
-\begin{equation} \label{define}
-\begin{split}
-\mathrm{env_{i+1}} & = \mathrm{eval((define\ atom\ value), env_i)} \\
-& = \mathrm{env_i[atom := value]}
-\end{split}
-\end{equation}
-
-\begin{equation} \label{apply}
-\begin{split}
-\mathrm{env_{i+1}} & = \mathrm{eval((expr\ args*), env_i)} \\
-& = \mathrm{eval(Q.return, Q)} \\
-\text{where Q} & = \\
-& \mathrm{env_i[return = call} \\
-& \mathrm{(eval(expr, env_i), env_i[formals \rightarrow args])]} \\
-\end{split}
-\end{equation}
-
-\begin{equation} \label{return}
-\begin{split}
+\subsection{Core Semantics} \label{core}
+Equations \eqref{base} to \eqref{apply} define the core semantics of the \pln\space programming language.\\
+Notation is specified in section \ref{sec: maths}.
+\begin{empheq}[box=\fbox]{flalign} \label{base}
+&\mathrm{env_{i+1} = eval(expr_i, env_i)} &
+\end{empheq}
+\begin{empheq}[box=\fbox]{flalign} \label{atom}
 \mathrm{env_{i+1}} & = \mathrm{eval(atom, env_i)} \\
-& = \mathrm{env_i[return = env_i.atom]}
-\end{split}
-\end{equation}
-
-\begin{equation} \label{function}
-\begin{split}
-\mathrm{env_{i+1}} & = \mathrm{eval((fn\ formals\ args+), env_i)} \\
-& = \mathrm{env_i[return = (\lambda\ formals\ args)]}
-\end{split}
-\end{equation}
-
-\begin{equation} \label{function}
-\begin{split}
-\mathrm{env_{i+1}} & = \mathrm{eval((mo\ formals\ args+), env_i)} \\
-& = \mathrm{env_i[return = (\tau\ formals\ args)]}
-\end{split}
-\end{equation}
-
-\begin{equation} \label{set}
-\begin{split}
-\mathrm{env_{i+1}} & = \mathrm{eval((set!\ atom\ value), env_i)} \\
-& = \mathrm{env_i[atom = value]}
-\end{split}
-\end{equation}
-
-\begin{equation} \label{let}
-\begin{split}
-\mathrm{env_{i+1}} & = \mathrm{eval((let\ q\ p\ expr), env_i)} \\
-& = \mathrm{env_i[return = eval(expr, env_i[q \rightarrow p]])}
-\end{split}
-\end{equation}
-
-\begin{equation} \label{if}
-\begin{split}
+& = \mathrm{env_i[return = env_i.atom]} \nonumber &
+\end{empheq}
+\begin{empheq}[box=\fbox]{flalign} \label{define}
+\mathrm{env_{i+1}} & = \mathrm{eval((define\ atom\ expr), env_i)} \\
+& = \mathrm{env_i[atom} := \mathrm{eval(expr, env_i).return]} \nonumber &
+\end{empheq}
+\begin{empheq}[box=\fbox]{flalign} \label{set!}
+\mathrm{env_{i+1}} & = \mathrm{eval((set!\ atom\ expr), env_i)} \\
+& = \mathrm{env_i[atom = eval(expr, env_i).return]} \nonumber &
+\end{empheq}
+\begin{empheq}[box=\fbox]{flalign} \label{let}
+\mathrm{env_{i+1}} & = \mathrm{eval((let\ atom\ e_1\ e_2), env_i)} \\
+& = \mathrm{env_i[return = eval(e_2, Q)]} \nonumber \\
+\mathrm{let \ Q} & = \mathrm{env_i[atom \rightarrow eval(e_1, env_i).return]} \nonumber &
+\end{empheq}
+\begin{empheq}[box=\fbox]{flalign} \label{function}
+\mathrm{env_{i+1}} & = \mathrm{eval((fn\ params\ code^+), env_i)} \\
+& = \mathrm{env_i[return = (\lambda\ params\ code)]} \nonumber &
+\end{empheq}
+\begin{empheq}[box=\fbox]{flalign} \label{macro}
+\mathrm{env_{i+1}} & = \mathrm{eval((mo\ param\ code^+), env_i)} \\
+& = \mathrm{env_i[return = (\tau\ param\ code)]} \nonumber &
+\end{empheq}
+\begin{empheq}[box=\fbox]{flalign} \label{if}
 \mathrm{env_{i+1}} & = \mathrm{eval((if\ test\ then\ else), env_i)} \\
-& = \begin{cases}
+& = \begin{cases} \nonumber
 	\mathrm{eval(then, env_i), Q\ is\ not\ false} \\
 	\mathrm{eval(else, env_i), Q\ is\ false}
 \end{cases} \\
-\mathrm{where\ Q} & = \mathrm{eval(test, env_i)}
-\end{split}
-\end{equation}
+\mathrm{let \ Q} & = \mathrm{eval(test, env_i).return} \nonumber &
+\end{empheq}
+\begin{empheq}[box=\fbox]{flalign} \label{apply}
+\mathrm{env_{i+1}} & = \mathrm{eval((expr\ args^*), env_i)} \\
+& = \nonumber \\
+&\ \mathrm{env_i[return = call(eval(expr, env_i).return,} \nonumber \\
+&\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \mathrm{env_i[params \rightarrow (args)])]} \nonumber &
+\end{empheq}
 
 \subsection{Mathematical Language} \label{sec: maths}
 \begin{enumerate}
-\item $ \mathrm{env_i} $ denotes the i-th element of the list $ \mathrm{env} $.
-\item $ \mathrm{eval(Q, P)} $ calls the evaluate function with program $ \mathrm{Q} $ and environment $ \mathrm{P} $.
-\item $ \mathrm{env_i[q := p]} $ defines the symbol $ \mathrm{q} $ equal to $ \mathrm{p} $ in the i-th environment. $ \mathrm{q} $ can not be defined once it is already present in the environment.
-\item $ \mathrm{env_i[q = p]} $ sets the value on top element of $ \mathrm{env_i.q} $ equal to $ \mathrm{p} $.
-\item $ \mathrm{env_i[q \rightarrow p]} $ pushes $ \mathrm{p} $ onto the $ \mathrm{env_i.q} $ stack.
-\item $ \mathrm{env_i.q} $ accesses the top element of $ \mathrm{q} $ inside $ \mathrm{env_i} $.
+\item $\mathrm{env_i}$ denotes the i-th element of the list $\mathrm{env}$.
+\item $\mathrm{eval(Q, P)}$ calls the evaluate function with program $\mathrm{Q}$ and environment $\mathrm{P}$.
+\item $\mathrm{env_k[s_i := O_j]}$ returns a new environment with $\mathrm{(s_i, (O_j))}$ added to the k-th environment. It is an error if $\mathrm{s_i}$ already exists in $\mathrm{env_k}$.
+\item $\mathrm{env_k[s_i = O_j]}$ mutates $\mathrm{L_{i, 1}}$ by assigning it $\mathrm{O_j}$, returning $\mathrm{env_k}$.
+\item $\mathrm{env_k[s_i \rightarrow O_j]}$ returns a new environment with $\mathrm{O_j}$ prepended to $\mathrm{L_j}$.
+\item $\mathrm{env_k.s_i}$ returns the first element of $\mathrm{L_i}$.
+\item $\mathrm{A^*}$ and $\mathrm{A^+}$ denote 0-or-more and 1-or-more respectively. $\mathrm{A}$ in the pattern expands to $\mathrm{A_1, A_2, ..., A_m}$.
+\item $\mathrm{\lambda}$ and $\mathrm{\tau}$ are literals used to differentiate functions and macros, respectively.
 \end{enumerate}
 
 \subsection{Calling}
-Calling invokes an object using $ \mathrm{env_i.formals} $ as its argument list.\\
-When an `fn' type is called, all formals are to be evaluated before being bound to the function's formals.\\
-When a `mo' type is called, all formals are to remain unevaluated, and the returned syntax must be evaluated.
+Calling invokes a function (fn) or a macro (mo). Implementations must support an unbounded number of active tail calls.\\
+\textbf{A function call} evaluates all elements in the list\\$\mathrm{env_i.params}$ and binds each result to its respective symbol in the parameter list of the function to be called.\\
+\textbf{A macro call} binds the list $\mathrm{env_i.params}$ to the parameter name specified by the macro. The macro is then run and its results shall be a list which is evaluated in the previous context.\\
+The behaviour is outlined in equation \eqref{call}.
+\begin{empheq}[box=\fbox]{flalign} \label{call}
+& \mathrm{call(C, env)} \\
+& = \begin{cases} \nonumber
+	\mathrm{eval(code(C), f), C\ is\ \lambda} \\
+	\mathrm{eval(eval(code(C), m).return, env), C\ is\ \tau}
+\end{cases} \\
+& \mathrm{let\ f}\ \mathrm{= env[C_{p1} \rightarrow eval(env.params_1, env), ...]} \nonumber \\
+& \mathrm{let\ m}\ \mathrm{= env[C_{p} \rightarrow env.params]} \nonumber &
+\end{empheq}
+
+\section{Environment Initialization}
+Initial environments require various macros, functions, and constants to be defined and immutable; this section specifies these values.
+Functions and macros behave as specified by Scheme\cite{R6Rs}.
+\subsection{Constants}
+The environment $ \mathrm{env_1} $ is to be initialized with all Gaussian rationals such that atom lookups of numeric forms (e.g. $\mathrm{env_1.`3.14`}$) return numeric objects (e.g. 3.14). \\
+Numeric symbol syntax is described by grammar \ref{grammar: numbers}. All numeric symbol-value pairs are immutable.
+\renewcommand{\lstlistingname}{Grammar}
+\begin{lstlisting}[frame=single,caption=\pln\space numeric symbols,label=grammar: numbers]
+number  = [ `+' | `-' ] numeral
+          [ ( `+' | `-' ) numeral `i' ]
+        ;
+normal  = numeral [ `e' integer ] ;
+numeral = integer
+        | integer `.'
+        | `.' integer
+        | integer `.' integer
+        | integer `/' integer ;
+integer = digit { digit } ;
+digit   = `1' | `2' | `3' | `4' | `5'
+        | `6' | `7' | `8' | `9' | `0' ;
+\end{lstlisting}
+`true' and `false' are unique and immutable objects in the environment.
+`pi' and `e' are to be stored with rational approximations $\mathrm{\pi}$ and $\mathrm{e}$ respectively.
+
+\subsection{Functions}
+The functions `append', `string-append', `take', `drop', `first', `rest', `+', `-', `*', `/', `\%', `exp', `ln', `sqrt', `sin', `cos', `not', `abs', `even?', `odd?', `zero?', `one?', `read', `write', `ceiling', `floor', `round', `read-line', `read-string', `eval', `max', `min'.
+
+\subsection{Macros}
+The macros `'', `\textless', `\textless=', `\textgreater', `\textgreater=', `=', `equal?', `and', `or', `xor', `bitwise-and', `bitwise-ior', `bitwise-xor',
+
+\subsection{Miscellaneous}
+Further initial macros, functions, and constants may be implemented provided all such symbols begin with `@', which is reserved for the implementation.\\
+The macro `;' shall act as a comment; a program stripped off all `(; ...)' forms shall behave exactly like the program containing the comments.\\
+The symbols `return', and `params' used in section \ref{core} are to be inaccessible directly, and the symbols must be available for user definitions.
+
+\section{Comments}
+It can be seen from \eqref{set!} that the \pln\space has dynamic scope and from \eqref{let} that it is latently typed.\\
+Dynamic scoping may be beneficial to the user in terms of convenience\cite{EMACS}, as well as being easy to implement. In addition to this one gets free parametrization as specified in SRFI-39\cite{SRFI-39}.
 
 \bibliography{specification}
 \bibliographystyle{plain}
