@@ -24,7 +24,8 @@
 
   ; Set up the environment by binding functions and constants
   (define-simple-macro (racket-hash-sets! hash symbol ...)
-    (begin (hash-set! hash (symbol->string 'symbol) (list symbol)) ...))
+    (begin (hash-set! hash (symbol->string 'symbol) (list symbol)) ...
+           (hash-set! hash symbol (list symbol)) ...))
   (define-simple-macro (racket-hash-sets-apetail! hash symbol ...)
     (begin (hash-set! hash (string-append "@" (symbol->string 'symbol)) (list symbol)) ...))
   (racket-hash-sets! env #| Numeric Operations |#
@@ -37,7 +38,7 @@
                          #| Constants |#
                          e pi
                          #| List Functions |#
-                         andmap append drop empty? filter first foldl foldr last list? map ormap take rest
+                         andmap append drop empty? filter first foldl foldr last list list? map ormap take rest
                          #| String Function |#
                          string-append
                          write read max min read-line read-string  equal? bitwise-and bitwise-xor bitwise-ior
@@ -58,15 +59,26 @@
     (void)
     (let ([x  (first program)]
           [xs (rest program)])
-      (trce program (hash-ref2 env "x") (hash-ref2 env "y"))
+      (trce program (hash-ref2 env '@return) (hash-ref2 env "a"))
       (match x
         ([list "\"" expr ...]                 (let-values ([(sum _)
                                                 (for/fold ([sum ""]
                                                            [prev-expr? #f])
                                                           ([expr_i expr])
                                                   (match expr_i
-                                                    ([list C] (values (string-append sum (string (integer->char (string->number C)))) #t))
-                                                    (word (values (string-append sum (if (and (not prev-expr?) (non-empty-string? sum)) " " "") word) #f))))])
+                                                    ([list C E] (values (string-append sum
+                                                                                       (make-string (string->number E)
+                                                                                                    (integer->char (string->number C))))
+                                                                        #t))
+                                                    ([list C] (values (string-append sum
+                                                                                     (string (integer->char (string->number C))))
+                                                                      #t))
+                                                    (word (values (string-append sum
+                                                                                 (if (and (not prev-expr?)
+                                                                                          (non-empty-string? sum))
+                                                                                     " "
+                                                                                     "")
+                                                                                  word) #f))))])
                                                 (hash-set! env '@return sum))
                                               (eval xs env))
 
@@ -116,6 +128,8 @@
                                                    (hash-set! env '@calls tmp)
                                                    (eval xs env)))
 
+        ([list '@evaluate-return]             (eval (cons (hash-ref env '@return) xs) env))
+
         ([list '@do-call]                     (let* ([@calls (hash-ref env '@calls)]
                                                      [call  (first @calls)]
                                                      [args  (hash-ref env '@params)])
@@ -126,7 +140,14 @@
                                                         (hash-set! env '@params (rest args))
                                                         (eval xs env))
                                                       ([mo? call] ; Macro call?
-                                                        (exit)
+                                                        (let* ([args (hash-ref env '@params)]
+                                                               [cnae (mo-parameter call)])
+                                                          (hash-set! env '@params (rest args))
+                                                          (if (hash-has-key? env cnae)
+                                                            (let ([old (hash-ref env cnae)])
+                                                              (hash-set! env cnae (cons (first args) old)))
+                                                            (hash-set! env cnae (cons (first args) empty))))
+                                                        (eval (append (mo-code call) `((@pop-params ,(mo-parameter call)) (@evaluate-return)) xs) env)
                                                       )
                                                       ([fn? call] ; User-defined?
                                                         (if (= (length (fn-parameters call))
@@ -162,6 +183,9 @@
 
         ([list '@call arg ...]               (let ([call (first (hash-ref env '@calls))])
                                                   (cond
+                                                    ([mo? call] (let ([fne (hash-ref env '@params)])
+                                                                  (hash-set! env '@params (cons arg fne)))
+                                                                (eval (append (list '(@do-call)) xs) env))
                                                     ([or (procedure? call) (fn? call)] ; builtin?
                                                       (let ([args (hash-ref env '@params)])
                                                         (hash-set! env '@params (cons empty args)))
