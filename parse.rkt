@@ -1,9 +1,9 @@
 #lang racket
 
-; (provide state empty-state parse parse-file parse-string)
-(provide finish-parsing parse parse-file parse-string)
+(provide finish-parsing-character parse-character parse-file parse-string)
 
-(require "logger.rkt" "skeltal.rkt" lens threading)
+(require "skeltal.rkt"
+         lens threading)
 
 (skeltals
   (position (line column))
@@ -20,21 +20,18 @@
   (let ([state* (for/fold ([state empty-state])
                           ([character (string->list string)])
                           #:break (state-error state)
-                          (parse character state))])
-       (finish-parsing state*)))
+                          (parse-character character state))])
+       (finish-parsing-character state*)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (finish-parsing state)
-  (trce state)
+(define (finish-parsing-character state)
   (define (deep-reverse lst) (if (list? lst) (reverse (map deep-reverse lst)) lst))
   (if (state-stack state)
       (set-error state "Unmatched opening parenthesis")
       (deep-reverse (state-program state))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(define (parse character [state empty-state])
+(define (parse-character character [state empty-state])
   (let/ec escape
           (~>> (parse-internal             escape character state)
                (count-characters-and-lines character _))))
@@ -61,7 +58,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (whitespace state)
-  (trce state)
   (if (non-empty-string? (state-token state))
       (~>
         (lens-transform (if (state-stack state)

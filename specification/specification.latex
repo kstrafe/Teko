@@ -10,7 +10,7 @@
 \twocolumn
 \newcommand{\pln}{Teko}
 
-\title{\pln\space Language Specification \\ \small{Version 0.1.0-alpha}}
+\title{\pln\space Language Specification \\ \small{Version 0.2.0-alpha}}
 \author{Kevin Robert Stravers \\ email \href{mailto:macocio@gmail.com}{macocio@gmail.com}}
 \begin{document}
 \maketitle
@@ -32,8 +32,8 @@ A program is represented as a list of $\mathrm{n} \in \mathbb{N}$ expressions.
 $$ \mathrm{program = (expr_1, expr_2, ..., expr_n)} $$
 An environment $\mathrm{env_k}$ is a set of symbol-list pairs.
 $$ \mathrm{env_k} = \mathrm{\{(s_1, L_1), (s_2, L_2), ...\}}, \mathrm{k} \in \mathbb{N}, \mathrm{k} \leq \mathrm{n}+1 $$
-A program is evaluated by
-$$ \lim_{\mathrm{i}\rightarrow \mathrm{n}}\ \mathrm{env_{i+1}.return} $$
+A programs output is
+\begin{equation} \mathrm{interpret(program, env_1) = env_{n+1}.return} \end{equation}
 
 \subsection{Core Semantics} \label{core}
 Equations \eqref{base} to \eqref{apply} define the core semantics of the \pln\space programming language.\\
@@ -81,7 +81,7 @@ Notation is specified in section \ref{sec: maths}.
 &\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \mathrm{env_i[params \rightarrow (args)])]} \nonumber &
 \end{empheq}
 
-\subsection{Mathematical Language} \label{sec: maths}
+\subsection{Notation} \label{sec: maths}
 \begin{enumerate}
 \item $\mathrm{env_i}$ denotes the i-th element of the list $\mathrm{env}$.
 \item $\mathrm{eval(Q, P)}$ calls the evaluate function with program $\mathrm{Q}$ and environment $\mathrm{P}$.
@@ -89,7 +89,7 @@ Notation is specified in section \ref{sec: maths}.
 \item $\mathrm{env_k[s_i = O_j]}$ mutates $\mathrm{L_{i, 1}}$ by assigning it $\mathrm{O_j}$, returning $\mathrm{env_k}$.
 \item $\mathrm{env_k[s_i \rightarrow O_j]}$ returns a new environment with $\mathrm{O_j}$ prepended to $\mathrm{L_j}$.
 \item $\mathrm{env_k.s_i}$ returns the first element of $\mathrm{L_i}$.
-\item $\mathrm{A^*}$ and $\mathrm{A^+}$ denote 0-or-more and 1-or-more respectively. $\mathrm{A}$ in the pattern expands to $\mathrm{A_1, A_2, ..., A_m}$.
+\item $\mathrm{A^*}$ and $\mathrm{A^+}$ denote 0-or-more and 1-or-more respectively. $\mathrm{A}$ in equations \eqref{function}, \eqref{macro}, \eqref{apply} expands to $\mathrm{A_1, A_2, ..., A_m}$.
 \item $\mathrm{\lambda}$ and $\mathrm{\tau}$ are literals used to differentiate functions and macros, respectively.
 \end{enumerate}
 
@@ -112,14 +112,14 @@ The behaviour is outlined in equation \eqref{call}.
 Initial environments require various macros, functions, and constants to be defined and immutable; this section specifies these values.
 Functions and macros behave as specified by Scheme\cite{R6Rs}.
 \subsection{Constants}
-The environment $ \mathrm{env_1} $ is to be initialized with all Gaussian rationals such that atom lookups of numeric forms (e.g. $\mathrm{env_1.`3.14`}$) return numeric objects (e.g. 3.14). \\
+The environment $ \mathrm{env_1} $ is to be initialized with all rationals such that atom lookups of numeric forms (e.g. $\mathrm{env_1.`3.14`}$) return numeric objects (e.g. 3.14). \\
 Numeric symbol syntax is described by grammar \ref{grammar: numbers}. All numeric symbol-value pairs are immutable.
 \renewcommand{\lstlistingname}{Grammar}
 \begin{lstlisting}[frame=single,caption=\pln\space numeric symbols,label=grammar: numbers]
-number  = [ `+' | `-' ] numeral
-          [ ( `+' | `-' ) numeral `i' ]
+number  = [ `+' | `-' ] enota
+          [ ( `+' | `-' ) enota `i' ]
         ;
-normal  = numeral [ `e' integer ] ;
+enota   = numeral [ `e' integer ] ;
 numeral = integer
         | integer `.'
         | `.' integer
@@ -141,12 +141,16 @@ The macros `'', `\textless', `\textless=', `\textgreater', `\textgreater=', `=',
 \subsection{Miscellaneous}
 Further initial macros, functions, and constants may be implemented provided all such symbols begin with `@', which is reserved for the implementation.\\
 The macro `;' shall act as a comment; a program stripped off all `(; ...)' forms shall behave exactly like the program containing the comments.\\
-The symbols `return', and `params' used in section \ref{core} are to be inaccessible directly, and the symbols must be available for user definitions.
+If the method of computation in section \ref{core} is used as implementation, then `return' and `params' are to renamed to a `@'-form.
+
+\section{Strings}
+" is the macro for generating strings; words are space-separated unless a list is betwixt. A list may contain a single integer, which is converted to a character and inserted. A list may contain an integer N and an expression. The expression is repeated N times and inserted. A list may contain an expression.
 
 \section{Comments}
 It can be seen from \eqref{set!} that the \pln\space has dynamic scope and from \eqref{let} that it is latently typed.\\
 Dynamic scoping may be beneficial to the user in terms of convenience\cite{EMACS}, as well as being easy to implement. In addition to this one gets free parametrization as specified in SRFI-39\cite{SRFI-39}.
 
+\onecolumn
 \bibliography{specification}
 \bibliographystyle{plain}
 \end{document}
