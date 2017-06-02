@@ -1,5 +1,5 @@
 [package]
-name = "Teko"
+name = "teko"
 version = "0.1.0"
 authors = ["Kevin Robert Stravers <macocio@gmail.com>"]
 
