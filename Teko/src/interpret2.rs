@@ -158,11 +158,16 @@ impl Data {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	macro_rules! parse_formats_to {
+		( $($x:expr),* ) => {
+			$( assert_eq![parse_string($x).ok().unwrap(), $x]; ),*
+		};
+	}
 	#[test]
 	fn test() {
-		let p = parse_string("( a )").ok().unwrap();
+		let p = parse_string("()((()1)) (+ () (()))dash(dash)").ok().unwrap();
 		println!["Returned: {:#?}", p];
-		p.iter().map(|x| println!["{}", x]).count();
+		// p.iter().map(|x| println!["{}", x]).count();
 		//println!["{:#?}", p.first()];
 		//println!["{:#?}", p.rest()];
 		//println!["{:#?}", p.first()];

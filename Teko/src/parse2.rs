@@ -9,8 +9,8 @@ use interpret2::Source;
 
 #[derive(Debug)]
 pub struct ParseState {
-	position:        Source,
-	start_of_lexeme: Source,
+	current_read_position:        Source,
+	start_of_current_lexeme: Source,
 	unmatched_opening_parentheses: Vec<Source>,
 	token:   String,
 	stack:   Vec<Rc<Data>>,
@@ -20,8 +20,8 @@ pub struct ParseState {
 impl Default for ParseState {
 	fn default() -> ParseState {
 		ParseState {
-			position: Source::default(),
-			start_of_lexeme: Source::default(),
+			current_read_position: Source::default(),
+			start_of_current_lexeme: Source::default(),
 			unmatched_opening_parentheses: Vec::with_capacity(VEC_CAPACITY),
 			token: String::from(""),
 			stack: Vec::with_capacity(VEC_CAPACITY),
@@ -76,15 +76,15 @@ pub fn parse_character(character: char, state: &mut ParseState) {
 
 fn count_characters_and_lines(character: char, state: &mut ParseState) {
 	if character == '\n' {
-		state.position.line   += 1;
-		state.position.column =  1;
+		state.current_read_position.line   += 1;
+		state.current_read_position.column =  1;
 	} else {
-		state.position.column += 1;
+		state.current_read_position.column += 1;
 	}
 }
 
 fn parse_internal(character: char, state: &mut ParseState) {
-	println!["Before {:#?}", state];
+	// println!["Before {:#?}", state];
 	if character.is_whitespace() {
 		whitespace(state);
 	} else if character == '(' {
@@ -94,32 +94,44 @@ fn parse_internal(character: char, state: &mut ParseState) {
 	} else {
 		otherwise(character, state);
 	}
-	println!["After {:#?}", state];
+	// println!["After {:#?}", state];
 }
 
 ////////////////////////////////////////////////////////////
 
 fn whitespace(state: &mut ParseState) {
+	move_token_to_stack(state);
+}
+
+fn move_token_to_stack(state: &mut ParseState) {
 	if ! state.token.is_empty() {
-		state.stack.push(Rc::new(Data::Pair(state.position.clone(),
-		                                    Rc::new(Data::String(state.start_of_lexeme.clone(), state.token.clone())),
-		                                    Rc::new(Data::Null))));
+		state.stack.push(Rc::new(Data::String(state.start_of_current_lexeme.clone(), state.token.clone())));
 		clear_token(state);
 	}
 }
 
 fn left_parenthesis(state: &mut ParseState) {
-	whitespace(state);
-	copy_location_to_last_open_location(state);
-	state.stack.push(Rc::new(Data::Pair(state.position.clone(), Rc::new(Data::Null), Rc::new(Data::Null))));
+	move_token_to_stack(state);
+	copy_current_read_position_to_unmatched_opening_parentheses(state);
+	// println!["state.stack: {:#?}", state.stack];
+	state.stack.push(Rc::new(Data::Pair(state.current_read_position.clone(), Rc::new(Data::Null), Rc::new(Data::Null))));
+	// println!["state.stack: {:#?}", state.stack];
 }
 
 fn right_parenthesis(state: &mut ParseState) {
-	whitespace(state);
+	move_token_to_stack(state);
 	pop_previous_opening_parenthesis(state);
-	let mut stop = false;
-	while ! stop {
+	loop {
+		let top = state.stack.pop();
+		if let Some(x) = top {
+		} else {
+			break;
+		}
+	}
 		// println!["State: {:#?}", state];
+		// This if checks the case '()', an empty list.
+		// '(' pushes Pair(Null, Null) onto the stack. If no further elements are on the stack, then
+		// we know that we have '()', which is encoded as Pair(Pair(Null, Null), Null)
 		if let Some(top) = state.stack.last_mut() {
 			if let Some(top) = Rc::get_mut(top) {
 				match top {
@@ -132,7 +144,10 @@ fn right_parenthesis(state: &mut ParseState) {
 							break;
 						}
 					}
-					_ => {},
+					&mut Data::String(_, _) => {},
+					_ => {
+						panic!("Internal: Top of the stack can't be anything but a Pair or String");
+					},
 				}
 			}
 		}
@@ -158,7 +173,7 @@ fn right_parenthesis(state: &mut ParseState) {
 							if null1 == true && null2 == true {
 								break;
 							}
-							println!{"It's time to stop"};
+							// println!{"It's time to stop"};
 						},
 						_ => {},
 					}
@@ -178,7 +193,7 @@ fn right_parenthesis(state: &mut ParseState) {
 
 fn otherwise(character: char, state: &mut ParseState) {
 	if state.token.is_empty() {
-		state.start_of_lexeme = state.position.clone();
+		state.start_of_current_lexeme = state.current_read_position.clone();
 	}
 	state.token.push(character);
 }
@@ -196,8 +211,8 @@ fn set_error(state: &mut ParseState, message: &str) {
 	state.error = Some(String::from(message));
 }
 
-fn copy_location_to_last_open_location(state: &mut ParseState) {
-	state.unmatched_opening_parentheses.push(state.position.clone());
+fn copy_current_read_position_to_unmatched_opening_parentheses(state: &mut ParseState) {
+	state.unmatched_opening_parentheses.push(state.current_read_position.clone());
 }
 
 fn pop_previous_opening_parenthesis(state: &mut ParseState) {
@@ -210,41 +225,39 @@ fn pop_previous_opening_parenthesis(state: &mut ParseState) {
 // Tests                                                  //
 ////////////////////////////////////////////////////////////
 
-/* #[cfg(test)] */
-/* mod tests { */
-/* 	use super::*; */
-/* 	macro_rules! assert_oks { */
-/* 		( $f:expr, $( $x:expr ),*, ) => { assert_oks![$f, $( $x ),*]; }; */
-/* 		( $f:expr, $( $x:expr ),* ) => { { $( assert![$f($x).is_ok()]; )* } }; */
-/* 	} */
-/* 	macro_rules! assert_errs { */
-/* 		( $f:expr, $( $x:expr ),*, ) => { assert_errs![$f, $( $x ),*]; }; */
-/* 		( $f:expr, $( $x:expr ),* ) => { { $( assert![$f($x).is_err()]; )* } }; */
-/* 	} */
-/* 	#[test] */
-/* 	fn assert_expressions_ok() { */
-/* 		assert_oks![ */
-/* 			parse_string, */
-/* 			"", " ", "  ", "[", "]", "{", "}", ".", ",", "'", "\"", */
-/* 			"test", */
-/* 			"(test)", */
-/* 			" (test)", */
-/* 			"(test) ", */
-/* 			" (test) ", */
-/* 			"(test1 (test2))", */
-/* 			"(test1 (test2 test3 test4) test5) test6", */
-/* 		]; */
-/* 	} */
+#[cfg(test)]
+mod tests {
+	use super::*;
+	macro_rules! assert_oks {
+		( $f:expr, $( $x:expr ),*, ) => { assert_oks![$f, $( $x ),*]; };
+		( $f:expr, $( $x:expr ),* ) => { { $( assert![$f($x).is_ok()]; )* } };
+	}
+	macro_rules! assert_errs {
+		( $f:expr, $( $x:expr ),*, ) => { assert_errs![$f, $( $x ),*]; };
+		( $f:expr, $( $x:expr ),* ) => { { $( assert![$f($x).is_err()]; )* } };
+	}
+	#[test]
+	fn assert_expressions_ok() {
+		assert_oks![
+			parse_string,
+			"", " ", "  ", "[", "]", "{", "}", ".", ",", "'", "\"",
+			"", " ", "  ", "[", "]>", "<{", "}|", ".^", ",-", "'", "\"",
+			"()", " ()", "() ", " () ", " ( ) ",
+			"test", "(test)", " (test)", "(test) ", " (test) ",
+			"(test1 (test2))",
+			"(test1 (test2 test3 test4) test5) test6",
+		];
+	}
 
-/* 	#[test] */
-/* 	fn assert_expressions_err() { */
-/* 		assert_errs![ */
-/* 			parse_string, */
-/* 			"(", */
-/* 			")", */
-/* 			"(test", */
-/* 			"test)", */
-/* 			"(test1 (test2)" */
-/* 		]; */
-/* 	} */
-/* } */
+	#[test]
+	fn assert_expressions_err() {
+		assert_errs![
+			parse_string,
+			"(",
+			")",
+			"(test",
+			"test)",
+			"(test1 (test2)"
+		];
+	}
+}
