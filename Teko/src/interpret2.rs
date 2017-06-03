@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::fmt;
 use super::VEC_CAPACITY;
 use parse2::parse_string;
 
@@ -51,62 +52,93 @@ pub enum Data {
 	String   (Source, String),
 }
 
-impl Data {
-	fn print(&self) {
-		self.print_internal(0, false);
-	}
-
-	fn print_internal(&self, indent: usize, require_space: bool) -> bool {
-		let this_require_space = match self {
-			&Data::Complex  (_, ref complex) => { if require_space { print![" "]; } print!["{}", complex]; true },
-			&Data::Function { source: _, parameters: ref params, code: ref code } => {
-				if require_space {
-					print![" "];
-				}
-				print!["(fn ("];
-				for param in params {
-					print!["{} ", param];
-				}
-				print![") "];
-				code.print();
-				print![") "];
-				true
-			},
-			&Data::Integer  (_, ref integer) => { if require_space { print![" "]; } print!["{}", integer]; true },
-			&Data::Macro    { source: _, parameter: ref param, code: ref code } => {
-				if require_space {
-					print![" "];
-				}
-				print!["(mo {} ", param];
-				code.print();
-				print![")"];
-				true
-			},
-			&Data::Null     => { false },
-			&Data::Pair     (_, ref first, ref rest) => {
-				let (null1, null2) = {
-					(if let Data::Null = **first { true } else { false }, if let Data::Null = **rest { true } else { false })
-				};
-				if null1 {
-					if require_space {
-						print![" "];
+impl fmt::Display for Data {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		enum ToDisplay<'a> {
+			ToPrint(&'a Data),
+			ClosingParenthesis,
+		}
+		let mut to_print: Vec<ToDisplay> = vec![ToDisplay::ToPrint(self)];
+		let mut require_space = false;
+		while let Some(data) = to_print.pop() {
+			match data {
+				ToDisplay::ToPrint(data) => {
+					match data {
+						&Data::Complex  (_, ref complex) => {
+							if require_space {
+								write![f, " "];
+							}
+							write![f, "{}", complex];
+							require_space = true;
+						},
+						&Data::Function { source: _, parameters: ref params, code: ref code } => {
+							if require_space {
+								write![f, " "];
+							}
+							write![f, "(fn ("];
+							write![f, "{}", params.join(" ")];
+							write![f, ")"];
+							to_print.push(ToDisplay::ClosingParenthesis);
+							to_print.push(ToDisplay::ToPrint(code));
+							require_space = true;
+						},
+						&Data::Integer  (_, ref integer) => {
+							if require_space {
+								write![f, " "];
+							}
+							write![f, "{}", integer];
+						},
+						&Data::Macro    { source: _, parameter: ref param, code: ref code } => {
+							if require_space {
+								write![f, " "];
+							}
+							write![f, "(mo {}", param];
+							to_print.push(ToDisplay::ClosingParenthesis);
+							to_print.push(ToDisplay::ToPrint(code));
+							require_space = true;
+						},
+						&Data::Null     => { },
+						&Data::Pair     (_, ref first, ref rest) => {
+							if require_space {
+								write![f, " "];
+							}
+							to_print.push(ToDisplay::ToPrint(rest));
+							if let &Data::Pair (..) = &**first {
+								write![f, "("];
+								to_print.push(ToDisplay::ClosingParenthesis);
+								to_print.push(ToDisplay::ToPrint(first));
+							} else {
+								to_print.push(ToDisplay::ToPrint(first));
+							}
+							require_space = false;
+						},
+						&Data::Rational (_, ref rational) => {
+							if require_space {
+								write![f, " "];
+							}
+							write![f, "{}", rational];
+							require_space = true;
+						},
+						&Data::String   (_, ref string) => {
+							if require_space {
+								write![f, " "];
+							}
+							write![f, "{}", string];
+							require_space = true;
+						},
 					}
-					print!["("];
-					rest.print_internal(0, false)
-				} else if null2 {
-					first.print_internal(0, require_space);
-					print![")"];
-					true
-				} else {
-					let propagate = first.print_internal(0, require_space);
-					rest.print_internal(0, propagate)
-				}
-			},
-			&Data::Rational (_, ref rational) => { if require_space { print![" "]; } print!["{}", rational]; true },
-			&Data::String   (_, ref string) => { if require_space { print![" "]; } print!["{}", string]; true },
-		};
-		this_require_space
+				},
+				ToDisplay::ClosingParenthesis => {
+					write![f, ")"];
+					require_space = true;
+				},
+			}
+		}
+		write!(f, "")
 	}
+}
+
+impl Data {
 	fn first(&self) -> Rc<Data> {
 		if let &Data::Pair(_, ref first, _) = self {
 			first.clone()
@@ -128,10 +160,9 @@ mod tests {
 	use super::*;
 	#[test]
 	fn test() {
-		let x = "(+ 5 42)";
-		let p = parse_string("(+ 1 (* 9 4) 2 3) (kek def)").ok().unwrap();
-		println!["{:#?}", p];
-		let p = p.iter().map(|x| x.print()).count();
+		let p = parse_string("( a )").ok().unwrap();
+		println!["Returned: {:#?}", p];
+		p.iter().map(|x| println!["{}", x]).count();
 		//println!["{:#?}", p.first()];
 		//println!["{:#?}", p.rest()];
 		//println!["{:#?}", p.first()];

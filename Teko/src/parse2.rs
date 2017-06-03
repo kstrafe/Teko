@@ -9,12 +9,11 @@ use interpret2::Source;
 
 #[derive(Debug)]
 pub struct ParseState {
-	position: Source,
+	position:        Source,
 	start_of_lexeme: Source,
 	unmatched_opening_parentheses: Vec<Source>,
 	token:   String,
-	stack:   Vec<Data>,
-	program: Vec<Data>,
+	stack:   Vec<Rc<Data>>,
 	error:   Option<String>,
 }
 
@@ -26,13 +25,12 @@ impl Default for ParseState {
 			unmatched_opening_parentheses: Vec::with_capacity(VEC_CAPACITY),
 			token: String::from(""),
 			stack: Vec::with_capacity(VEC_CAPACITY),
-			program: Vec::with_capacity(VEC_CAPACITY),
 			error: None,
 		}
 	}
 }
 
-pub fn parse_file(filename: &str) -> Result<Vec<Data>, ParseState> {
+pub fn parse_file(filename: &str) -> Result<Vec<Rc<Data>>, ParseState> {
 	let mut file = File::open(filename).ok().unwrap();
 	let mut contents = String::new();
 	file.read_to_string(&mut contents).ok();
@@ -41,7 +39,7 @@ pub fn parse_file(filename: &str) -> Result<Vec<Data>, ParseState> {
 
 ////////////////////////////////////////////////////////////
 
-pub fn parse_string(string: &str) -> Result<Vec<Data>, ParseState> {
+pub fn parse_string(string: &str) -> Result<Vec<Rc<Data>>, ParseState> {
 	let mut state = ParseState::default();
 	for character in string.chars() {
 		// println!["{:#?}", state];
@@ -55,7 +53,7 @@ pub fn parse_string(string: &str) -> Result<Vec<Data>, ParseState> {
 
 ////////////////////////////////////////////////////////////
 
-pub fn finish_parsing_characters(mut state: ParseState) -> Result<Vec<Data>, ParseState> {
+pub fn finish_parsing_characters(mut state: ParseState) -> Result<Vec<Rc<Data>>, ParseState> {
 	whitespace(&mut state);
 	if ! state.unmatched_opening_parentheses.is_empty() {
 		set_error(&mut state, "Unmatched opening parenthesis");
@@ -86,6 +84,7 @@ fn count_characters_and_lines(character: char, state: &mut ParseState) {
 }
 
 fn parse_internal(character: char, state: &mut ParseState) {
+	println!["Before {:#?}", state];
 	if character.is_whitespace() {
 		whitespace(state);
 	} else if character == '(' {
@@ -95,15 +94,16 @@ fn parse_internal(character: char, state: &mut ParseState) {
 	} else {
 		otherwise(character, state);
 	}
+	println!["After {:#?}", state];
 }
 
 ////////////////////////////////////////////////////////////
 
 fn whitespace(state: &mut ParseState) {
 	if ! state.token.is_empty() {
-		state.stack.push(Data::Pair(state.position.clone(),
-		                            Rc::new(Data::String(state.start_of_lexeme.clone(), state.token.clone())),
-		                            Rc::new(Data::Null)));
+		state.stack.push(Rc::new(Data::Pair(state.position.clone(),
+		                                    Rc::new(Data::String(state.start_of_lexeme.clone(), state.token.clone())),
+		                                    Rc::new(Data::Null))));
 		clear_token(state);
 	}
 }
@@ -111,43 +111,66 @@ fn whitespace(state: &mut ParseState) {
 fn left_parenthesis(state: &mut ParseState) {
 	whitespace(state);
 	copy_location_to_last_open_location(state);
-	state.stack.push(Data::Pair(state.position.clone(), Rc::new(Data::Null), Rc::new(Data::Null)));
+	state.stack.push(Rc::new(Data::Pair(state.position.clone(), Rc::new(Data::Null), Rc::new(Data::Null))));
 }
 
 fn right_parenthesis(state: &mut ParseState) {
 	whitespace(state);
 	pop_previous_opening_parenthesis(state);
-	// Now we need to pop until we encounter a P_NN:
-	loop {
-		// println!["{:#?}", state];
-		if let Some(top) = state.stack.pop() {
-			if let Some(second) = state.stack.last_mut() {
-				match second {
+	let mut stop = false;
+	while ! stop {
+		// println!["State: {:#?}", state];
+		if let Some(top) = state.stack.last_mut() {
+			if let Some(top) = Rc::get_mut(top) {
+				match top {
 					&mut Data::Pair(_, ref mut first, ref mut rest) => {
-						// first, rest: &mut Rc<Data>
-						//
 						let (null1, null2) = {
-							let first = Rc::get_mut(first).expect("The stack represents a tree; it can't be cyclic");
-							let rest = Rc::get_mut(rest).expect("The stack represents a tree; it can't be cyclic");
-							(if let Data::Null = *first { true } else { false }, if let Data::Null = *rest { true } else { false })
+							(if let Data::Null = **first { true } else { false }, if let Data::Null = **rest { true } else { false })
 						};
-						if null1 == true && null2 == false {
-							*first = Rc::new(Data::Pair(Source::default(), Rc::new(Data::Null), rest.clone()));
-							*rest = Rc::new(top);
-						} else {
-							*rest = Rc::new(top);
-						}
 						if null1 == true && null2 == true {
+							*first = Rc::new(Data::Pair(Source::default(), Rc::new(Data::Null), Rc::new(Data::Null)));
 							break;
 						}
-						println!{"It's time to stop"};
-					},
+					}
 					_ => {},
 				}
+			}
+		}
+		if let Some(top) = state.stack.pop() {
+			if let Some(second) = state.stack.last_mut() {
+				if let Some(second) = Rc::get_mut(second) {
+					match second {
+						&mut Data::Pair(_, ref mut first, ref mut rest) => {
+							// first, rest: &mut Rc<Data>
+							let (null1, null2) = {
+								const EXPECT: &str = "The stack represents a tree; it can't be cyclic";
+								let first = Rc::get_mut(first).expect(EXPECT);
+								let rest = Rc::get_mut(rest).expect(EXPECT);
+								(if let Data::Null = *first { true } else { false }, if let Data::Null = *rest { true } else { false })
+							};
+							if null1 == true && null2 == true {
+								*first = top;
+							} else if null1 == false && null2 == true {
+								*rest = top;
+							} else {
+								panic!("Cant occur");
+							}
+							if null1 == true && null2 == true {
+								break;
+							}
+							println!{"It's time to stop"};
+						},
+						_ => {},
+					}
+				} else {
+					panic!("Unmatched 3close par dude like wtf");
+				}
 			} else {
-				panic!("Unmatched close par dude like wtf");
+				break;
+				// panic!("Unmatched close par dude like wtf");
 			}
 		} else {
+			break;
 			panic!("Unmatched close par dude");
 		}
 	}
@@ -164,10 +187,6 @@ fn otherwise(character: char, state: &mut ParseState) {
 
 fn clear_token(state: &mut ParseState) {
 	state.token.clear();
-}
-
-fn move_stack_to_program(state: &mut ParseState) {
-	state.program.push(state.stack.pop().unwrap());
 }
 
 fn set_error(state: &mut ParseState, message: &str) {
