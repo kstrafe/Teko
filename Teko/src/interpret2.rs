@@ -60,6 +60,7 @@ impl fmt::Display for Data {
 		}
 		let mut to_print: Vec<ToDisplay> = vec![ToDisplay::ToPrint(self)];
 		let mut require_space = false;
+		let mut top_level = true;
 		while let Some(data) = to_print.pop() {
 			match data {
 				ToDisplay::ToPrint(data) => {
@@ -97,19 +98,24 @@ impl fmt::Display for Data {
 							to_print.push(ToDisplay::ToPrint(code));
 							require_space = true;
 						},
-						&Data::Null     => { },
+						&Data::Null     => { write![f, "()"]; require_space = true; },
 						&Data::Pair     (_, ref first, ref rest) => {
 							if require_space {
 								write![f, " "];
 							}
-							to_print.push(ToDisplay::ToPrint(rest));
-							if let &Data::Pair (..) = &**first {
+							if top_level {
 								write![f, "("];
 								to_print.push(ToDisplay::ClosingParenthesis);
-								to_print.push(ToDisplay::ToPrint(first));
-							} else {
-								to_print.push(ToDisplay::ToPrint(first));
 							}
+							if let Data::Null = **rest {
+							} else {
+								to_print.push(ToDisplay::ToPrint(rest));
+							}
+							if let Data::Pair(..) = **first {
+								write![f, "("];
+								to_print.push(ToDisplay::ClosingParenthesis);
+							}
+							to_print.push(ToDisplay::ToPrint(first));
 							require_space = false;
 						},
 						&Data::Rational (_, ref rational) => {
@@ -133,6 +139,7 @@ impl fmt::Display for Data {
 					require_space = true;
 				},
 			}
+			top_level = false;
 		}
 		write!(f, "")
 	}
@@ -165,9 +172,9 @@ mod tests {
 	}
 	#[test]
 	fn test() {
-		let p = parse_string("()((()1)) (+ () (()))dash(dash)").ok().unwrap();
+		let p = parse_string("((()))").ok().unwrap();
 		println!["Returned: {:#?}", p];
-		// p.iter().map(|x| println!["{}", x]).count();
+		p.iter().map(|x| println!["{}", x]).count();
 		//println!["{:#?}", p.first()];
 		//println!["{:#?}", p.rest()];
 		//println!["{:#?}", p.first()];
