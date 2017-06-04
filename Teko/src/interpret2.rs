@@ -33,9 +33,9 @@ pub enum Data {
 	Function { source: Source, parameters: Vec<String>, code: Rc<Data> },
 	Integer  (Source, BigInt),
 	Macro    { source: Source, parameter: String, code: Rc<Data> },
-	Null,
+	Null     (Source),
 	Pair     (Source, Rc<Data>, Rc<Data>),
-	Placeholder (Source),
+	Internal (Source),
 	Rational (Source, BigRational),
 	String   (Source, String),
 }
@@ -104,7 +104,7 @@ impl fmt::Display for Data {
 							to_print.push(ToDisplay::ToPrint(code));
 							require_space = true;
 						},
-						&Data::Null     => { write![f, "()"]; require_space = true; },
+						&Data::Null(..) => { write![f, "()"]; require_space = true; },
 						&Data::Pair     (_, ref head, ref tail) => {
 							if require_space {
 								write![f, " "];
@@ -113,7 +113,7 @@ impl fmt::Display for Data {
 								write![f, "("];
 								to_print.push(ToDisplay::ClosingParenthesis);
 							}
-							if let Data::Null = **tail {
+							if let Data::Null(..) = **tail {
 							} else {
 								to_print.push(ToDisplay::ToPrint(tail));
 							}
@@ -124,7 +124,7 @@ impl fmt::Display for Data {
 							to_print.push(ToDisplay::ToPrint(head));
 							require_space = false;
 						},
-						&Data::Placeholder(..) => {
+						&Data::Internal(..) => {
 							write![f, "|"];
 						},
 						&Data::Rational (_, ref rational) => {
@@ -160,7 +160,7 @@ fn interpret(program: Vec<Rc<Data>>) {
 		              ].iter().cloned().collect(),
 		call_stack:   Vec::with_capacity(VEC_CAPACITY),
 		params:       Vec::with_capacity(VEC_CAPACITY),
-		return_value: Rc::new(Data::Null),
+		return_value: Rc::new(Data::Null(Source::default())),
 	};
 	eval(program, env);
 }
@@ -188,14 +188,41 @@ impl Data {
 		if let &Data::Pair(_, ref head, _) = self {
 			head.clone()
 		} else {
-			Rc::new(Data::Null)
+			Rc::new(Data::Null(Source::default()))
 		}
 	}
 	fn tail(&self) -> Rc<Data> {
 		if let &Data::Pair(_, _, ref tail) = self {
 			tail.clone()
 		} else {
-			Rc::new(Data::Null)
+			Rc::new(Data::Null(Source::default()))
+		}
+	}
+	// TODO: Macro this away somehow, it's so ugly
+	pub fn get_source(&self) -> Source {
+		match self {
+			&Data::Complex  (ref source, ..) => { source.clone() },
+			&Data::Function { source: ref source, .. } => { source.clone() },
+			&Data::Integer  (ref source, ..) => { source.clone() },
+			&Data::Macro    { source: ref source, .. } => { source.clone() },
+			&Data::Null     (ref source, ..) => { source.clone() },
+			&Data::Pair     (ref source, ..) => { source.clone() },
+			&Data::Internal (ref source, ..) => { source.clone() },
+			&Data::Rational (ref source, ..) => { source.clone() },
+			&Data::String   (ref source, ..) => { source.clone() },
+		}
+	}
+	pub fn set_source(&mut self, new_source: Source) {
+		match self {
+			&mut Data::Complex  (ref source, ..) => { },
+			&mut Data::Function { source: ref source, .. } => { },
+			&mut Data::Integer  (ref source, ..) => { },
+			&mut Data::Macro    { source: ref source, .. } => { },
+			&mut Data::Null     (ref mut source, ..) => { *source = new_source; },
+			&mut Data::Pair     (ref mut source, ..) => { *source = new_source; },
+			&mut Data::Internal (ref source, ..) => { },
+			&mut Data::Rational (ref source, ..) => { },
+			&mut Data::String   (ref source, ..) => { },
 		}
 	}
 }
@@ -211,7 +238,6 @@ mod tests {
 	#[test]
 	fn test() {
 		let p = parse_file("input").ok().unwrap();
-		println!["Returned: {:#?}", p];
 		p.iter().map(|x| println!["{}", x]).count();
 		//println!["{:#?}", p.head()];
 		//println!["{:#?}", p.tail()];
