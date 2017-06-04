@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::fmt;
 use super::VEC_CAPACITY;
-use parse2::parse_file;
 
 use num::bigint::BigInt;
-use num::rational::{Ratio, BigRational};
+use num::rational::BigRational;
 use num::Complex;
+use num::FromPrimitive;
 
 #[derive(Clone, Debug)]
 pub struct Source {
@@ -21,29 +21,40 @@ impl Default for Source {
 	}
 }
 
-impl Source {
-	fn unknown() -> Source {
-		Source { line: 0, column: 0, source: "unknown".into() }
-	}
+// All these commands depend on the environment variable called Return, which is the
+// result of the previously executed expression.
+// So Define("x") simply means to map "x" => Return
+#[derive(Clone, Debug)]
+pub enum Commands {
+	Define(String),              // Map String := Return
+	Set(String),                 // Set value at String = Return
+	If(Rc<Data>, Rc<Data>),      // If Return is non-null, run If.0, else run If.1
+	Parameterize,                // Push Return into the function parameter list
+	Deparameterize(Vec<String>), // Pop parameters from the environment, this happens after a function call is done
+	Pushcall,                    // Push Return onto the environment's call stack
+	Prepare(Rc<Data>),           // Use the top of the call stack and and prepare for a function or macro call
+	Call,                        // Perform a function or macro call
+	Empty,                       // Placeholder for nothing
 }
 
 #[derive(Clone, Debug)]
 pub enum Data {
 	Complex  (Source, Complex<BigRational>),
-	Function { source: Source, parameters: Vec<String>, code: Rc<Data> },
+	Function (Source, Vec<String>, Rc<Data>),
 	Integer  (Source, BigInt),
-	Macro    { source: Source, parameter: String, code: Rc<Data> },
+	Macro    (Source, String, Rc<Data>),
 	Null     (Source),
 	Pair     (Source, Rc<Data>, Rc<Data>),
-	Internal (Source),
+	Internal (Source, Commands),
 	Rational (Source, BigRational),
 	String   (Source, String),
+	Symbol   (Source, String),
 }
 
 #[derive(Debug)]
 struct Env {
 	content:      HashMap<String, Vec<Rc<Data>>>,
-	call_stack:   Vec<String>,
+	call_stack:   Vec<Rc<Data>>,
 	params:       Vec<Rc<Data>>,
 	return_value: Rc<Data>,
 }
@@ -73,44 +84,44 @@ impl fmt::Display for Data {
 					match data {
 						&Data::Complex  (_, ref complex) => {
 							if require_space {
-								write![f, " "];
+								write![f, " "]?;
 							}
-							write![f, "{}", complex];
+							write![f, "{}", complex]?;
 							require_space = true;
 						},
-						&Data::Function { source: _, parameters: ref params, code: ref code } => {
+						&Data::Function (_, ref params, ref code) => {
 							if require_space {
-								write![f, " "];
+								write![f, " "]?;
 							}
-							write![f, "(fn ("];
-							write![f, "{}", params.join(" ")];
-							write![f, ")"];
+							write![f, "(fn ("]?;
+							write![f, "{}", params.join(" ")]?;
+							write![f, ")"]?;
 							to_print.push(ToDisplay::ClosingParenthesis);
 							to_print.push(ToDisplay::ToPrint(code));
 							require_space = true;
 						},
 						&Data::Integer  (_, ref integer) => {
 							if require_space {
-								write![f, " "];
+								write![f, " "]?;
 							}
-							write![f, "{}", integer];
+							write![f, "{}", integer]?;
 						},
-						&Data::Macro    { source: _, parameter: ref param, code: ref code } => {
+						&Data::Macro    (_, ref param, ref code) => {
 							if require_space {
-								write![f, " "];
+								write![f, " "]?;
 							}
-							write![f, "(mo {}", param];
+							write![f, "(mo {}", param]?;
 							to_print.push(ToDisplay::ClosingParenthesis);
 							to_print.push(ToDisplay::ToPrint(code));
 							require_space = true;
 						},
-						&Data::Null(..) => { write![f, "()"]; require_space = true; },
+						&Data::Null(..) => { write![f, "()"]?; require_space = true },
 						&Data::Pair     (_, ref head, ref tail) => {
 							if require_space {
-								write![f, " "];
+								write![f, " "]?;
 							}
 							if top_level {
-								write![f, "("];
+								write![f, "("]?;
 								to_print.push(ToDisplay::ClosingParenthesis);
 							}
 							if let Data::Null(..) = **tail {
@@ -118,33 +129,40 @@ impl fmt::Display for Data {
 								to_print.push(ToDisplay::ToPrint(tail));
 							}
 							if let Data::Pair(..) = **head {
-								write![f, "("];
+								write![f, "("]?;
 								to_print.push(ToDisplay::ClosingParenthesis);
 							}
 							to_print.push(ToDisplay::ToPrint(head));
 							require_space = false;
 						},
 						&Data::Internal(..) => {
-							write![f, "|"];
+							write![f, "|"]?;
 						},
 						&Data::Rational (_, ref rational) => {
 							if require_space {
-								write![f, " "];
+								write![f, " "]?;
 							}
-							write![f, "{}", rational];
+							write![f, "{}", rational]?;
 							require_space = true;
 						},
 						&Data::String   (_, ref string) => {
 							if require_space {
-								write![f, " "];
+								write![f, " "]?;
 							}
-							write![f, "{}", string];
+							write![f, "{}", string]?;
+							require_space = true;
+						},
+						&Data::Symbol   (_, ref string) => {
+							if require_space {
+								write![f, " "]?;
+							}
+							write![f, "{}", string]?;
 							require_space = true;
 						},
 					}
 				},
 				ToDisplay::ClosingParenthesis => {
-					write![f, ")"];
+					write![f, ")"]?;
 					require_space = true;
 				},
 			}
@@ -154,9 +172,9 @@ impl fmt::Display for Data {
 	}
 }
 
-fn interpret(program: Vec<Rc<Data>>) {
+pub fn interpret(program: Vec<Rc<Data>>) {
 	let env = Env {
-		content:      [
+		content:      [("+".into(), vec![Rc::new(Data::Null(Source::default()))])
 		              ].iter().cloned().collect(),
 		call_stack:   Vec::with_capacity(VEC_CAPACITY),
 		params:       Vec::with_capacity(VEC_CAPACITY),
@@ -167,78 +185,169 @@ fn interpret(program: Vec<Rc<Data>>) {
 
 fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 	program.reverse();
-	enum Commands {
-		DefineReturnAs(String),
-	}
+	println!["program: {:#?}\nenv: {:#?}", program, env];
 	while let Some(top) = program.pop() {
 		match &*top {
+			&Data::Null(ref source, ..) => {
+				env.return_value = top.clone();
+			},
 			&Data::Pair(_, ref head, ref tail) => {
+				match &**head {
+					&Data::Symbol(_, ref string) => {
+						match &string[..] {
+							"define" => {
+								if let &Data::String(_, ref string) = &*tail.head() {
+									program.push(Rc::new(Data::Internal(Source::default(), Commands::Define(string.clone()))));
+									program.push(tail.tail().head());
+								} else {
+									panic!["define is of the form (define atom expr), expected an atom but got something else"];
+								}
+							},
+							"set!" => {
+								if let &Data::String(_, ref string) = &*tail.head() {
+									program.push(Rc::new(Data::Internal(Source::default(), Commands::Set(string.clone()))));
+									program.push(tail.tail().head());
+								} else {
+									panic!["set! is of the form (define atom expr), expected an atom but got something else"];
+								}
+							},
+							"fn" => {
+								let args = tail.head();
+								let code = tail.tail();
+								println!{"{}", code};
+							},
+							"mo" => {
+								// Do macros
+								unimplemented!();
+							},
+							"if" => {
+								program.push(Rc::new(Data::Internal(Source::default(), Commands::If(tail.tail().head(), tail.tail().tail().head()))));
+								program.push(tail.head());
+							},
+							// TODO: Investigate removing let from the core, since it can be macrod by using fn (maybe)
+							"let" => {
+								// Do let
+								unimplemented!();
+							},
+							atom @ _ => {
+								// Do auxilliary funccalls
+								program.push(Rc::new(Data::Internal(Source::default(), Commands::Pushcall)));
+								program.push(head.clone());
+							},
+						}
+					},
+					expr @ _ => {
+						// Do expressions
+						unimplemented!();
+					},
+				}
 			},
-			&Data::String(_, ref string) => {
+			&Data::Internal(ref source, ref commands) => {
+				match commands {
+					&Commands::Define(ref string) => {
+						let new_stack = if let Some(vector) = env.content.get_mut(string) {
+							vector.push(env.return_value.clone());
+							false
+						} else {
+							true
+						};
+						if new_stack {
+							env.content.insert(string.clone(), vec![env.return_value.clone()]);
+						}
+					},
+					&Commands::Set(ref string) => {
+						if let Some(vector) = env.content.get_mut(string) {
+							*vector.last_mut().unwrap() = env.return_value.clone();
+						} else {
+							panic!["Can not set a variable that has never been declared"];
+						}
+					},
+					&Commands::If(ref if_true, ref if_false) => {
+						if let &Data::Null(..) = &*env.return_value {
+							program.push(if_false.clone());
+						} else {
+							program.push(if_true.clone());
+						}
+					},
+					&Commands::Pushcall => {
+						env.call_stack.push(env.return_value.clone());
+					},
+					other @ _ => {
+						panic!["Do not handle the command: {:#?}", other];
+					},
+				}
 			},
-			_ => {
-				println!["top: {:#?}", top];
+			// A string on the stack is simply a number or a reference to some variable
+			&Data::Symbol(ref source, ref string) => {
+				if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
+					print!["{}", number];
+					env.return_value = Rc::new(Data::Integer(source.clone(), number));
+				} else {
+					env.return_value = env.content.get(string).unwrap().last().unwrap().clone();
+				}
+			},
+			other @ _ => {
+				panic!["Element should not exist on the program stack: {:#?}", other];
 			},
 		}
+		println!["program: {:#?}\nenv: {:#?}", program, env];
 	}
+	println!["final env: {:#?}", env];
+}
+
+// TODO: Can this macro be shortened even more?
+macro_rules! make_mass_match {
+	($i:ident $p:tt $d:expr, $r:ty, $m:ident $e:expr => $($t:tt),*) => {
+		pub fn $i$p -> $r {
+			match $d {
+				$(&Data::$t (ref $m, ..) => { $e },)*
+			}
+		}
+	};
+	($n:tt $i:ident $p:tt $d:expr, $r:ty, $m:ident $e:expr => $($t:tt),*) => {
+		pub fn $i$p -> $r {
+			match $d {
+				$(&$n Data::$t (ref $n $m, ..) => { $e },)*
+			}
+		}
+	};
 }
 
 impl Data {
-	fn head(&self) -> Rc<Data> {
+	pub fn head(&self) -> Rc<Data> {
 		if let &Data::Pair(_, ref head, _) = self {
 			head.clone()
 		} else {
 			Rc::new(Data::Null(Source::default()))
 		}
 	}
-	fn tail(&self) -> Rc<Data> {
+	pub fn tail(&self) -> Rc<Data> {
 		if let &Data::Pair(_, _, ref tail) = self {
 			tail.clone()
 		} else {
 			Rc::new(Data::Null(Source::default()))
 		}
 	}
-	// TODO: Macro this away somehow, it's so ugly
-	pub fn get_source(&self) -> Source {
-		match self {
-			&Data::Complex  (ref source, ..) => { source.clone() },
-			&Data::Function { source: ref source, .. } => { source.clone() },
-			&Data::Integer  (ref source, ..) => { source.clone() },
-			&Data::Macro    { source: ref source, .. } => { source.clone() },
-			&Data::Null     (ref source, ..) => { source.clone() },
-			&Data::Pair     (ref source, ..) => { source.clone() },
-			&Data::Internal (ref source, ..) => { source.clone() },
-			&Data::Rational (ref source, ..) => { source.clone() },
-			&Data::String   (ref source, ..) => { source.clone() },
-		}
+	make_mass_match! {
+		get_source(&self) self, Source, source source.clone()
+		=> Complex, Function, Integer, Macro, Null, Pair, Internal, Rational, String, Symbol
 	}
-	pub fn set_source(&mut self, new_source: Source) {
-		match self {
-			&mut Data::Complex  (ref source, ..) => { },
-			&mut Data::Function { source: ref source, .. } => { },
-			&mut Data::Integer  (ref source, ..) => { },
-			&mut Data::Macro    { source: ref source, .. } => { },
-			&mut Data::Null     (ref mut source, ..) => { *source = new_source; },
-			&mut Data::Pair     (ref mut source, ..) => { *source = new_source; },
-			&mut Data::Internal (ref source, ..) => { },
-			&mut Data::Rational (ref source, ..) => { },
-			&mut Data::String   (ref source, ..) => { },
-		}
+	make_mass_match! {
+		mut set_source(&mut self, new_source: Source) self, (), source *source = new_source
+		=> Complex, Function, Integer, Macro, Null, Pair, Internal, Rational, String, Symbol
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	macro_rules! parse_formats_to {
-		( $($x:expr),* ) => {
-			$( assert_eq![parse_string($x).ok().unwrap(), $x]; ),*
-		};
-	}
+	use parse2::parse_file;
 	#[test]
 	fn test() {
 		let p = parse_file("input").ok().unwrap();
-		p.iter().map(|x| println!["{}", x]).count();
+		// println!["{:#?}", p];
+		// p.iter().map(|x| println!["{}", x]).count();
+		interpret(p);
 		//println!["{:#?}", p.head()];
 		//println!["{:#?}", p.tail()];
 		//println!["{:#?}", p.head()];

@@ -3,8 +3,7 @@ use std::io::Read;
 use std::rc::Rc;
 use super::VEC_CAPACITY;
 
-use interpret2::Data;
-use interpret2::Source;
+use interpret2::{Data, Commands, Source};
 
 #[derive(Debug)]
 pub struct ParseState {
@@ -51,7 +50,7 @@ pub fn parse_file(filename: &str) -> Result<Vec<Rc<Data>>, ParseState> {
 ////////////////////////////////////////////////////////////
 
 pub fn parse_string(string: &str) -> Result<Vec<Rc<Data>>, ParseState> {
-	let mut state = ParseState::default();
+	let state = ParseState::default();
 	parse_string_with_state(string, state)
 }
 
@@ -120,7 +119,7 @@ fn whitespace(state: &mut ParseState) {
 fn left_parenthesis(state: &mut ParseState) {
 	move_token_to_stack(state);
 	copy_current_read_position_to_unmatched_opening_parentheses(state);
-	state.stack.push(Rc::new(Data::Internal(state.current_read_position.clone())));
+	state.stack.push(Rc::new(Data::Internal(state.current_read_position.clone(), Commands::Empty)));
 }
 
 fn right_parenthesis(state: &mut ParseState) {
@@ -154,7 +153,7 @@ fn otherwise(character: char, state: &mut ParseState) {
 
 fn move_token_to_stack(state: &mut ParseState) {
 	if ! state.token.is_empty() {
-		state.stack.push(Rc::new(Data::String(state.start_of_current_lexeme.clone(), state.token.clone())));
+		state.stack.push(Rc::new(Data::Symbol(state.start_of_current_lexeme.clone(), state.token.clone())));
 		clear_token(state);
 	}
 }
@@ -194,7 +193,6 @@ mod tests {
 	}
 	#[test]
 	fn assert_expressions_ok() {
-		return;
 		assert_oks![
 			parse_string,
 			"", " ", "  ", "[", "]", "{", "}", ".", ",", "'", "\"",
@@ -208,7 +206,6 @@ mod tests {
 
 	#[test]
 	fn assert_expressions_err() {
-		return;
 		assert_errs![
 			parse_string,
 			"(",

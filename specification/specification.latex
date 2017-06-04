@@ -53,11 +53,6 @@ Notation is specified in section \ref{sec: maths}.
 \mathrm{env_{i+1}} & = \mathrm{eval((set!\ atom\ expr), env_i)} \\
 & = \mathrm{env_i[atom = eval(expr, env_i).return]} \nonumber &
 \end{empheq}
-\begin{empheq}[box=\fbox]{flalign} \label{let}
-\mathrm{env_{i+1}} & = \mathrm{eval((let\ atom\ e_1\ e_2), env_i)} \\
-& = \mathrm{env_i[return = eval(e_2, Q)]} \nonumber \\
-\mathrm{let \ Q} & = \mathrm{env_i[atom \rightarrow eval(e_1, env_i).return]} \nonumber &
-\end{empheq}
 \begin{empheq}[box=\fbox]{flalign} \label{function}
 \mathrm{env_{i+1}} & = \mathrm{eval((fn\ params\ code^+), env_i)} \\
 & = \mathrm{env_i[return = (\lambda\ params\ code)]} \nonumber &
@@ -112,7 +107,7 @@ The behaviour is outlined in equation \eqref{call}.
 Initial environments require various macros, functions, and constants to be defined and immutable; this section specifies these values.
 Functions and macros behave as specified by Scheme\cite{R6Rs}.
 \subsection{Constants}
-The environment $ \mathrm{env_1} $ is to be initialized with all rationals such that atom lookups of numeric forms (e.g. $\mathrm{env_1.`3.14`}$) return numeric objects (e.g. 3.14). \\
+The environment $ \mathrm{env_1} $ is to be initialized with all gaussian rationals such that atom lookups of numeric forms (e.g. $\mathrm{env_1.`3.14`}$) return numeric objects (e.g. 3.14). \\
 Numeric symbol syntax is described by grammar \ref{grammar: numbers}. All numeric symbol-value pairs are immutable.
 \renewcommand{\lstlistingname}{Grammar}
 \begin{lstlisting}[frame=single,caption=\pln\space numeric symbols,label=grammar: numbers]
@@ -147,7 +142,7 @@ If the method of computation in section \ref{core} is used as implementation, th
 " is the macro for generating strings; words are space-separated unless a list is betwixt. A list may contain a single integer, which is converted to a character and inserted. A list may contain an integer N and an expression. The expression is repeated N times and inserted. A list may contain an expression.
 
 \section{Comments}
-It can be seen from \eqref{set!} that the \pln\space has dynamic scope and from \eqref{let} that it is latently typed.\\
+It can be seen from \eqref{set!} that the \pln\space has dynamic scope and that it is latently typed.\\
 Dynamic scoping may be beneficial to the user in terms of convenience\cite{EMACS}, as well as being easy to implement. In addition to this one gets free parametrization as specified in SRFI-39\cite{SRFI-39}.
 
 \onecolumn
