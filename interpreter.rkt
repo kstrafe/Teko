@@ -6,16 +6,7 @@
 (require "logger.rkt" "skeltal.rkt"
          lens threading syntax/parse/define)
 
-(skeltals (fn (parameters code))
-          (mo (parameter code)))
-
-; Euler's number
-(define e 2.7182818284590452353602874713527)
-
-; This regex can be derived from grammar 2 in the Teko Language Specification
-(define number-regex #px"((\\+|\\-)?((([0-9][0-9]*)/([0-9][0-9]*)|([0-9][0-9]*)\\.([0-9][0-9]*)|([0-9][0-9]*)\\.|\\.([0-9][0-9]*)|([0-9][0-9]*))(e(([0-9][0-9]*)))?)((\\+|\\-)(((([0-9][0-9]*)/([0-9][0-9]*)|([0-9][0-9]*)\\.([0-9][0-9]*)|([0-9][0-9]*)\\.|\\.([0-9][0-9]*)|([0-9][0-9]*))(e(([0-9][0-9]*)))?))i)?)")
-
-; Re-entrant interpret function as given by equation (1)
+; Re-entrant interpret function as given by equation section 2
 (define (interpret program [env (make-hash)])
   ; Allocate the parameter, return value, and call stack in the environment
   (hash-set! env '@params empty)
@@ -49,12 +40,27 @@
   (eval program env)
   (hash-ref env '@return))
 
+; Euler's number
+(define e 2.7182818284590452353602874713527)
+
+; This regex can be derived from grammar 2 in the Teko Language Specification
+(define number-regex #px"((\\+|\\-)?((([0-9][0-9]*)/([0-9][0-9]*)|([0-9][0-9]*)\\.([0-9][0-9]*)|([0-9][0-9]*)\\.|\\.([0-9][0-9]*)|([0-9][0-9]*))(e(([0-9][0-9]*)))?)((\\+|\\-)(((([0-9][0-9]*)/([0-9][0-9]*)|([0-9][0-9]*)\\.([0-9][0-9]*)|([0-9][0-9]*)\\.|\\.([0-9][0-9]*)|([0-9][0-9]*))(e(([0-9][0-9]*)))?))i)?)")
+
+(skeltals (fn (parameters code))
+          (mo (parameter code)))
+
 (define (hash-ref2 hash key)
   (if (hash-has-key? hash key)
       (hash-ref hash key)
       (void)))
 
 (define (eval program env)
+  (define (all-digits? string)
+    (define (isdigit? character)
+      (<= 48(char->integer character) 57))
+    (if (string? string)
+        (andmap isdigit? (string->list string))
+        #f))
   (if (empty? program)
     (void)
     (let ([x  (first program)]
@@ -198,19 +204,9 @@
         ([list expr arg ...]                  (eval (append (list expr '(@return=>@calls) `(@call ,@arg)) xs) env))
 
         (atom                                 (cond
-                                                ([all-digits? atom] (hash-set! env '@return (string->number atom))
-                                                                    (eval xs env))
                                                 ([and (string? atom) (regexp-match-exact? number-regex atom)]
                                                                     (hash-set! env '@return (string->number atom))
                                                                     (eval xs env))
                                                 (else (hash-set! env '@return (first (hash-ref env atom)))
                                                       (eval xs env))
                                                 ))))))
-
-(define (all-digits? string)
-  (if (string? string)
-      (andmap isdigit? (string->list string))
-      #f))
-
-(define (isdigit? character)
-  (<= 48(char->integer character) 57))

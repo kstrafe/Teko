@@ -32,8 +32,8 @@ A program is represented as a list of $\mathrm{n} \in \mathbb{N}$ expressions.
 $$ \mathrm{program = (expr_1, expr_2, ..., expr_n)} $$
 An environment $\mathrm{env_k}$ is a set of symbol-list pairs.
 $$ \mathrm{env_k} = \mathrm{\{(s_1, L_1), (s_2, L_2), ...\}}, \mathrm{k} \in \mathbb{N}, \mathrm{k} \leq \mathrm{n}+1 $$
-A programs output is
-\begin{equation} \mathrm{interpret(program, env_1) = env_{n+1}.return} \end{equation}
+A program's output is defined recursively.
+$$ \mathrm{interpret(program, env_1) = env_{n+1}.return} $$
 
 \subsection{Core Semantics} \label{core}
 Equations \eqref{base} to \eqref{apply} define the core semantics of the \pln\space programming language.\\
