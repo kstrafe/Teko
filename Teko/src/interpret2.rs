@@ -2,24 +2,11 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::fmt;
 use super::VEC_CAPACITY;
-use parse2::parse_string;
+use parse2::parse_file;
 
 use num::bigint::BigInt;
 use num::rational::{Ratio, BigRational};
 use num::Complex;
-
-// Observation: The program stack itself can only ever contain lists of strings, nothing more
-enum Program {
-	Expr(Vec<Program>),
-	Atom(String),
-}
-
-// But, we also want to be able to manipulate program code in macros
-// It would be easiest to encode the program as Data, using Pair. Then,
-// if macros are to run, it'll be easy to just dump the Pair on the
-// Parameter stack. Easy. `Code is Data'
-// But,... we still need code annotations of source...
-// So one example is to add a struct to each entry:
 
 #[derive(Clone, Debug)]
 pub struct Source {
@@ -48,8 +35,27 @@ pub enum Data {
 	Macro    { source: Source, parameter: String, code: Rc<Data> },
 	Null,
 	Pair     (Source, Rc<Data>, Rc<Data>),
+	Placeholder (Source),
 	Rational (Source, BigRational),
 	String   (Source, String),
+}
+
+#[derive(Debug)]
+struct Env {
+	content:      HashMap<String, Vec<Rc<Data>>>,
+	call_stack:   Vec<String>,
+	params:       Vec<Rc<Data>>,
+	return_value: Rc<Data>,
+}
+
+impl Env {
+	fn set_return(&mut self, data: Rc<Data>) {
+		self.return_value = data;
+	}
+
+	fn set_content_to_return(&mut self, string: &String) {
+		self.return_value = self.content.get(string).unwrap().first().unwrap().clone();
+	}
 }
 
 impl fmt::Display for Data {
@@ -99,7 +105,7 @@ impl fmt::Display for Data {
 							require_space = true;
 						},
 						&Data::Null     => { write![f, "()"]; require_space = true; },
-						&Data::Pair     (_, ref first, ref rest) => {
+						&Data::Pair     (_, ref head, ref tail) => {
 							if require_space {
 								write![f, " "];
 							}
@@ -107,16 +113,19 @@ impl fmt::Display for Data {
 								write![f, "("];
 								to_print.push(ToDisplay::ClosingParenthesis);
 							}
-							if let Data::Null = **rest {
+							if let Data::Null = **tail {
 							} else {
-								to_print.push(ToDisplay::ToPrint(rest));
+								to_print.push(ToDisplay::ToPrint(tail));
 							}
-							if let Data::Pair(..) = **first {
+							if let Data::Pair(..) = **head {
 								write![f, "("];
 								to_print.push(ToDisplay::ClosingParenthesis);
 							}
-							to_print.push(ToDisplay::ToPrint(first));
+							to_print.push(ToDisplay::ToPrint(head));
 							require_space = false;
+						},
+						&Data::Placeholder(..) => {
+							write![f, "|"];
 						},
 						&Data::Rational (_, ref rational) => {
 							if require_space {
@@ -145,17 +154,46 @@ impl fmt::Display for Data {
 	}
 }
 
+fn interpret(program: Vec<Rc<Data>>) {
+	let env = Env {
+		content:      [
+		              ].iter().cloned().collect(),
+		call_stack:   Vec::with_capacity(VEC_CAPACITY),
+		params:       Vec::with_capacity(VEC_CAPACITY),
+		return_value: Rc::new(Data::Null),
+	};
+	eval(program, env);
+}
+
+fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
+	program.reverse();
+	enum Commands {
+		DefineReturnAs(String),
+	}
+	while let Some(top) = program.pop() {
+		match &*top {
+			&Data::Pair(_, ref head, ref tail) => {
+			},
+			&Data::String(_, ref string) => {
+			},
+			_ => {
+				println!["top: {:#?}", top];
+			},
+		}
+	}
+}
+
 impl Data {
-	fn first(&self) -> Rc<Data> {
-		if let &Data::Pair(_, ref first, _) = self {
-			first.clone()
+	fn head(&self) -> Rc<Data> {
+		if let &Data::Pair(_, ref head, _) = self {
+			head.clone()
 		} else {
 			Rc::new(Data::Null)
 		}
 	}
-	fn rest(&self) -> Rc<Data> {
-		if let &Data::Pair(_, _, ref rest) = self {
-			rest.clone()
+	fn tail(&self) -> Rc<Data> {
+		if let &Data::Pair(_, _, ref tail) = self {
+			tail.clone()
 		} else {
 			Rc::new(Data::Null)
 		}
@@ -172,12 +210,12 @@ mod tests {
 	}
 	#[test]
 	fn test() {
-		let p = parse_string("((()))").ok().unwrap();
+		let p = parse_file("input").ok().unwrap();
 		println!["Returned: {:#?}", p];
 		p.iter().map(|x| println!["{}", x]).count();
-		//println!["{:#?}", p.first()];
-		//println!["{:#?}", p.rest()];
-		//println!["{:#?}", p.first()];
+		//println!["{:#?}", p.head()];
+		//println!["{:#?}", p.tail()];
+		//println!["{:#?}", p.head()];
 	}
 }
 
