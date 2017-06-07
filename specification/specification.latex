@@ -30,9 +30,9 @@ Grammar \ref{grammar: syntax} uses ISO/IEC 14977 \cite{ISO/IEC14977} Extended BN
 This section provides the semantics of the \pln\space programming language.\\
 A program is represented as a list of $\mathrm{n} \in \mathbb{N}$ expressions.
 $$ \mathrm{program = (expr_1, expr_2, ..., expr_n)} $$
-An environment $\mathrm{env_k}$ is a set of symbol-list pairs.
-$$ \mathrm{env_k} = \mathrm{\{(s_1, L_1), (s_2, L_2), ...\}}, \mathrm{k} \in \mathbb{N}, \mathrm{k} \leq \mathrm{n}+1 $$
-A program's output is defined recursively.
+An environment $\mathrm{env_k}$ is a set of atom-list pairs.
+$$ \mathrm{env_k} = \mathrm{\{(a_1, L_1), (a_2, L_2), ...\}}, \mathrm{k} \in \mathbb{N}, \mathrm{k} \leq \mathrm{n}+1 $$
+A program's output is defined.
 $$ \mathrm{interpret(program, env_1) = env_{n+1}.return} $$
 
 \subsection{Core Semantics} \label{core}
@@ -80,10 +80,10 @@ Notation is specified in section \ref{sec: maths}.
 \begin{enumerate}
 \item $\mathrm{env_i}$ denotes the i-th element of the list $\mathrm{env}$.
 \item $\mathrm{eval(Q, P)}$ calls the evaluate function with program $\mathrm{Q}$ and environment $\mathrm{P}$.
-\item $\mathrm{env_k[s_i := O_j]}$ returns a new environment with $\mathrm{(s_i, (O_j))}$ added to the k-th environment. It is an error if $\mathrm{s_i}$ already exists in $\mathrm{env_k}$.
-\item $\mathrm{env_k[s_i = O_j]}$ mutates $\mathrm{L_{i, 1}}$ by assigning it $\mathrm{O_j}$, returning $\mathrm{env_k}$.
-\item $\mathrm{env_k[s_i \rightarrow O_j]}$ returns a new environment with $\mathrm{O_j}$ prepended to $\mathrm{L_j}$.
-\item $\mathrm{env_k.s_i}$ returns the first element of $\mathrm{L_i}$.
+\item $\mathrm{env_k[a_i := O_j]}$ returns a new environment with $\mathrm{(a_i, (O_j))}$ added to the k-th environment. It is an error if $\mathrm{a_i}$ already exists in $\mathrm{env_k}$.
+\item $\mathrm{env_k[a_i = O_j]}$ mutates $\mathrm{L_{i, 1}}$ by assigning it $\mathrm{O_j}$, returning $\mathrm{env_k}$.
+\item $\mathrm{env_k[a_i \rightarrow O_j]}$ returns a new environment with $\mathrm{O_j}$ prepended to $\mathrm{L_j}$.
+\item $\mathrm{env_k.a_i}$ returns the first element of $\mathrm{L_i}$.
 \item $\mathrm{A^*}$ and $\mathrm{A^+}$ denote 0-or-more and 1-or-more respectively. $\mathrm{A}$ in equations \eqref{function}, \eqref{macro}, \eqref{apply} expands to $\mathrm{A_1, A_2, ..., A_m}$.
 \item $\mathrm{\lambda}$ and $\mathrm{\tau}$ are literals used to differentiate functions and macros, respectively.
 \end{enumerate}
@@ -99,7 +99,7 @@ The behaviour is outlined in equation \eqref{call}.
 	\mathrm{eval(code(C), f), C\ is\ \lambda} \\
 	\mathrm{eval(eval(code(C), m).return, env), C\ is\ \tau}
 \end{cases} \\
-& \mathrm{let\ f}\ \mathrm{= env[C_{p1} \rightarrow eval(env.params_1, env), ...]} \nonumber \\
+& \mathrm{let\ f}\ \mathrm{= env[C_{p1} \rightarrow eval(env.parama_1, env), ...]} \nonumber \\
 & \mathrm{let\ m}\ \mathrm{= env[C_{p} \rightarrow env.params]} \nonumber &
 \end{empheq}
 
