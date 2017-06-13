@@ -34,6 +34,8 @@ pub enum Commands {
 	Pushcall,                    // Push Return onto the environment's call stack
 	Prepare(Rc<Data>),           // Use the top of the call stack and and prepare for a function or macro call
 	Call,                        // Perform a function or macro call
+  Unwind(String),              // Unwind to the given escape continuation
+  Escape(String),              // Denote an escape continuation's location on the stack
 	Empty,                       // Placeholder for nothing
 }
 
@@ -49,6 +51,23 @@ pub enum Data {
 	Rational (Source, BigRational),
 	String   (Source, String),
 	Symbol   (Source, String),
+}
+
+fn collect_arguments(mut args: Rc<Data>) -> Vec<String> {
+    let mut arguments = Vec::with_capacity(3);
+    loop {
+        if let &Data::Pair(_, ref head, ref tail) = &*args.clone() {
+            if let &Data::Symbol(_, ref string) = &**head {
+                arguments.push(string.clone());
+                args = tail.clone();
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+    arguments
 }
 
 #[derive(Debug)]
@@ -188,15 +207,16 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 	println!["program: {:#?}\nenv: {:#?}", program, env];
 	while let Some(top) = program.pop() {
 		match &*top {
+      // Why do we do this?
 			&Data::Null(ref source, ..) => {
 				env.return_value = top.clone();
 			},
-			&Data::Pair(_, ref head, ref tail) => {
+			&Data::Pair(ref source, ref head, ref tail) => {
 				match &**head {
 					&Data::Symbol(_, ref string) => {
 						match &string[..] {
 							"define" => {
-								if let &Data::String(_, ref string) = &*tail.head() {
+								if let &Data::Symbol(_, ref string) = &*tail.head() {
 									program.push(Rc::new(Data::Internal(Source::default(), Commands::Define(string.clone()))));
 									program.push(tail.tail().head());
 								} else {
@@ -204,7 +224,7 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 								}
 							},
 							"set!" => {
-								if let &Data::String(_, ref string) = &*tail.head() {
+								if let &Data::Symbol(_, ref string) = &*tail.head() {
 									program.push(Rc::new(Data::Internal(Source::default(), Commands::Set(string.clone()))));
 									program.push(tail.tail().head());
 								} else {
@@ -214,20 +234,20 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 							"fn" => {
 								let args = tail.head();
 								let code = tail.tail();
-								println!{"{}", code};
+                env.return_value = Rc::new(Data::Function(source.clone(), collect_arguments(args), code));
 							},
 							"mo" => {
-								// Do macros
-								unimplemented!();
+								let arg = tail.head();
+								let code = tail.tail();
+                if let &Data::Symbol(_, ref string) = &*arg {
+                    env.return_value = Rc::new(Data::Macro(source.clone(), string.clone(), code));
+                } else {
+                    panic!["Can't have a non-symbol as an argument for a macro"];
+                }
 							},
 							"if" => {
 								program.push(Rc::new(Data::Internal(Source::default(), Commands::If(tail.tail().head(), tail.tail().tail().head()))));
 								program.push(tail.head());
-							},
-							// TODO: Investigate removing let from the core, since it can be macrod by using fn (maybe)
-							"let" => {
-								// Do let
-								unimplemented!();
 							},
 							atom @ _ => {
 								// Do auxilliary funccalls
