@@ -161,6 +161,10 @@
                                                           (begin
                                                             (let ([args (hash-ref env '@params)])
                                                               (hash-set! env '@params (rest args)))
+                                                            ; Tail recursion:
+                                                            ;; If the stack is [(@pop-params x y z) (@call x y z)] then we know that
+                                                            ;; we can just change the top params x, y, and z without pushing them onto
+                                                            ;; a stack.
                                                             (if (or (empty? (fn-parameters call))
                                                                     (and (not (empty? xs))
                                                                          (list? (first xs))

@@ -196,7 +196,7 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 					&Data::Symbol(_, ref string) => {
 						match &string[..] {
 							"define" => {
-								if let &Data::String(_, ref string) = &*tail.head() {
+								if let &Data::Symbol(_, ref string) = &*tail.head() {
 									program.push(Rc::new(Data::Internal(Source::default(), Commands::Define(string.clone()))));
 									program.push(tail.tail().head());
 								} else {
@@ -204,7 +204,7 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 								}
 							},
 							"set!" => {
-								if let &Data::String(_, ref string) = &*tail.head() {
+								if let &Data::Symbol(_, ref string) = &*tail.head() {
 									program.push(Rc::new(Data::Internal(Source::default(), Commands::Set(string.clone()))));
 									program.push(tail.tail().head());
 								} else {
@@ -224,11 +224,6 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 								program.push(Rc::new(Data::Internal(Source::default(), Commands::If(tail.tail().head(), tail.tail().tail().head()))));
 								program.push(tail.head());
 							},
-							// TODO: Investigate removing let from the core, since it can be macrod by using fn (maybe)
-							"let" => {
-								// Do let
-								unimplemented!();
-							},
 							atom @ _ => {
 								// Do auxilliary funccalls
 								program.push(Rc::new(Data::Internal(Source::default(), Commands::Pushcall)));
@@ -246,7 +241,7 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 				match commands {
 					&Commands::Define(ref string) => {
 						let new_stack = if let Some(vector) = env.content.get_mut(string) {
-							vector.push(env.return_value.clone());
+							panic!("Can't re-define {}", string);
 							false
 						} else {
 							true

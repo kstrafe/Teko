@@ -1,6 +1,6 @@
 .PHONY:
 all:
-	./window.rkt
+	./ll1.rkt
 .PHONY:
 nasm:
 	nasm -f elf64 boot.asm -o boot.elf

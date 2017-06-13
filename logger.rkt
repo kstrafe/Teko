@@ -28,13 +28,14 @@
         (pretty-write `(name ,(get-time) (,(get-source #'name) ,(syntax-line #'name) ,(syntax-column #'name))) (current-error-port)))]
     [(_ name:id expr:expr ...+)
       #'(begin
-        (pretty-write `(name ,(get-time) (,(get-source #'expr) ,(syntax-line #'expr) ,(syntax-column #'expr)) expr = ,expr) (current-error-port)) ...)]))
+        (pretty-write `(name #|,(get-time) (,(get-source #'expr) ,(syntax-line #'expr) ,(syntax-column #'expr))|# expr = ,expr) (current-error-port)) ...)]))
 
 (define-syntax (base-no-print stx)
   (syntax-parse stx
-    [(_ name:id expr:expr ...+)
+    [(_ name:id expr:expr)
       #'(begin
-        (pretty-write `(name ,(get-time) (,(get-source #'expr) ,(syntax-line #'expr) ,(syntax-column #'expr)) _ = ,expr) (current-error-port)) ...)]))
+        (let ([result expr])
+          (pretty-write `(name ,(get-time) (,(get-source #'expr) ,(syntax-line #'expr) ,(syntax-column #'expr)) _ = ,result) (current-error-port)) result) )]))
 
 (define-syntax (make-loggers stx)
   (syntax-parse stx

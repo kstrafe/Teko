@@ -4,6 +4,7 @@
          (for-syntax racket/syntax)
          (for-syntax racket/list)
          opengl
+         opengl/util
          lens
          syntax/parse/define)
 
@@ -12,6 +13,12 @@
 (define (initialize-graphics)
   (glfwInit)
   (define window (glfwCreateWindow 800 600 "Example Window" #f #f))
+  (glfwMakeContextCurrent window)
+  (glfwWindowHint GLFW_SAMPLES 4)
+  (glfwWindowHint GLFW_CONTEXT_VERSION_MAJOR 3)
+  (glfwWindowHint GLFW_CONTEXT_VERSION_MINOR 3)
+  (glfwWindowHint GLFW_OPENGL_FORWARD_COMPAT GL_TRUE)
+  (glfwWindowHint GLFW_OPENGL_PROFILE GLFW_OPENGL_CORE_PROFILE)
   (glViewport 0 0 800 600)
   (glDisable GL_DEPTH_TEST)
   (glClearColor 0.3 0.3 0.3 0.5)
