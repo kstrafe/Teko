@@ -3,7 +3,7 @@ use std::io::Read;
 use std::rc::Rc;
 use super::VEC_CAPACITY;
 
-use data_structures::{ParseState, Data, Commands, Source};
+use data_structures::{Commands, Data, ParseState, Source};
 
 impl Default for ParseState {
 	fn default() -> ParseState {
