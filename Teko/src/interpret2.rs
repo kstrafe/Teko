@@ -8,12 +8,7 @@ use num::rational::BigRational;
 use num::Complex;
 use num::FromPrimitive;
 
-#[derive(Clone, Debug)]
-pub struct Source {
-	pub line:   usize,
-	pub column: usize,
-	pub source: String,
-}
+use data_structures::{Data, Commands, Source};
 
 impl Default for Source {
 	fn default() -> Source {
@@ -21,37 +16,6 @@ impl Default for Source {
 	}
 }
 
-// All these commands depend on the environment variable called Return, which is the
-// result of the previously executed expression.
-// So Define("x") simply means to map "x" => Return
-#[derive(Clone, Debug)]
-pub enum Commands {
-	Define(String),              // Map String := Return
-	Set(String),                 // Set value at String = Return
-	If(Rc<Data>, Rc<Data>),      // If Return is non-null, run If.0, else run If.1
-	Parameterize,                // Push Return into the function parameter list
-	Deparameterize(Vec<String>), // Pop parameters from the environment, this happens after a function call is done
-	Pushcall,                    // Push Return onto the environment's call stack
-	Prepare(Rc<Data>),           // Use the top of the call stack and and prepare for a function or macro call
-	Call,                        // Perform a function or macro call
-  Unwind(String),              // Unwind to the given escape continuation
-  Escape(String),              // Denote an escape continuation's location on the stack
-	Empty,                       // Placeholder for nothing
-}
-
-#[derive(Clone, Debug)]
-pub enum Data {
-	Complex  (Source, Complex<BigRational>),
-	Function (Source, Vec<String>, Rc<Data>),
-	Integer  (Source, BigInt),
-	Macro    (Source, String, Rc<Data>),
-	Null     (Source),
-	Pair     (Source, Rc<Data>, Rc<Data>),
-	Internal (Source, Commands),
-	Rational (Source, BigRational),
-	String   (Source, String),
-	Symbol   (Source, String),
-}
 
 fn collect_arguments(mut args: Rc<Data>) -> Vec<String> {
     let mut arguments = Vec::with_capacity(3);
