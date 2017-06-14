@@ -85,16 +85,16 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 							"fn" => {
 								let args = tail.head();
 								let code = tail.tail();
-                env.return_value = Rc::new(Data::Function(source.clone(), collect_arguments(args), code));
+								env.return_value = Rc::new(Data::Function(source.clone(), collect_arguments(args), code));
 							},
 							"mo" => {
 								let arg = tail.head();
 								let code = tail.tail();
-                if let &Data::Symbol(_, ref string) = &*arg {
-                    env.return_value = Rc::new(Data::Macro(source.clone(), string.clone(), code));
-                } else {
-                    panic!["Can't have a non-symbol as an argument for a macro"];
-                }
+								if let &Data::Symbol(_, ref string) = &*arg {
+									env.return_value = Rc::new(Data::Macro(source.clone(), string.clone(), code));
+								} else {
+									panic!["Can't have a non-symbol as an argument for a macro"];
+								}
 							},
 							"if" => {
 								program.push(Rc::new(Data::Internal(Source::default(), Commands::If(tail.tail().head(), tail.tail().tail().head()))));
@@ -147,10 +147,14 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 						}
 					},
 					&Commands::Prepare(ref data) => {
-						match &*env.return_value {
+						match &**env.call_stack.last().unwrap() {
 							&Data::Internal(_, Commands::Plus) => {
 								program.push(Rc::new(Data::Internal(Source::default(), Commands::Call)));
-								println!{"søren {:?}", collect_arguments_data(data.clone())};
+								let args = collect_arguments_data(data.clone());
+								for arg in args.iter() {
+										program.push(Rc::new(Data::Internal(Source::default(), Commands::Parameterize)));
+										program.push(arg.clone());
+								}
 								// program.push(Rc::new(Data::Internal(Source::default(), Commands::));
 							},
 							_ => {
@@ -158,8 +162,31 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 							},
 						}
 					},
+					&Commands::Parameterize => {
+						env.params.push(env.return_value.clone());
+					},
 					&Commands::Pushcall => {
 						env.call_stack.push(env.return_value.clone());
+					},
+					&Commands::Call => {
+						match &**env.call_stack.last().unwrap() {
+							&Data::Internal(_, Commands::Plus) => {
+								let mut accumulator = BigInt::parse_bytes(b"0", 10).unwrap();
+								for value in env.params.iter() {
+									match &**value {
+										&Data::Integer(_, ref value) => {
+											accumulator = accumulator + value;
+										},
+										_ => {
+											panic!("Can't add non-integer");
+										},
+									}
+								}
+								env.return_value = Rc::new(Data::Integer(Source::default(), accumulator));
+							},
+							_ => {
+							},
+						}
 					},
 					other @ _ => {
 						panic!["Do not handle the command: {:#?}", other];

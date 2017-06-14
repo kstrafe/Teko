@@ -5,20 +5,11 @@ use num::bigint::BigInt;
 use num::rational::BigRational;
 use num::Complex;
 use data_structures::{Commands, Data, Env, ParseState, Source};
+use super::VEC_CAPACITY;
 
 impl Default for Source {
 	fn default() -> Source {
 		Source { line: 1, column: 1, source: "unknown".into() }
-	}
-}
-
-impl Env {
-	fn set_return(&mut self, data: Rc<Data>) {
-		self.return_value = data;
-	}
-
-	fn set_content_to_return(&mut self, string: &String) {
-		self.return_value = self.content.get(string).unwrap().first().unwrap().clone();
 	}
 }
 
@@ -168,3 +159,27 @@ impl Data {
 	}
 }
 
+impl Default for ParseState {
+	fn default() -> ParseState {
+		ParseState {
+			current_read_position:         Source::default(),
+			start_of_current_lexeme:       Source::default(),
+			unmatched_opening_parentheses: Vec::with_capacity(VEC_CAPACITY),
+			token: String::from(""),
+			stack: Vec::with_capacity(VEC_CAPACITY),
+			error: None,
+		}
+	}
+}
+
+impl ParseState {
+	pub fn from_file(filename: &str) -> ParseState {
+		let mut state = ParseState::default();
+		state.current_read_position = Source {
+			line:   1,
+			column: 1,
+			source: filename.into(),
+		};
+		state
+	}
+}
