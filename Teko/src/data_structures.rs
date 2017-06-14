@@ -26,6 +26,7 @@ pub enum Commands {
 	Empty,                       // Placeholder for nothing
 
 	Plus,
+	Minus,
 }
 
 #[derive(Clone, Debug)]
@@ -46,7 +47,7 @@ pub enum Data {
 pub struct Env {
 	pub content:      HashMap<String, Vec<Rc<Data>>>,
 	pub call_stack:   Vec<Rc<Data>>,
-	pub params:       Vec<Rc<Data>>,
+	pub params:       Vec<Vec<Rc<Data>>>,
 	pub return_value: Rc<Data>,
 }
 

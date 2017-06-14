@@ -157,22 +157,32 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 								}
 								// program.push(Rc::new(Data::Internal(Source::default(), Commands::));
 							},
+							&Data::Internal(_, Commands::Minus) => {
+								program.push(Rc::new(Data::Internal(Source::default(), Commands::Call)));
+								let args = collect_arguments_data(data.clone());
+								for arg in args.iter() {
+										program.push(Rc::new(Data::Internal(Source::default(), Commands::Parameterize)));
+										program.push(arg.clone());
+								}
+								// program.push(Rc::new(Data::Internal(Source::default(), Commands::));
+							},
 							_ => {
 								panic!("Is not callable");
 							},
 						}
 					},
 					&Commands::Parameterize => {
-						env.params.push(env.return_value.clone());
+						env.params.last_mut().unwrap().push(env.return_value.clone());
 					},
 					&Commands::Pushcall => {
 						env.call_stack.push(env.return_value.clone());
+						env.params.push(vec![]);
 					},
 					&Commands::Call => {
 						match &**env.call_stack.last().unwrap() {
 							&Data::Internal(_, Commands::Plus) => {
 								let mut accumulator = BigInt::parse_bytes(b"0", 10).unwrap();
-								for value in env.params.iter() {
+								for value in env.params.last().unwrap().iter() {
 									match &**value {
 										&Data::Integer(_, ref value) => {
 											accumulator = accumulator + value;
@@ -184,9 +194,26 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 								}
 								env.return_value = Rc::new(Data::Integer(Source::default(), accumulator));
 							},
+							&Data::Internal(_, Commands::Minus) => {
+								let mut accumulator = BigInt::parse_bytes(b"0", 10).unwrap();
+								for value in env.params.last().unwrap().iter() {
+									match &**value {
+										&Data::Integer(_, ref value) => {
+											accumulator = accumulator - value;
+										},
+										_ => {
+											panic!("Can't add non-integer");
+										},
+									}
+								}
+								env.return_value = Rc::new(Data::Integer(Source::default(), accumulator));
+							},
 							_ => {
+								panic!("Unhandled call");
 							},
 						}
+						env.params.pop();
+						env.call_stack.pop();
 					},
 					other @ _ => {
 						panic!["Do not handle the command: {:#?}", other];
@@ -202,6 +229,9 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 					// ...
 					"+" => {
 						env.return_value = Rc::new(Data::Internal(source.clone(), Commands::Plus));
+					},
+					"-" => {
+						env.return_value = Rc::new(Data::Internal(source.clone(), Commands::Minus));
 					},
 					// Either parse a number or refer to an element in the hash set
 					_ => {
@@ -219,7 +249,7 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 			},
 		}
 		// println!["program: {:#?}\nenv: {:#?}", program, env];
-		println!["program: {:#?}", program];
+		println!["program: {:#?}\nenv: {:#?}", program, env];
 	}
 	println!["final env: {:#?}", env];
 }
