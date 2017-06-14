@@ -6,5 +6,6 @@ extern crate num;
 pub mod interpret2;
 pub mod parse2;
 pub mod data_structures;
+pub mod data_structures_impls;
 
 const VEC_CAPACITY: usize = 10;

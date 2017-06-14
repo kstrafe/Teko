@@ -8,156 +8,41 @@ use num::rational::BigRational;
 use num::Complex;
 use num::FromPrimitive;
 
-use data_structures::{Data, Commands, Source};
+use data_structures::{Commands, Data, Env, Source};
 
-impl Default for Source {
-	fn default() -> Source {
-		Source { line: 1, column: 1, source: "unknown".into() }
+fn collect_arguments_data(mut args: Rc<Data>) -> Vec<Rc<Data>> {
+	let mut arguments = Vec::with_capacity(3);
+	loop {
+		if let &Data::Pair(_, ref head, ref tail) = &*args.clone() {
+			arguments.push(head.clone());
+			args = tail.clone();
+		} else {
+			break;
+		}
 	}
+	arguments
 }
-
 
 fn collect_arguments(mut args: Rc<Data>) -> Vec<String> {
-    let mut arguments = Vec::with_capacity(3);
-    loop {
-        if let &Data::Pair(_, ref head, ref tail) = &*args.clone() {
-            if let &Data::Symbol(_, ref string) = &**head {
-                arguments.push(string.clone());
-                args = tail.clone();
-            } else {
-                break;
-            }
-        } else {
-            break;
-        }
-    }
-    arguments
-}
-
-#[derive(Debug)]
-struct Env {
-	content:      HashMap<String, Vec<Rc<Data>>>,
-	call_stack:   Vec<Rc<Data>>,
-	params:       Vec<Rc<Data>>,
-	return_value: Rc<Data>,
-}
-
-impl Env {
-	fn set_return(&mut self, data: Rc<Data>) {
-		self.return_value = data;
-	}
-
-	fn set_content_to_return(&mut self, string: &String) {
-		self.return_value = self.content.get(string).unwrap().first().unwrap().clone();
-	}
-}
-
-impl fmt::Display for Data {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		enum ToDisplay<'a> {
-			ToPrint(&'a Data),
-			ClosingParenthesis,
-		}
-		let mut to_print: Vec<ToDisplay> = vec![ToDisplay::ToPrint(self)];
-		let mut require_space = false;
-		let mut top_level = true;
-		while let Some(data) = to_print.pop() {
-			match data {
-				ToDisplay::ToPrint(data) => {
-					match data {
-						&Data::Complex  (_, ref complex) => {
-							if require_space {
-								write![f, " "]?;
-							}
-							write![f, "{}", complex]?;
-							require_space = true;
-						},
-						&Data::Function (_, ref params, ref code) => {
-							if require_space {
-								write![f, " "]?;
-							}
-							write![f, "(fn ("]?;
-							write![f, "{}", params.join(" ")]?;
-							write![f, ")"]?;
-							to_print.push(ToDisplay::ClosingParenthesis);
-							to_print.push(ToDisplay::ToPrint(code));
-							require_space = true;
-						},
-						&Data::Integer  (_, ref integer) => {
-							if require_space {
-								write![f, " "]?;
-							}
-							write![f, "{}", integer]?;
-						},
-						&Data::Macro    (_, ref param, ref code) => {
-							if require_space {
-								write![f, " "]?;
-							}
-							write![f, "(mo {}", param]?;
-							to_print.push(ToDisplay::ClosingParenthesis);
-							to_print.push(ToDisplay::ToPrint(code));
-							require_space = true;
-						},
-						&Data::Null(..) => { write![f, "()"]?; require_space = true },
-						&Data::Pair     (_, ref head, ref tail) => {
-							if require_space {
-								write![f, " "]?;
-							}
-							if top_level {
-								write![f, "("]?;
-								to_print.push(ToDisplay::ClosingParenthesis);
-							}
-							if let Data::Null(..) = **tail {
-							} else {
-								to_print.push(ToDisplay::ToPrint(tail));
-							}
-							if let Data::Pair(..) = **head {
-								write![f, "("]?;
-								to_print.push(ToDisplay::ClosingParenthesis);
-							}
-							to_print.push(ToDisplay::ToPrint(head));
-							require_space = false;
-						},
-						&Data::Internal(..) => {
-							write![f, "|"]?;
-						},
-						&Data::Rational (_, ref rational) => {
-							if require_space {
-								write![f, " "]?;
-							}
-							write![f, "{}", rational]?;
-							require_space = true;
-						},
-						&Data::String   (_, ref string) => {
-							if require_space {
-								write![f, " "]?;
-							}
-							write![f, "{}", string]?;
-							require_space = true;
-						},
-						&Data::Symbol   (_, ref string) => {
-							if require_space {
-								write![f, " "]?;
-							}
-							write![f, "{}", string]?;
-							require_space = true;
-						},
-					}
-				},
-				ToDisplay::ClosingParenthesis => {
-					write![f, ")"]?;
-					require_space = true;
-				},
+	let mut arguments = Vec::with_capacity(3);
+	loop {
+		if let &Data::Pair(_, ref head, ref tail) = &*args.clone() {
+			if let &Data::Symbol(_, ref string) = &**head {
+				arguments.push(string.clone());
+				args = tail.clone();
+			} else {
+				break;
 			}
-			top_level = false;
+		} else {
+			break;
 		}
-		write!(f, "")
 	}
+	arguments
 }
 
 pub fn interpret(program: Vec<Rc<Data>>) {
 	let env = Env {
-		content:      [("+".into(), vec![Rc::new(Data::Null(Source::default()))])
+		content:      [ //("+".into(), vec![Rc::new(Data::Null(Source::default()))])
 		              ].iter().cloned().collect(),
 		call_stack:   Vec::with_capacity(VEC_CAPACITY),
 		params:       Vec::with_capacity(VEC_CAPACITY),
@@ -171,13 +56,15 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 	println!["program: {:#?}\nenv: {:#?}", program, env];
 	while let Some(top) = program.pop() {
 		match &*top {
-      // Why do we do this?
-			&Data::Null(ref source, ..) => {
+			&Data::Null(..) => {
 				env.return_value = top.clone();
 			},
+			////////////////////////////////////////////////////////////
+			// Keyword forms and expressions                          //
+			////////////////////////////////////////////////////////////
 			&Data::Pair(ref source, ref head, ref tail) => {
 				match &**head {
-					&Data::Symbol(_, ref string) => {
+					&Data::Symbol(ref atom_source, ref string) => {
 						match &string[..] {
 							"define" => {
 								if let &Data::Symbol(_, ref string) = &*tail.head() {
@@ -215,17 +102,23 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 							},
 							atom @ _ => {
 								// Do auxilliary funccalls
-								program.push(Rc::new(Data::Internal(Source::default(), Commands::Pushcall)));
+								program.push(Rc::new(Data::Internal(source.clone(), Commands::Prepare(tail.clone()))));
+								program.push(Rc::new(Data::Internal(atom_source.clone(), Commands::Pushcall)));
 								program.push(head.clone());
 							},
 						}
 					},
 					expr @ _ => {
 						// Do expressions
-						unimplemented!();
+						program.push(Rc::new(Data::Internal(source.clone(), Commands::Prepare(tail.clone()))));
+						program.push(Rc::new(Data::Internal(source.clone(), Commands::Pushcall)));
+						program.push(head.clone());
 					},
 				}
 			},
+			////////////////////////////////////////////////////////////
+			// Internal commands like +, -, and interpreter internals //
+			////////////////////////////////////////////////////////////
 			&Data::Internal(ref source, ref commands) => {
 				match commands {
 					&Commands::Define(ref string) => {
@@ -253,6 +146,18 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 							program.push(if_true.clone());
 						}
 					},
+					&Commands::Prepare(ref data) => {
+						match &*env.return_value {
+							&Data::Internal(_, Commands::Plus) => {
+								program.push(Rc::new(Data::Internal(Source::default(), Commands::Call)));
+								println!{"søren {:?}", collect_arguments_data(data.clone())};
+								// program.push(Rc::new(Data::Internal(Source::default(), Commands::));
+							},
+							_ => {
+								panic!("Is not callable");
+							},
+						}
+					},
 					&Commands::Pushcall => {
 						env.call_stack.push(env.return_value.clone());
 					},
@@ -263,63 +168,33 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 			},
 			// A string on the stack is simply a number or a reference to some variable
 			&Data::Symbol(ref source, ref string) => {
-				if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
-					print!["{}", number];
-					env.return_value = Rc::new(Data::Integer(source.clone(), number));
-				} else {
-					env.return_value = env.content.get(string).unwrap().last().unwrap().clone();
+				match &string[..] {
+					// This can easily be macrofied as
+					// "+" => Plus
+					// "-" => Minus
+					// ...
+					"+" => {
+						env.return_value = Rc::new(Data::Internal(source.clone(), Commands::Plus));
+					},
+					// Either parse a number or refer to an element in the hash set
+					_ => {
+						if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
+							print!["{}", number];
+							env.return_value = Rc::new(Data::Integer(source.clone(), number));
+						} else {
+							env.return_value = env.content.get(string).unwrap().last().unwrap().clone();
+						}
+					},
 				}
 			},
 			other @ _ => {
 				panic!["Element should not exist on the program stack: {:#?}", other];
 			},
 		}
-		println!["program: {:#?}\nenv: {:#?}", program, env];
+		// println!["program: {:#?}\nenv: {:#?}", program, env];
+		println!["program: {:#?}", program];
 	}
 	println!["final env: {:#?}", env];
-}
-
-// TODO: Can this macro be shortened even more?
-macro_rules! make_mass_match {
-	($i:ident $p:tt $d:expr, $r:ty, $m:ident $e:expr => $($t:tt),*) => {
-		pub fn $i$p -> $r {
-			match $d {
-				$(&Data::$t (ref $m, ..) => { $e },)*
-			}
-		}
-	};
-	($n:tt $i:ident $p:tt $d:expr, $r:ty, $m:ident $e:expr => $($t:tt),*) => {
-		pub fn $i$p -> $r {
-			match $d {
-				$(&$n Data::$t (ref $n $m, ..) => { $e },)*
-			}
-		}
-	};
-}
-
-impl Data {
-	pub fn head(&self) -> Rc<Data> {
-		if let &Data::Pair(_, ref head, _) = self {
-			head.clone()
-		} else {
-			Rc::new(Data::Null(Source::default()))
-		}
-	}
-	pub fn tail(&self) -> Rc<Data> {
-		if let &Data::Pair(_, _, ref tail) = self {
-			tail.clone()
-		} else {
-			Rc::new(Data::Null(Source::default()))
-		}
-	}
-	make_mass_match! {
-		get_source(&self) self, Source, source source.clone()
-		=> Complex, Function, Integer, Macro, Null, Pair, Internal, Rational, String, Symbol
-	}
-	make_mass_match! {
-		mut set_source(&mut self, new_source: Source) self, (), source *source = new_source
-		=> Complex, Function, Integer, Macro, Null, Pair, Internal, Rational, String, Symbol
-	}
 }
 
 #[cfg(test)]
@@ -337,4 +212,3 @@ mod tests {
 		//println!["{:#?}", p.head()];
 	}
 }
-
