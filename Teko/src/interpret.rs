@@ -100,6 +100,14 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 								program.push(Rc::new(Data::Internal(Source::default(), Commands::If(tail.tail().head(), tail.tail().tail().head()))));
 								program.push(tail.head());
 							},
+							"wind" => {
+								program.push(Rc::new(Data::Internal(Source::default(), Commands::Wind)));
+								program.push(tail.clone());
+							},
+							"unwind" => {
+								program.push(Rc::new(Data::Internal(Source::default(), Commands::Unwind)));
+								program.push(tail.clone());
+							},
 							atom @ _ => {
 								// Do auxilliary funccalls
 								program.push(Rc::new(Data::Internal(source.clone(), Commands::Prepare(tail.clone()))));
@@ -148,27 +156,38 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 					},
 					&Commands::Prepare(ref data) => {
 						match &**env.call_stack.last().unwrap() {
-							&Data::Internal(_, Commands::Plus) => {
+							&Data::Internal(_, Commands::Plus) | &Data::Internal(_, Commands::Minus) | &Data::Internal(_, Commands::Multiply) | &Data::Internal(_, Commands::Divide) => {
 								program.push(Rc::new(Data::Internal(Source::default(), Commands::Call)));
 								let args = collect_arguments_data(data.clone());
 								for arg in args.iter() {
 										program.push(Rc::new(Data::Internal(Source::default(), Commands::Parameterize)));
 										program.push(arg.clone());
 								}
-								// program.push(Rc::new(Data::Internal(Source::default(), Commands::));
 							},
-							&Data::Internal(_, Commands::Minus) => {
+							&Data::Function(..) => {
 								program.push(Rc::new(Data::Internal(Source::default(), Commands::Call)));
 								let args = collect_arguments_data(data.clone());
 								for arg in args.iter() {
 										program.push(Rc::new(Data::Internal(Source::default(), Commands::Parameterize)));
 										program.push(arg.clone());
 								}
-								// program.push(Rc::new(Data::Internal(Source::default(), Commands::));
 							},
 							_ => {
-								panic!("Is not callable");
+								panic!("Is not callable {:?}", data);
 							},
+						}
+					},
+					&Commands::Wind => {
+						// Do nothing
+					},
+					&Commands::Unwind => {
+						while let Some(ref stack_element) = program.pop() {
+							match &**stack_element {
+								&Data::Internal(_, Commands::Wind) => {
+									break;
+								},
+								_ => {},
+							}
 						}
 					},
 					&Commands::Parameterize => {
@@ -196,17 +215,85 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 							},
 							&Data::Internal(_, Commands::Minus) => {
 								let mut accumulator = BigInt::parse_bytes(b"0", 10).unwrap();
+								let mut first = true;
+								for value in env.params.last().unwrap().iter().rev() {
+									match &**value {
+										&Data::Integer(_, ref value) => {
+											if first {
+												accumulator = value.clone();
+											} else {
+												accumulator = accumulator - value;
+											}
+										},
+										_ => {
+											panic!("Can't subtract non-integer");
+										},
+									}
+									first = false;
+								}
+								env.return_value = Rc::new(Data::Integer(Source::default(), accumulator));
+							},
+							&Data::Internal(_, Commands::Multiply) => {
+								let mut accumulator = BigInt::parse_bytes(b"1", 10).unwrap();
 								for value in env.params.last().unwrap().iter() {
 									match &**value {
 										&Data::Integer(_, ref value) => {
-											accumulator = accumulator - value;
+											accumulator = accumulator * value;
 										},
 										_ => {
-											panic!("Can't add non-integer");
+											panic!("Can't multiply non-integer");
 										},
 									}
 								}
 								env.return_value = Rc::new(Data::Integer(Source::default(), accumulator));
+							},
+							&Data::Internal(_, Commands::Divide) => {
+								let mut accumulator = BigRational::from_integer(BigInt::parse_bytes(b"1", 10).unwrap());
+								if env.params.last().unwrap().len() == 1 {
+									for value in env.params.last().unwrap().iter() {
+										match &**value {
+											&Data::Integer(_, ref value) => {
+												accumulator = accumulator / BigRational::from_integer(value.clone());
+											},
+											&Data::Rational(_, ref value) => {
+												accumulator = accumulator / value;
+											},
+											_ => {
+												panic!("Can't multiply non-integer");
+											},
+										}
+									}
+								} else if env.params.last().unwrap().len() > 1 {
+									let mut first = true;
+									for value in env.params.last().unwrap().iter().rev() {
+										match &**value {
+											&Data::Integer(_, ref value) => {
+												if first {
+													accumulator = BigRational::from_integer(value.clone());
+												} else {
+													accumulator = accumulator / BigRational::from_integer(value.clone());
+												}
+											},
+											&Data::Rational(_, ref value) => {
+												if first {
+													accumulator = value.clone();
+												} else {
+													accumulator = accumulator / value;
+												}
+											},
+											_ => {
+												panic!("Can't multiply non-integer/non-rational");
+											},
+										}
+										first = false;
+									}
+								} else {
+									panic!("CAN NOT DIVIDE WITH ZERO ARGS");
+								}
+								env.return_value = Rc::new(Data::Rational(Source::default(), accumulator));
+							},
+							&Data::Function(_, ref arguments, ref code) => {
+								program.push(code.clone());
 							},
 							_ => {
 								panic!("Unhandled call");
@@ -232,6 +319,12 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 					},
 					"-" => {
 						env.return_value = Rc::new(Data::Internal(source.clone(), Commands::Minus));
+					},
+					"*" => {
+						env.return_value = Rc::new(Data::Internal(source.clone(), Commands::Multiply));
+					},
+					"/" => {
+						env.return_value = Rc::new(Data::Internal(source.clone(), Commands::Divide));
 					},
 					// Either parse a number or refer to an element in the hash set
 					_ => {

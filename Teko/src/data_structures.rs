@@ -4,29 +4,54 @@ use num::bigint::BigInt;
 use num::rational::BigRational;
 use num::Complex;
 
-/*
-	TODO:
-	Implement simple numbers
-	Implement define
-	Implement set
-	Implement basic calling
-*/
+/// Primitive forms
 #[derive(Clone, Debug)]
 pub enum Commands {
-	Define(String),              // Map String := Return
-	Set(String),                 // Set value at String = Return
-	If(Rc<Data>, Rc<Data>),      // If Return is non-null, run If.0, else run If.1
-	Parameterize,                // Push Return into the function parameter list
-	Deparameterize(Vec<String>), // Pop parameters from the environment, this happens after a function call is done
-	Pushcall,                    // Push Return onto the environment's call stack
-	Prepare(Rc<Data>),           // Use the top of the call stack and and prepare for a function or macro call
-	Call,                        // Perform a function or macro call
-	Unwind(String),              // Unwind to the given escape continuation
-	Escape(String),              // Denote an escape continuation's location on the stack
-	Empty,                       // Placeholder for nothing
+	/// Used on the execution stack to map the `String` to the return value.
+	/// The specification defines it as `env.String := Return`.
+	/// A variable can only be defined once, this means that `Define("x") Define("x")`
+	/// would unwind with an error message.
+	Define(String),
 
-	Plus,
-	Minus,
+	/// Used on the execution stack to set `env.String = Return`. Since `env.String` is
+	/// a list, only the top element is changed.
+	Set(String),
+
+	/// Uses `Return` to decide which of the `Rc<Data>` values to interpret. If `Return` is
+	/// `Data::Null` then the second `Rc<Data>` will be run, otherwise the first one will be
+	/// run.
+	If(Rc<Data>, Rc<Data>),
+
+	/// Builtin functions
+	Plus, Minus, Multiply, Divide,
+
+	/// Perform an actual function or macro call, binding the values in `Env::params` to the
+	/// parameter list in the top of `Env::call_stack`, and then calling the function.
+	Call,
+
+	/// Consider the top of `Env::call_stack` and decide whether the arguments in `Rc<Data>`
+	/// need evaluation or not. If the top of `Env::call_stack` is a function, then all arguments
+	/// must be evaluated before the function is called. Else - if the top of `Env::call_stack`
+	/// is a macro, then the macro is simply called without evaluating `Rc<Data>`.
+	Prepare(Rc<Data>),
+
+	/// Push Return `Env::return_value` onto the function call list `Env::call_stack`.
+	Pushcall,                    // Push Return onto the environment's call stack
+
+	/// Push Return `Env::return_value` onto the function parameter list `Env::params`.
+	Parameterize,
+
+	/// Unwind the stack, skipping all operations, until the first `Wind` is encountered.
+	/// Execution continues from there.
+	Unwind,
+
+	/// Used to mark the execution stack with a restore-point to which
+	/// an `Unwind` will fall to.
+	Wind,
+
+	/// Used in the parser to denote left parentheses.
+	Empty,
+
 }
 
 #[derive(Clone, Debug)]
