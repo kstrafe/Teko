@@ -3,8 +3,8 @@ extern crate num;
 
 /* pub mod parse; */
 /* pub mod interpret; */
-pub mod interpret2;
-pub mod parse2;
+pub mod interpret;
+pub mod parse;
 pub mod data_structures;
 pub mod data_structures_impls;
 

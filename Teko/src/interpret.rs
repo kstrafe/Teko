@@ -1,173 +1,214 @@
-use parse::List;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::fmt;
 use super::VEC_CAPACITY;
 
-#[derive(Clone, Debug)]
-struct Fn {
-	parameters: Vec<String>,
-	code:       List,
-}
+use num::bigint::BigInt;
+use num::rational::BigRational;
+use num::Complex;
+use num::FromPrimitive;
 
-#[derive(Clone, Debug)]
-struct Mo {
-	parameter: String,
-	code:      List,
-}
+use data_structures::{Commands, Data, Env, Source};
 
-#[derive(Clone, Debug)]
-enum Data {
-	Integer(i32),
-	Rational(i32, i32),
-	SingleFlonum(f32),
-	DoubleFlonum(f32),
-	Pair(Rc<Data>, Rc<Data>),
-	List(List),
-	Function(Fn),
-	Macro(Mo),
-	String(String),
-	Vector(Vec<Rc<Data>>),
-	Empty,
-
-	Plus,
-}
-
-#[derive(Debug)]
-struct Env {
-	content:      HashMap<String, Vec<Rc<Data>>>,
-	call_stack:   Vec<String>,
-	params:       Vec<Rc<List>>,
-	return_value: Rc<Data>,
-}
-
-impl Env {
-	fn set_return(&mut self, data: Rc<Data>) {
-		self.return_value = data;
+fn collect_arguments_data(mut args: Rc<Data>) -> Vec<Rc<Data>> {
+	let mut arguments = Vec::with_capacity(3);
+	loop {
+		if let &Data::Pair(_, ref head, ref tail) = &*args.clone() {
+			arguments.push(head.clone());
+			args = tail.clone();
+		} else {
+			break;
+		}
 	}
-
-	fn set_content_to_return(&mut self, string: &String) {
-		self.return_value = self.content.get(string).unwrap().first().unwrap().clone();
-	}
+	arguments
 }
 
-pub fn interpret(mut program: Vec<List>) {
+fn collect_arguments(mut args: Rc<Data>) -> Vec<String> {
+	let mut arguments = Vec::with_capacity(3);
+	loop {
+		if let &Data::Pair(_, ref head, ref tail) = &*args.clone() {
+			if let &Data::Symbol(_, ref string) = &**head {
+				arguments.push(string.clone());
+				args = tail.clone();
+			} else {
+				break;
+			}
+		} else {
+			break;
+		}
+	}
+	arguments
+}
+
+pub fn interpret(program: Vec<Rc<Data>>) {
 	let env = Env {
-		content:      [(String::from("+"), vec![Rc::new(Data::Plus)])
+		content:      [ //("+".into(), vec![Rc::new(Data::Null(Source::default()))])
 		              ].iter().cloned().collect(),
 		call_stack:   Vec::with_capacity(VEC_CAPACITY),
 		params:       Vec::with_capacity(VEC_CAPACITY),
-		return_value: Rc::new(Data::Empty),
+		return_value: Rc::new(Data::Null(Source::default())),
 	};
-	let env = eval(program, env);
+	eval(program, env);
 }
 
-fn eval(mut program: Vec<List>, mut env: Env) -> Env {
-	while ! program.is_empty() {
-		println!["{:?}\n{:#?}", program, env];
-		let top = program.remove(0);
-		match top {
-			List::DefineReturnAs(string) => {
-				println!["DefineReturnAs({:?})", string];
-				if env.content.contains_key(&string) {
-					panic!["You can not define something that's already defined"];
-				} else {
-					env.content.insert(string, vec![env.return_value.clone()]);
-				}
+fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
+	program.reverse();
+	println!["program: {:#?}\nenv: {:#?}", program, env];
+	while let Some(top) = program.pop() {
+		match &*top {
+			&Data::Null(..) => {
+				env.return_value = top.clone();
 			},
-			List::SetReturnAs(string) => {
-				println!["SetReturnAs({:?})", string];
-				if env.content.contains_key(&string) {
-					env.content.get_mut(&string).unwrap().pop();
-					env.content.get_mut(&string).unwrap().push(env.return_value.clone());
-				} else {
-					panic!["You can not set! something that's not defined"];
-				}
-			},
-			List::Node(mut vec) => {
-				let first = vec.remove(0);
-				let mut rest  = vec;
-				match first {
-					List::Node(expr) => {
-						program.insert(0, List::Call(rest));
-						program.insert(0, List::ReturnToCallstack);
-						program.insert(0, List::Node(expr));
-					},
-					List::Leaf(atom) => {
-						match &atom[..] {
+			////////////////////////////////////////////////////////////
+			// Keyword forms and expressions                          //
+			////////////////////////////////////////////////////////////
+			&Data::Pair(ref source, ref head, ref tail) => {
+				match &**head {
+					&Data::Symbol(ref atom_source, ref string) => {
+						match &string[..] {
 							"define" => {
-								assert![rest.len() == 2];
-								let expr = rest.pop().unwrap();
-								let atom = match rest.pop().unwrap() {
-									List::Leaf(string) => string,
-									_ => panic!("Can't be!"),
-								};
-								program.insert(0, List::DefineReturnAs(atom));
-								program.insert(0, expr);
+								if let &Data::Symbol(_, ref string) = &*tail.head() {
+									program.push(Rc::new(Data::Internal(Source::default(), Commands::Define(string.clone()))));
+									program.push(tail.tail().head());
+								} else {
+									panic!["define is of the form (define atom expr), expected an atom but got something else"];
+								}
 							},
 							"set!" => {
-								assert![rest.len() == 2];
-								let expr = rest.pop().unwrap();
-								let atom = match rest.pop().unwrap() {
-									List::Leaf(string) => string,
-									_ => panic!("Can't be!"),
-								};
-								program.insert(0, List::SetReturnAs(atom));
-								program.insert(0, expr);
+								if let &Data::Symbol(_, ref string) = &*tail.head() {
+									program.push(Rc::new(Data::Internal(Source::default(), Commands::Set(string.clone()))));
+									program.push(tail.tail().head());
+								} else {
+									panic!["set! is of the form (define atom expr), expected an atom but got something else"];
+								}
 							},
-							otherwise => {
-								program.insert(0, List::Call(rest));
-								program.insert(0, List::ReturnToCallstack);
-								// TODO; just load the function directly here
-								program.insert(0, List::Leaf(String::from(otherwise)));
+							"fn" => {
+								let args = tail.head();
+								let code = tail.tail();
+                env.return_value = Rc::new(Data::Function(source.clone(), collect_arguments(args), code));
+							},
+							"mo" => {
+								let arg = tail.head();
+								let code = tail.tail();
+                if let &Data::Symbol(_, ref string) = &*arg {
+                    env.return_value = Rc::new(Data::Macro(source.clone(), string.clone(), code));
+                } else {
+                    panic!["Can't have a non-symbol as an argument for a macro"];
+                }
+							},
+							"if" => {
+								program.push(Rc::new(Data::Internal(Source::default(), Commands::If(tail.tail().head(), tail.tail().tail().head()))));
+								program.push(tail.head());
+							},
+							atom @ _ => {
+								// Do auxilliary funccalls
+								program.push(Rc::new(Data::Internal(source.clone(), Commands::Prepare(tail.clone()))));
+								program.push(Rc::new(Data::Internal(atom_source.clone(), Commands::Pushcall)));
+								program.push(head.clone());
 							},
 						}
 					},
-					List::Node(expr) => {
-						println!["EXPR"];
+					expr @ _ => {
+						// Do expressions
+						program.push(Rc::new(Data::Internal(source.clone(), Commands::Prepare(tail.clone()))));
+						program.push(Rc::new(Data::Internal(source.clone(), Commands::Pushcall)));
+						program.push(head.clone());
 					},
-					_ => {},
 				}
 			},
-			List::Leaf(string)  => {
-				if all_digits(&string) {
-					let num = string.parse::<i32>().unwrap();
-					env.set_return(Rc::new(Data::Integer(num)));
-					println!["IS ALL DIGS {}", num];
-				} else {
-					let entry =
-						if let Some(data) = env.content.get(&string) {
-							if let Some(entry) = data.last() {
-								entry.clone()
-							} else {
-								panic!("Entry set is empty, internal bug");
-							}
+			////////////////////////////////////////////////////////////
+			// Internal commands like +, -, and interpreter internals //
+			////////////////////////////////////////////////////////////
+			&Data::Internal(ref source, ref commands) => {
+				match commands {
+					&Commands::Define(ref string) => {
+						let new_stack = if let Some(vector) = env.content.get_mut(string) {
+							panic!("Can't re-define {}", string);
+							false
 						} else {
-							panic!("Unable to find reference in hash");
+							true
 						};
-					env.set_return(entry);
-				}
-			},
-			List::Call(args) => {
-				match *env.return_value {
-					Data::Macro(ref macro_object) => {},
-					Data::Function(ref function) => {},
-					Data::Plus => {
-						// env.params.
-						for i in args {
-							//env.program.insert(0, );
-							// env.program.insert(0, i);
+						if new_stack {
+							env.content.insert(string.clone(), vec![env.return_value.clone()]);
 						}
 					},
-					_ => {
+					&Commands::Set(ref string) => {
+						if let Some(vector) = env.content.get_mut(string) {
+							*vector.last_mut().unwrap() = env.return_value.clone();
+						} else {
+							panic!["Can not set a variable that has never been declared"];
+						}
+					},
+					&Commands::If(ref if_true, ref if_false) => {
+						if let &Data::Null(..) = &*env.return_value {
+							program.push(if_false.clone());
+						} else {
+							program.push(if_true.clone());
+						}
+					},
+					&Commands::Prepare(ref data) => {
+						match &*env.return_value {
+							&Data::Internal(_, Commands::Plus) => {
+								program.push(Rc::new(Data::Internal(Source::default(), Commands::Call)));
+								println!{"søren {:?}", collect_arguments_data(data.clone())};
+								// program.push(Rc::new(Data::Internal(Source::default(), Commands::));
+							},
+							_ => {
+								panic!("Is not callable");
+							},
+						}
+					},
+					&Commands::Pushcall => {
+						env.call_stack.push(env.return_value.clone());
+					},
+					other @ _ => {
+						panic!["Do not handle the command: {:#?}", other];
 					},
 				}
 			},
-			_ => {},
+			// A string on the stack is simply a number or a reference to some variable
+			&Data::Symbol(ref source, ref string) => {
+				match &string[..] {
+					// This can easily be macrofied as
+					// "+" => Plus
+					// "-" => Minus
+					// ...
+					"+" => {
+						env.return_value = Rc::new(Data::Internal(source.clone(), Commands::Plus));
+					},
+					// Either parse a number or refer to an element in the hash set
+					_ => {
+						if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
+							print!["{}", number];
+							env.return_value = Rc::new(Data::Integer(source.clone(), number));
+						} else {
+							env.return_value = env.content.get(string).unwrap().last().unwrap().clone();
+						}
+					},
+				}
+			},
+			other @ _ => {
+				panic!["Element should not exist on the program stack: {:#?}", other];
+			},
 		}
+		// println!["program: {:#?}\nenv: {:#?}", program, env];
+		println!["program: {:#?}", program];
 	}
-	env
+	println!["final env: {:#?}", env];
 }
 
-fn all_digits(string: &str) -> bool {
-	string.chars().all(|c| c.is_digit(10))
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use parse::parse_file;
+	#[test]
+	fn test() {
+		let p = parse_file("input").ok().unwrap();
+		// println!["{:#?}", p];
+		// p.iter().map(|x| println!["{}", x]).count();
+		interpret(p);
+		//println!["{:#?}", p.head()];
+		//println!["{:#?}", p.tail()];
+		//println!["{:#?}", p.head()];
+	}
 }
