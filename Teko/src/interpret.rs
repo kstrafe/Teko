@@ -181,6 +181,7 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 						// Do nothing
 					},
 					&Commands::Unwind => {
+						env.params.pop();
 						while let Some(ref stack_element) = program.pop() {
 							match &**stack_element {
 								&Data::Internal(_, Commands::Wind) => {
@@ -216,20 +217,38 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 							&Data::Internal(_, Commands::Minus) => {
 								let mut accumulator = BigInt::parse_bytes(b"0", 10).unwrap();
 								let mut first = true;
-								for value in env.params.last().unwrap().iter().rev() {
-									match &**value {
-										&Data::Integer(_, ref value) => {
-											if first {
-												accumulator = value.clone();
-											} else {
-												accumulator = accumulator - value;
-											}
-										},
-										_ => {
-											panic!("Can't subtract non-integer");
-										},
+								if env.params.last().unwrap().len() == 1 {
+									for value in env.params.last().unwrap().iter().rev() {
+										match &**value {
+											&Data::Integer(_, ref value) => {
+												if first {
+													accumulator = -value.clone();
+												} else {
+													accumulator = accumulator - value;
+												}
+											},
+											_ => {
+												panic!("Can't subtract non-integer");
+											},
+										}
+										first = false;
 									}
-									first = false;
+								} else if env.params.last().unwrap().len() > 1 {
+									for value in env.params.last().unwrap().iter().rev() {
+										match &**value {
+											&Data::Integer(_, ref value) => {
+												if first {
+													accumulator = value.clone();
+												} else {
+													accumulator = accumulator - value;
+												}
+											},
+											_ => {
+												panic!("Can't subtract non-integer");
+											},
+										}
+										first = false;
+									}
 								}
 								env.return_value = Rc::new(Data::Integer(Source::default(), accumulator));
 							},
