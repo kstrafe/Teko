@@ -56,9 +56,6 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 	println!["program: {:#?}\nenv: {:#?}", program, env];
 	while let Some(top) = program.pop() {
 		match &*top {
-			&Data::Null(..) => {
-				env.return_value = top.clone();
-			},
 			////////////////////////////////////////////////////////////
 			// Keyword forms and expressions                          //
 			////////////////////////////////////////////////////////////
@@ -66,6 +63,9 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 				match &**head {
 					&Data::Symbol(ref atom_source, ref string) => {
 						match &string[..] {
+							"'" => {
+								env.return_value = tail.clone();
+							},
 							"define" => {
 								if let &Data::Symbol(_, ref string) = &*tail.head() {
 									program.push(Rc::new(Data::Internal(Source::default(), Commands::Define(string.clone()))));
@@ -326,13 +326,12 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 					},
 				}
 			},
-			// A string on the stack is simply a number or a reference to some variable
+			////////////////////////////////////////////////////////////
+			// A single symbol (atom) refers to some value            //
+			////////////////////////////////////////////////////////////
 			&Data::Symbol(ref source, ref string) => {
 				match &string[..] {
-					// This can easily be macrofied as
-					// "+" => Plus
-					// "-" => Minus
-					// ...
+					// TODO: Just put these into the environment instead
 					"+" => {
 						env.return_value = Rc::new(Data::Internal(source.clone(), Commands::Plus));
 					},
@@ -348,7 +347,6 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 					// Either parse a number or refer to an element in the hash set
 					_ => {
 						if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
-							print!["{}", number];
 							env.return_value = Rc::new(Data::Integer(source.clone(), number));
 						} else {
 							env.return_value = env.content.get(string).unwrap().last().unwrap().clone();
@@ -356,8 +354,11 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 					},
 				}
 			},
+			////////////////////////////////////////////////////////////
+			// Any other data residing on the stack is just returned  //
+			////////////////////////////////////////////////////////////
 			other @ _ => {
-				panic!["Element should not exist on the program stack: {:#?}", other];
+				env.return_value = top.clone();
 			},
 		}
 		// println!["program: {:#?}\nenv: {:#?}", program, env];
@@ -373,11 +374,6 @@ mod tests {
 	#[test]
 	fn test() {
 		let p = parse_file("input").ok().unwrap();
-		// println!["{:#?}", p];
-		// p.iter().map(|x| println!["{}", x]).count();
 		interpret(p);
-		//println!["{:#?}", p.head()];
-		//println!["{:#?}", p.tail()];
-		//println!["{:#?}", p.head()];
 	}
 }
