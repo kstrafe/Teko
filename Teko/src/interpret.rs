@@ -40,10 +40,25 @@ fn collect_arguments(mut args: Rc<Data>) -> Vec<String> {
 	arguments
 }
 
+macro_rules! create_commands {
+	($($i:expr => $t:tt),*; $($i2:ident => $t2:tt),*) => {
+		[
+			$(($i.into(), vec![Rc::new(Data::Internal(Source::default(), Commands::$t))])),*,
+			$((stringify!($i2).into(), vec![Rc::new(Data::Internal(Source::default(), Commands::$t2))])),*
+		]
+	};
+}
+
 pub fn interpret(program: Vec<Rc<Data>>) {
 	let env = Env {
-		content:      [ //("+".into(), vec![Rc::new(Data::Null(Source::default()))])
-		              ].iter().cloned().collect(),
+		content: create_commands! {
+							"+" => Plus,
+							"-" => Minus,
+							"*" => Multiply,
+							"/" => Divide
+							;
+							refine => Refine
+						}.iter().cloned().collect(),
 		call_stack:   Vec::with_capacity(VEC_CAPACITY),
 		params:       Vec::with_capacity(VEC_CAPACITY),
 		return_value: Rc::new(Data::Null(Source::default())),
@@ -331,19 +346,6 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 			////////////////////////////////////////////////////////////
 			&Data::Symbol(ref source, ref string) => {
 				match &string[..] {
-					// TODO: Just put these into the environment instead
-					"+" => {
-						env.return_value = Rc::new(Data::Internal(source.clone(), Commands::Plus));
-					},
-					"-" => {
-						env.return_value = Rc::new(Data::Internal(source.clone(), Commands::Minus));
-					},
-					"*" => {
-						env.return_value = Rc::new(Data::Internal(source.clone(), Commands::Multiply));
-					},
-					"/" => {
-						env.return_value = Rc::new(Data::Internal(source.clone(), Commands::Divide));
-					},
 					// Either parse a number or refer to an element in the hash set
 					_ => {
 						if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {

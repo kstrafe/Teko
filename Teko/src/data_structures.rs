@@ -7,6 +7,8 @@ use num::Complex;
 /// Primitive forms
 #[derive(Clone, Debug)]
 pub enum Commands {
+	Refine,
+
 	/// Used on the execution stack to map the `String` to the return value.
 	/// The specification defines it as `env.String := Return`.
 	/// A variable can only be defined once, this means that `Define("x") Define("x")`
