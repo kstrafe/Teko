@@ -7,6 +7,71 @@ use num::Complex;
 use data_structures::{Commands, Coredata, Env, ParseState, Source, Sourcedata};
 use super::VEC_CAPACITY;
 
+impl fmt::Display for Sourcedata {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		use data_structures::Coredata::*;
+		use data_structures::Commands::*;
+		match self.1 {
+			Complex  (ref arg) => {
+				writeln![f, "{}", line!()]
+			},
+			Function (ref arg) => {
+				writeln![f, "{}", line!()]
+			},
+			Integer  (ref arg) => {
+				writeln![f, "{}", line!()]
+			},
+			Internal (ref arg) => {
+				writeln![f, "{}", line!()]?;
+				match *arg {
+					Call => {
+						writeln![f, "{}", line!()]
+					},
+					Prepare(ref arg) => {
+						writeln![f, "{}", line!()]
+					},
+					Pushcall => {
+						writeln![f, "{}", line!()]
+					},
+					Parameterize => {
+						writeln![f, "{}", line!()]
+					},
+					Deparameterize(ref arg) => {
+						writeln![f, "{}", line!()]
+					},
+					Unwind => {
+						writeln![f, "{}", line!()]
+					},
+					Wind => {
+						writeln![f, "{}", line!()]
+					},
+					Empty => {
+						writeln![f, "{}", line!()]
+					},
+				}
+			},
+			Macro    (ref arg) => {
+				writeln![f, "{}", line!()]
+			},
+			Null      => {
+				writeln![f, "{}", line!()]
+			},
+			Pair     (ref arg, ref arg2) => {
+				writeln![f, "{}", line!()]
+			},
+			Rational (ref arg) => {
+				writeln![f, "{}", line!()]
+			},
+			String   (ref arg) => {
+				writeln![f, "{}", line!()]
+			},
+			Symbol   (ref arg) => {
+				writeln![f, "{}", line!()]
+			},
+		}
+	}
+}
+
 impl Default for Source {
 	fn default() -> Source {
 		Source { line: 1, column: 1, source: "unknown".into() }

@@ -98,7 +98,7 @@ fn right_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
 	let mut source = Source::default();
 	while let Some(top) = state.stack.pop() {
 		match &*top {
-			&Sourcedata(ref pair_source, ..) => {
+			&Sourcedata(ref pair_source, Coredata::Internal(Commands::Empty)) => {
 				source = pair_source.clone();
 				break;
 			},
