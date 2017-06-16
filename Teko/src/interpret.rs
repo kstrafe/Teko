@@ -71,10 +71,6 @@ pub fn interpret(program: Vec<Rc<Data>>) {
 	eval(program, env);
 }
 
-
-fn ter(top: Rc<Data>, program: &mut Program, env: &mut Env) {
-}
-
 fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 	program.reverse();
 	println!["program: {:#?}\nenv: {:#?}", program, env];

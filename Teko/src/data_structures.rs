@@ -13,11 +13,11 @@ pub enum Commands {
 	/// The specification defines it as `env.String := Return`.
 	/// A variable can only be defined once, this means that `Define("x") Define("x")`
 	/// would unwind with an error message.
-	Define(String),
+	Define,
 
 	/// Used on the execution stack to set `env.String = Return`. Since `env.String` is
 	/// a list, only the top element is changed.
-	Set(String),
+	Set,
 
 	/// Uses `Return` to decide which of the `Rc<Data>` values to interpret. If `Return` is
 	/// `Data::Null` then the second `Rc<Data>` will be run, otherwise the first one will be
@@ -25,7 +25,7 @@ pub enum Commands {
 	If(Rc<Data>, Rc<Data>),
 
 	/// Builtin functions
-	Plus, Minus, Multiply, Divide,
+	Plus, Minus, Multiply, Divide, Power, Modulo,
 
 	/// Perform an actual function or macro call, binding the values in `Env::params` to the
 	/// parameter list in the top of `Env::call_stack`, and then calling the function.
