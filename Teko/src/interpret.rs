@@ -85,28 +85,8 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 				program.push(head.clone());
 			},
 			&Data::Internal(_, Commands::Prepare(ref data)) => {
-				if return is function {
-					parameterize
-				} else if marco {
-					if builtin {
-						call_macro()
-					} else {
-						pop-marco-argument
-						>parameterize data
-						call
-					}
-				} else {
-					unwind-with-error
-				}
 			},
 			&Data::Internal(_, Commands::Call) => {
-				if builtin {
-					call_func()
-				} else {
-					>assign all params
-					pop-params
-					code
-				}
 			},
 			&Data::Symbol(ref source, ref string) => {
 				if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
