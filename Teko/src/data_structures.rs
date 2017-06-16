@@ -5,10 +5,10 @@ use num::rational::BigRational;
 use num::Complex;
 
 /// Primitive forms
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum Commands {
 	Call,
-	Prepare(Rc<Data>),
+	Prepare(Statement),
 	Pushcall,
 	Parameterize,
 	Deparameterize(Vec<String>),
@@ -17,14 +17,14 @@ pub enum Commands {
 	Empty,
 }
 
-type Statement = Rc<Sourcedata>;
-type Program   = Vec<Statement>;
-type Transfer  = fn(top:     &Statement,
-                    program: &mut Program,
-                    env:     &mut Env);
+pub struct Sourcedata(pub Source, pub Coredata);
+pub type Statement = Rc<Sourcedata>;
+pub type Program   = Vec<Statement>;
+pub type Transfer  = fn(top:     &Statement,
+                        program: &mut Program,
+                        env:     &mut Env);
 pub enum Function { Builtin(Transfer), Library(Vec<String>, Statement) }
 pub enum Macro { Builtin(Transfer), Library(String, Statement) }
-pub struct Sourcedata(Source, Coredata);
 pub enum Coredata {
 	Complex  (Complex<BigRational>),
 	Function (Function),
@@ -38,7 +38,7 @@ pub enum Coredata {
 	Symbol   (String),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum Data {
 	Complex  (Source, Complex<BigRational>),
 	Function (Source, Vec<String>, Rc<Data>),
@@ -52,21 +52,21 @@ pub enum Data {
 	Symbol   (Source, String),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Env {
-	pub content:      HashMap<String, Vec<Rc<Data>>>,
-	pub call_stack:   Vec<Rc<Data>>,
-	pub params:       Vec<Vec<Rc<Data>>>,
-	pub return_value: Rc<Data>,
+	pub content:      HashMap<String, Program>,
+	pub call_stack:   Vec<Rc<Sourcedata>>,
+	pub params:       Vec<Vec<Rc<Sourcedata>>>,
+	pub return_value: Rc<Sourcedata>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ParseState {
 	pub current_read_position:         Source,
 	pub start_of_current_lexeme:       Source,
 	pub unmatched_opening_parentheses: Vec<Source>,
 	pub token: String,
-	pub stack: Vec<Rc<Data>>,
+	pub stack: Program,
 	pub error: Option<String>,
 }
 

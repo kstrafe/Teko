@@ -3,11 +3,12 @@ use std::io::Read;
 use std::rc::Rc;
 use super::VEC_CAPACITY;
 
-use data_structures::{Commands, Data, ParseState, Source};
+use data_structures::{Commands, Coredata, Data, ParseState,
+                      Program, Source, Sourcedata};
 
 ////////////////////////////////////////////////////////////
 
-pub fn parse_file(filename: &str) -> Result<Vec<Rc<Data>>, ParseState> {
+pub fn parse_file(filename: &str) -> Result<Program, ParseState> {
 	let mut file = File::open(filename).ok().unwrap();
 	let mut contents = String::new();
 	file.read_to_string(&mut contents).ok();
@@ -16,14 +17,14 @@ pub fn parse_file(filename: &str) -> Result<Vec<Rc<Data>>, ParseState> {
 
 ////////////////////////////////////////////////////////////
 
-pub fn parse_string(string: &str) -> Result<Vec<Rc<Data>>, ParseState> {
+pub fn parse_string(string: &str) -> Result<Program, ParseState> {
 	let state = ParseState::default();
 	parse_string_with_state(string, state)
 }
 
 ////////////////////////////////////////////////////////////
 
-fn parse_string_with_state(string: &str, mut state: ParseState) -> Result<Vec<Rc<Data>>, ParseState> {
+fn parse_string_with_state(string: &str, mut state: ParseState) -> Result<Program, ParseState> {
 	for character in string.chars() {
 		parse_character(character, &mut state)?;
 		if state.error.is_some() {
@@ -35,7 +36,7 @@ fn parse_string_with_state(string: &str, mut state: ParseState) -> Result<Vec<Rc
 
 ////////////////////////////////////////////////////////////
 
-pub fn finish_parsing_characters(mut state: ParseState) -> Result<Vec<Rc<Data>>, ParseState> {
+pub fn finish_parsing_characters(mut state: ParseState) -> Result<Program, ParseState> {
 	whitespace(&mut state);
 	if ! state.unmatched_opening_parentheses.is_empty() {
 		Err(set_error(&mut state, "Unmatched opening parenthesis"))
@@ -87,26 +88,26 @@ fn whitespace(state: &mut ParseState) {
 fn left_parenthesis(state: &mut ParseState) {
 	move_token_to_stack_if_nonempty(state);
 	copy_current_read_position_to_unmatched_opening_parentheses(state);
-	state.stack.push(Rc::new(Data::Internal(state.current_read_position.clone(), Commands::Empty)));
+	state.stack.push(Rc::new(Sourcedata(state.current_read_position.clone(), Coredata::Internal(Commands::Empty))));
 }
 
 fn right_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
 	move_token_to_stack_if_nonempty(state);
 	pop_previous_opening_parenthesis(state)?;
-	let mut active = Rc::new(Data::Null(state.current_read_position.clone()));
+	let mut active = Rc::new(Sourcedata(state.current_read_position.clone(), Coredata::Null));
 	let mut source = Source::default();
 	while let Some(top) = state.stack.pop() {
 		match &*top {
-			&Data::Internal(ref pair_source, ..) => {
+			&Sourcedata(ref pair_source, ..) => {
 				source = pair_source.clone();
 				break;
 			},
 			_ => {
-				active = Rc::new(Data::Pair(top.clone().get_source(), top.clone(), active));
+				active = Rc::new(Sourcedata(top.0.clone(), Coredata::Pair(top.clone(), active)));
 			},
 		}
 	}
-	Rc::get_mut(&mut active).expect("There are no other references to the active set").set_source(source);
+	Rc::get_mut(&mut active).expect("There are no other references to the active set").0 = source;
 	state.stack.push(active);
 	Ok(())
 }
@@ -122,7 +123,7 @@ fn otherwise(character: char, state: &mut ParseState) {
 
 fn move_token_to_stack_if_nonempty(state: &mut ParseState) {
 	if ! state.token.is_empty() {
-		state.stack.push(Rc::new(Data::Symbol(state.start_of_current_lexeme.clone(), state.token.clone())));
+		state.stack.push(Rc::new(Sourcedata(state.start_of_current_lexeme.clone(), Coredata::Symbol(state.token.clone()))));
 		clear_token(state);
 	}
 }

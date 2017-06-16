@@ -8,73 +8,35 @@ use num::rational::BigRational;
 use num::Complex;
 use num::FromPrimitive;
 
-use data_structures::{Commands, Data, Env, Source};
+use data_structures::{Commands, Data, Env, Source, Program, Sourcedata,
+                      Coredata};
 
-fn collect_arguments_data(mut args: Rc<Data>) -> Vec<Rc<Data>> {
-	let mut arguments = Vec::with_capacity(3);
-	loop {
-		if let &Data::Pair(_, ref head, ref tail) = &*args.clone() {
-			arguments.push(head.clone());
-			args = tail.clone();
-		} else {
-			break;
-		}
-	}
-	arguments
-}
-
-fn collect_arguments(mut args: Rc<Data>) -> Vec<String> {
-	let mut arguments = Vec::with_capacity(3);
-	loop {
-		if let &Data::Pair(_, ref head, ref tail) = &*args.clone() {
-			if let &Data::Symbol(_, ref string) = &**head {
-				arguments.push(string.clone());
-				args = tail.clone();
-			} else {
-				break;
-			}
-		} else {
-			break;
-		}
-	}
-	arguments
-}
-
-macro_rules! create_commands {
-	($($i:expr => $t:tt),*; $($i2:ident => $t2:tt),*) => {
-		[
-			$(($i.into(), vec![Rc::new(Data::Internal(Source::default(), Commands::$t))])),*,
-			$((stringify!($i2).into(), vec![Rc::new(Data::Internal(Source::default(), Commands::$t2))])),*
-		]
-	};
-}
-
-pub fn interpret(program: Vec<Rc<Data>>) {
+pub fn interpret(program: Program) {
 	let env = Env {
-		content: [].iter().cloned().collect(),
+		content:      [].iter().cloned().collect(),
 		call_stack:   Vec::with_capacity(VEC_CAPACITY),
 		params:       Vec::with_capacity(VEC_CAPACITY),
-		return_value: Rc::new(Data::Null(Source::default())),
+		return_value: Rc::new(Sourcedata(Source::default(), Coredata::Null)),
 	};
 	eval(program, env);
 }
 
-fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
+fn eval(mut program: Program, mut env: Env) {
 	program.reverse();
-	println!["program: {:#?}\nenv: {:#?}", program, env];
 	while let Some(top) = program.pop() {
+		// top is of type Rc<Sourcedata>
 		match &*top {
-			&Data::Pair(ref source, ref head, ref tail) => {
-				program.push(Rc::new(Data::Internal(tail.get_source(), Commands::Prepare(tail.clone()))));
+			&Sourcedata(ref source, Coredata::Pair(ref head, ref tail)) => {
+				program.push(Rc::new(Sourcedata(tail.0.clone(), Coredata::Internal(Commands::Prepare(tail.clone())))));
 				program.push(head.clone());
 			},
-			&Data::Internal(_, Commands::Prepare(ref data)) => {
+			&Sourcedata(ref source, Coredata::Internal(Commands::Prepare(ref data))) => {
 			},
-			&Data::Internal(_, Commands::Call) => {
+			&Sourcedata(ref source, Coredata::Internal(Commands::Call)) => {
 			},
-			&Data::Symbol(ref source, ref string) => {
+			&Sourcedata(ref source, Coredata::Symbol(ref string)) => {
 				if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
-					env.return_value = Rc::new(Data::Integer(source.clone(), number));
+					env.return_value = Rc::new(Sourcedata(source.clone(), Coredata::Integer(number)));
 				} else {
 					env.return_value = env.content.get(string).unwrap().last().unwrap().clone();
 				}
@@ -83,9 +45,7 @@ fn eval(mut program: Vec<Rc<Data>>, mut env: Env) {
 				env.return_value = top.clone();
 			},
 		}
-		println!["program: {:#?}\nenv: {:#?}", program, env];
 	}
-	println!["final env: {:#?}", env];
 }
 
 #[cfg(test)]
