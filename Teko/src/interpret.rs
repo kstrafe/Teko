@@ -8,7 +8,7 @@ use num::rational::BigRational;
 use num::Complex;
 use num::FromPrimitive;
 
-use data_structures::{Commands, Data, Env, Source, Program, Sourcedata,
+use data_structures::{Commands, Env, Source, Program, Sourcedata,
                       Coredata};
 
 pub fn interpret(program: Program) {
@@ -24,7 +24,6 @@ pub fn interpret(program: Program) {
 fn eval(mut program: Program, mut env: Env) {
 	program.reverse();
 	while let Some(top) = program.pop() {
-		// top is of type Rc<Sourcedata>
 		match &*top {
 			&Sourcedata(ref source, Coredata::Pair(ref head, ref tail)) => {
 				program.push(Rc::new(Sourcedata(tail.0.clone(), Coredata::Internal(Commands::Prepare(tail.clone())))));

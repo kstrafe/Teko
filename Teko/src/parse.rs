@@ -3,7 +3,7 @@ use std::io::Read;
 use std::rc::Rc;
 use super::VEC_CAPACITY;
 
-use data_structures::{Commands, Coredata, Data, ParseState,
+use data_structures::{Commands, Coredata, ParseState,
                       Program, Source, Sourcedata};
 
 ////////////////////////////////////////////////////////////

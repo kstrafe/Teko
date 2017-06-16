@@ -39,20 +39,6 @@ pub enum Coredata {
 }
 
 #[derive(Clone)]
-pub enum Data {
-	Complex  (Source, Complex<BigRational>),
-	Function (Source, Vec<String>, Rc<Data>),
-	Integer  (Source, BigInt),
-	Internal (Source, Commands),
-	Macro    (Source, String, Rc<Data>),
-	Null     (Source),
-	Pair     (Source, Rc<Data>, Rc<Data>),
-	Rational (Source, BigRational),
-	String   (Source, String),
-	Symbol   (Source, String),
-}
-
-#[derive(Clone)]
 pub struct Env {
 	pub content:      HashMap<String, Program>,
 	pub call_stack:   Vec<Rc<Sourcedata>>,
