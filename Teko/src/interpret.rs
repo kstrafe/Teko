@@ -51,19 +51,7 @@ macro_rules! create_commands {
 
 pub fn interpret(program: Vec<Rc<Data>>) {
 	let env = Env {
-		content: create_commands! {
-							"+" => Plus,
-							"-" => Minus,
-							"*" => Multiply,
-							"/" => Divide,
-							"^" => Power,
-							"%" => Modulo
-							;
-							def => Define,
-							set => Set,
-							unw => Unwind,
-							win => Wind
-						}.iter().cloned().collect(),
+		content: [].iter().cloned().collect(),
 		call_stack:   Vec::with_capacity(VEC_CAPACITY),
 		params:       Vec::with_capacity(VEC_CAPACITY),
 		return_value: Rc::new(Data::Null(Source::default())),

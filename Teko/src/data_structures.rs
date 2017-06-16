@@ -7,53 +7,35 @@ use num::Complex;
 /// Primitive forms
 #[derive(Clone, Debug)]
 pub enum Commands {
-	Refine,
-
-	/// Used on the execution stack to map the `String` to the return value.
-	/// The specification defines it as `env.String := Return`.
-	/// A variable can only be defined once, this means that `Define("x") Define("x")`
-	/// would unwind with an error message.
-	Define,
-
-	/// Used on the execution stack to set `env.String = Return`. Since `env.String` is
-	/// a list, only the top element is changed.
-	Set,
-
-	/// Uses `Return` to decide which of the `Rc<Data>` values to interpret. If `Return` is
-	/// `Data::Null` then the second `Rc<Data>` will be run, otherwise the first one will be
-	/// run.
-	If(Rc<Data>, Rc<Data>),
-
-	/// Builtin functions
-	Plus, Minus, Multiply, Divide, Power, Modulo,
-
-	/// Perform an actual function or macro call, binding the values in `Env::params` to the
-	/// parameter list in the top of `Env::call_stack`, and then calling the function.
 	Call,
-
-	/// Consider the top of `Env::call_stack` and decide whether the arguments in `Rc<Data>`
-	/// need evaluation or not. If the top of `Env::call_stack` is a function, then all arguments
-	/// must be evaluated before the function is called. Else - if the top of `Env::call_stack`
-	/// is a macro, then the macro is simply called without evaluating `Rc<Data>`.
 	Prepare(Rc<Data>),
-
-	/// Push Return `Env::return_value` onto the function call list `Env::call_stack`.
-	Pushcall,                    // Push Return onto the environment's call stack
-
-	/// Push Return `Env::return_value` onto the function parameter list `Env::params`.
+	Pushcall,
 	Parameterize,
-
-	/// Unwind the stack, skipping all operations, until the first `Wind` is encountered.
-	/// Execution continues from there.
+	Deparameterize(Vec<String>),
 	Unwind,
-
-	/// Used to mark the execution stack with a restore-point to which
-	/// an `Unwind` will fall to.
 	Wind,
-
-	/// Used in the parser to denote left parentheses.
 	Empty,
+}
 
+type Statement = Rc<Sourcedata>;
+type Program   = Vec<Statement>;
+type Transfer  = fn(top:     &Statement,
+                    program: &mut Program,
+                    env:     &mut Env);
+pub enum Function { Builtin(Transfer), Library(Vec<String>, Statement) }
+pub enum Macro { Builtin(Transfer), Library(String, Statement) }
+pub struct Sourcedata(Source, Coredata);
+pub enum Coredata {
+	Complex  (Complex<BigRational>),
+	Function (Function),
+	Integer  (BigInt),
+	Internal (Commands),
+	Macro    (Macro),
+	Null     ,
+	Pair     (Rc<Sourcedata>, Rc<Sourcedata>),
+	Rational (BigRational),
+	String   (String),
+	Symbol   (String),
 }
 
 #[derive(Clone, Debug)]
