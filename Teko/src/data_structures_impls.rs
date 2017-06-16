@@ -13,60 +13,60 @@ impl fmt::Display for Sourcedata {
 		use data_structures::Commands::*;
 		match self.1 {
 			Complex  (ref arg) => {
-				writeln![f, "{}", line!()]
+				write![f, "{}", line!()]
 			},
 			Function (ref arg) => {
-				writeln![f, "{}", line!()]
+				write![f, "{}", line!()]
 			},
 			Integer  (ref arg) => {
-				writeln![f, "{}", line!()]
+				write![f, "{}", line!()]
 			},
 			Internal (ref arg) => {
-				writeln![f, "{}", line!()]?;
+				write![f, "{}-", line!()]?;
 				match *arg {
 					Call => {
-						writeln![f, "{}", line!()]
+						write![f, "{}", line!()]
 					},
 					Prepare(ref arg) => {
-						writeln![f, "{}", line!()]
+						write![f, "{}", line!()]
 					},
 					Pushcall => {
-						writeln![f, "{}", line!()]
+						write![f, "{}", line!()]
 					},
 					Parameterize => {
-						writeln![f, "{}", line!()]
+						write![f, "{}", line!()]
 					},
 					Deparameterize(ref arg) => {
-						writeln![f, "{}", line!()]
+						write![f, "{}", line!()]
 					},
 					Unwind => {
-						writeln![f, "{}", line!()]
+						write![f, "{}", line!()]
 					},
 					Wind => {
-						writeln![f, "{}", line!()]
+						write![f, "{}", line!()]
 					},
 					Empty => {
-						writeln![f, "{}", line!()]
+						write![f, "{}", line!()]
 					},
 				}
 			},
 			Macro    (ref arg) => {
-				writeln![f, "{}", line!()]
+				write![f, "{}", line!()]
 			},
 			Null      => {
-				writeln![f, "{}", line!()]
+				write![f, "{}", line!()]
 			},
 			Pair     (ref arg, ref arg2) => {
-				writeln![f, "{}", line!()]
+				write![f, "{}", line!()]
 			},
 			Rational (ref arg) => {
-				writeln![f, "{}", line!()]
+				write![f, "{}", line!()]
 			},
 			String   (ref arg) => {
-				writeln![f, "{}", line!()]
+				write![f, "{}", line!()]
 			},
 			Symbol   (ref arg) => {
-				writeln![f, "{}", line!()]
+				write![f, "{}", line!()]
 			},
 		}
 	}
