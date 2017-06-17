@@ -7,6 +7,30 @@ use num::Complex;
 use data_structures::{Commands, Coredata, Env, ParseState, Source, Sourcedata};
 use super::VEC_CAPACITY;
 
+/* Implementor's checklist:
+
+✓ Core expansion, parameterizations, and preparation
+✓ Builtin Function calls
+✓ Builtin Macro calls
+✓ Tail call optimization
+✓ If branching
+✓ Integer parsing
+  Rational parsing + promotion
+  Complex parsing + promotion
+  <, >, =, <=, >=, != number comparison
+  Boolean not, and, or
+✓ head/tail/pair
+✓ wind/unwind
+✓ ' quote
+  ` quasiquote
+  " strings
+  Macroize the initial environment (to clean up code)
+  Test different TCO strategies (HashSet, sorted Vec,..)
+  Implement powers for numbers
+  Replace all panics with unwinds
+
+*/
+
 impl fmt::Display for Sourcedata {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		use data_structures::Coredata::*;
@@ -34,6 +58,9 @@ impl fmt::Display for Sourcedata {
 						write![f, "{}", line!()]
 					},
 					Deparameterize(ref arg) => {
+						write![f, "{}", line!()]
+					},
+					If(..) => {
 						write![f, "{}", line!()]
 					},
 					Unwind => {

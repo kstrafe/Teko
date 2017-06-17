@@ -9,6 +9,7 @@ pub enum Commands {
 	Prepare(Statement),
 	Parameterize,
 	Deparameterize(Vec<String>),
+	If(Statement, Statement),
 	Unwind,
 	Wind,
 	Evaluate,

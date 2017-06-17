@@ -42,6 +42,69 @@ fn deparameterize(program: &mut Program,
 	}
 }
 
+fn quote(top:     &Statement,
+         program: &mut Program,
+         env:     &mut Env) {
+	println!["Created quoted list"];
+}
+
+fn wind(top:     &Statement,
+        program: &mut Program,
+        env:     &mut Env) {
+	println!["Wind macro"];
+	let args = env.result.clone();
+	let code = collect_pair_into_vec(&args);
+	program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Wind))));
+	program.extend(code.iter().cloned());
+}
+
+fn unwind(top:     &Statement,
+          program: &mut Program,
+          env:     &mut Env) {
+	println!["Unwind macro"];
+	let args = env.result.clone();
+	let code = collect_pair_into_vec(&args);
+	program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Unwind))));
+	program.extend(code.iter().cloned());
+}
+
+fn head(top:     &Statement,
+        program: &mut Program,
+        env:     &mut Env) {
+	let args = env.params.last().expect("Should exist by virtue of functions");
+	if args.len() != 1 {
+		panic!("should have only a single arg");
+	} else {
+		env.result = args.first().unwrap().head().clone();
+	}
+	println!["Took head"];
+}
+
+fn tail(top:     &Statement,
+        program: &mut Program,
+        env:     &mut Env) {
+	let args = env.params.last().expect("Should exist by virtue of functions");
+	if args.len() != 1 {
+		panic!("should have only a single arg");
+	} else {
+		env.result = args.first().unwrap().tail().clone();
+	}
+	println!["Took tail"];
+}
+
+fn pair(top:     &Statement,
+        program: &mut Program,
+        env:     &mut Env) {
+	let args = env.params.last().expect("Should exist by virtue of functions");
+	if args.len() != 2 {
+		panic!("should have two args");
+	} else {
+		env.result = Rc::new(Sourcedata(Source::default(), Coredata::Pair(args.first().unwrap().clone(),
+		                                                                  args.get(1).unwrap().clone())));
+	}
+	println!["Took tail"];
+}
+
 fn make_macro(top:     &Statement,
               program: &mut Program,
               env:     &mut Env) {
@@ -55,7 +118,6 @@ fn make_macro(top:     &Statement,
 		},
 	};
 	let mut code = collect_pair_into_vec(&args.tail());
-	code.reverse();
 	env.result = Rc::new(Sourcedata(Source::default(), Coredata::Macro(Macro::Library(params, code))));
 	println!["Created macro object"];
 }
@@ -66,7 +128,6 @@ fn function(top:     &Statement,
 	let args = env.result.clone();
 	let params = collect_pair_into_vec_string(&args.head());
 	let mut code = collect_pair_into_vec(&args.tail());
-	code.reverse();
 	env.result = Rc::new(Sourcedata(Source::default(), Coredata::Function(Function::Library(params, code))));
 	println!["Created function object"];
 }
@@ -108,6 +169,15 @@ fn define(top:     &Statement,
 	env.params.push(vec!());
 }
 
+fn if_conditional(top:     &Statement,
+                  program: &mut Program,
+                  env:     &mut Env) {
+	println!["Inside if"];
+	let arguments = env.result.clone();
+	program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::If(arguments.tail().head(), arguments.tail().tail().head())))));
+	program.push(arguments.head());
+}
+
 fn define_internal(top:     &Statement,
                    program: &mut Program,
                    env:     &mut Env) {
@@ -132,6 +202,7 @@ fn sleep(top:     &Statement,
          env:     &mut Env) {
 	use std::{thread, time};
 	use num::ToPrimitive;
+	println!["Sleep func"];
 	let arguments = env.params.last().expect("The state machine should ensure this exists").first().expect("Srs guys");
 	match arguments.1 {
 		Coredata::Integer(ref value) => {
@@ -311,6 +382,7 @@ fn collect_pair_into_vec_string(data: &Rc<Sourcedata>) -> Vec<String> {
 			},
 		}
 	}
+	ret.reverse();
 	ret
 }
 
@@ -325,6 +397,7 @@ fn collect_pair_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
 			break;
 		}
 	}
+	to_return.reverse();
 	to_return
 }
 
@@ -338,12 +411,26 @@ pub fn interpret(program: Program) {
 		                                              Coredata::Function(Function::Builtin(multiply))))]),
 		         ("/".into(), vec![Rc::new(Sourcedata(Source::default(),
 		                                              Coredata::Function(Function::Builtin(divide))))]),
+		         ("head".into(), vec![Rc::new(Sourcedata(Source::default(),
+		                                                 Coredata::Function(Function::Builtin(head))))]),
+		         ("tail".into(), vec![Rc::new(Sourcedata(Source::default(),
+		                                                 Coredata::Function(Function::Builtin(tail))))]),
+		         ("pair".into(), vec![Rc::new(Sourcedata(Source::default(),
+		                                                 Coredata::Function(Function::Builtin(pair))))]),
 		         ("sleep".into(), vec![Rc::new(Sourcedata(Source::default(),
 		                                                  Coredata::Function(Function::Builtin(sleep))))]),
 		         ("define".into(), vec![Rc::new(Sourcedata(Source::default(),
 		                                                   Coredata::Macro(Macro::Builtin(define))))]),
+		         ("'".into(), vec![Rc::new(Sourcedata(Source::default(),
+		                                              Coredata::Macro(Macro::Builtin(quote))))]),
+		         ("if".into(), vec![Rc::new(Sourcedata(Source::default(),
+		                                               Coredata::Macro(Macro::Builtin(if_conditional))))]),
 		         ("set!".into(), vec![Rc::new(Sourcedata(Source::default(),
 		                                                 Coredata::Macro(Macro::Builtin(set))))]),
+		         ("wind".into(), vec![Rc::new(Sourcedata(Source::default(),
+		                                                 Coredata::Macro(Macro::Builtin(wind))))]),
+		         ("unwind".into(), vec![Rc::new(Sourcedata(Source::default(),
+		                                                   Coredata::Macro(Macro::Builtin(unwind))))]),
 		         ("mo".into(), vec![Rc::new(Sourcedata(Source::default(),
 		                                               Coredata::Macro(Macro::Builtin(make_macro))))]),
 		         ("fn".into(), vec![Rc::new(Sourcedata(Source::default(),
@@ -371,6 +458,28 @@ fn eval(mut program: Program, mut env: Env) {
 				program.push(Rc::new(Sourcedata(tail.0.clone(), Coredata::Internal(Commands::Prepare(tail.clone())))));
 				program.push(head.clone());
 			},
+			&Sourcedata(_, Coredata::Internal(Commands::Wind)) => {
+			},
+			&Sourcedata(_, Coredata::Internal(Commands::Unwind)) => {
+				while let Some(top) = program.pop() {
+					match top.1 {
+						Coredata::Internal(Commands::Deparameterize(ref arguments)) => {
+							for arg in arguments {
+								print!["{}, ", arg];
+								env.store.get_mut(arg).expect("Should exist in the argument store!").pop();
+								if env.store.get(arg).unwrap().is_empty() {
+									env.store.remove(arg);
+								}
+							}
+						},
+						Coredata::Internal(Commands::Wind) => {
+							break;
+						},
+						_ => {
+						},
+					}
+				}
+			},
 			&Sourcedata(_, Coredata::Internal(Commands::Parameterize)) => {
 				println!["Parameterize"];
 				// TODO Unwrap in case of parameter failure
@@ -383,7 +492,7 @@ fn eval(mut program: Program, mut env: Env) {
 						env.params.push(vec![]);
 						program.push(Rc::new(Sourcedata(env.result.0.clone(), Coredata::Internal(Commands::Call(env.result.clone())))));
 						// TODO see if this can be unrolled and made faster
-						for argument in collect_pair_into_vec(arguments).iter().rev() {
+						for argument in collect_pair_into_vec(arguments).iter() {
 							push!(Parameterize);
 							program.push(argument.clone());
 						}
@@ -439,6 +548,13 @@ fn eval(mut program: Program, mut env: Env) {
 					_ => {
 						panic!("unknown transfer function");
 					},
+				}
+			},
+			&Sourcedata(ref source, Coredata::Internal(Commands::If(ref first, ref second))) => {
+				if let Coredata::Null = env.result.1 {
+					program.push(second.clone());
+				} else {
+					program.push(first.clone());
 				}
 			},
 			&Sourcedata(ref source, Coredata::Internal(Commands::Deparameterize(ref arguments))) => {

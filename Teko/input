@@ -2,7 +2,17 @@
 (k)
 (define x (fn (qi tu zhe) (- zhe)))
 (x 8 30 (k))
-(sleep 3000)
+(sleep 300)
 (define qe (fn (b) (sleep 400) (ok b)))
 (define ok (fn (a) (sleep 300) (qe a)))
-(ok 1)
+
+(define something (fn () if))
+(+ ((something) () 0 2))
+
+((mo a (if (' cool) (' + 1 2) (' + 1 2 3))))
+
+(+ ((mo _ (head (tail (' 1 2 3))))))
+
+(+ (head (pair 1 ())))
+
+(+ (wind (+ 1) ((fn () (unwind 2))) (+ 3) (sleep 10000)))
