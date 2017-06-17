@@ -10,13 +10,12 @@ pub enum Commands {
 	Parameterize,
 	Deparameterize(Vec<String>),
 	If(Statement, Statement),
-	Unwind,
 	Wind,
 	Evaluate,
 	Empty,
 }
 
-pub struct Sourcedata(pub Source, pub Coredata);
+pub struct Sourcedata(pub Option<Source>, pub Coredata);
 
 pub type Statement = Rc<Sourcedata>;
 pub type Program   = Vec<Statement>;
@@ -27,6 +26,7 @@ pub enum Function { Builtin(Transfer), Library(Vec<String>, Program) }
 pub enum Macro { Builtin(Transfer), Library(String, Program) }
 pub enum Coredata {
 	Complex  (Complex<BigRational>),
+	Error    (Statement),
 	Function (Function),
 	Integer  (BigInt),
 	Internal (Commands),

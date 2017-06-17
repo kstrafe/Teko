@@ -16,8 +16,13 @@ use data_structures::{Commands, Env, Source, Program, Sourcedata,
 /// Macro::Library types are called by binding input to the macro's input variable.
 /// Function::Builtin types are called with env.params containing evaluated parameters.
 /// Function::Library types are called with env.params containing evaluated parameters, bound to parameters.
-fn deparameterize(program: &mut Program,
-                  params:  &Vec<String>) -> Vec<String> {
+
+/// Optimizes tail calls by seeing if the current `params` can be merged with the top of the stack.
+///
+/// If the top of the stack contains `Commands::Deparameterize`, then the variables to be popped
+/// are merged into that [top] object. This is all that's needed to optimize tail calls.
+fn optimize_tail_call(program: &mut Program,
+                      params:  &Vec<String>) -> Vec<String> {
 	if let Some(top) = program.pop() {
 		let mut to_add = vec![];
 		match top.1 {
@@ -42,10 +47,26 @@ fn deparameterize(program: &mut Program,
 	}
 }
 
+/// Quote elements
+///
+/// A builtin macro always stores the tail of the invocation inside `env.result`, so this macro is
+/// empty; it doesn't need to do anything.
 fn quote(top:     &Statement,
          program: &mut Program,
          env:     &mut Env) {
 	println!["Created quoted list"];
+}
+
+/// Create a string
+///
+/// Creates a string from the given symbols by inserting single spaces inbetween each symbol.
+/// TODO: Allow subexpressions; implement string interpolation and non-printable character insertion.
+fn string(top:     &Statement,
+          program: &mut Program,
+          env:     &mut Env) {
+	let vec = collect_pair_into_vec_string(&env.result);
+	env.result = Rc::new(Sourcedata(None, Coredata::String(vec.join(" "))));
+	println!["Created string"];
 }
 
 fn wind(top:     &Statement,
@@ -54,7 +75,7 @@ fn wind(top:     &Statement,
 	println!["Wind macro"];
 	let args = env.result.clone();
 	let code = collect_pair_into_vec(&args);
-	program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Wind))));
+	program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Wind))));
 	program.extend(code.iter().cloned());
 }
 
@@ -62,11 +83,64 @@ fn unwind(top:     &Statement,
           program: &mut Program,
           env:     &mut Env) {
 	println!["Unwind macro"];
-	let args = env.result.clone();
-	let code = collect_pair_into_vec(&args);
-	program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Unwind))));
-	program.extend(code.iter().cloned());
+	env.result = env.params.last().unwrap().last().unwrap().clone();
+	while let Some(top) = program.pop() {
+		match top.1 {
+			Coredata::Internal(Commands::Deparameterize(ref arguments)) => {
+				pop_parameters(&top, program, env, arguments);
+			},
+			Coredata::Internal(Commands::Call(..)) => {
+				env.params.pop();
+			},
+			Coredata::Internal(Commands::Wind) => {
+				break;
+			},
+			_ => {
+			},
+		}
+	}
 }
+
+fn make_unwind() -> Statement {
+	Rc::new(Sourcedata(None, Coredata::Internal(Commands::Call(Rc::new(Sourcedata(None, Coredata::Function(Function::Builtin(unwind))))))))
+}
+
+fn error(top:     &Statement,
+         program: &mut Program,
+         env:     &mut Env) {
+	if let Some(args) = env.params.last() {
+		if args.len() >= 2 {
+			env.result = Rc::new(Sourcedata(None, Coredata::Error(Rc::new(Sourcedata(None, Coredata::String("Arity mismatch; Too many arguments to error".into()))))));
+			program.push(make_unwind());
+		} else {
+			if let Some(arg) = args.first() {
+				env.result = Rc::new(Sourcedata(None, Coredata::Error(arg.clone())));
+			} else {
+				env.result = Rc::new(Sourcedata(None, Coredata::Error(Rc::new(Sourcedata(None, Coredata::Null)))));
+			}
+		}
+	} else {
+		panic!["The parameter list does not contain a list; this is an internal error that should not happen"];
+	}
+}
+
+fn not(top:     &Statement,
+       program: &mut Program,
+       env:     &mut Env) {
+	let args = env.params.last().expect("Should exist by virtue of functions");
+	if args.len() != 1 {
+		program.push(make_unwind());
+		println!["Should have a single arg"];
+	} else {
+		if let Coredata::Null = args.first().unwrap().1 {
+			env.result = Rc::new(Sourcedata(None, Coredata::Symbol("true".into())));
+		} else {
+			env.result = Rc::new(Sourcedata(None, Coredata::Null));
+		}
+	}
+	println!["Took head"];
+}
+
 
 fn head(top:     &Statement,
         program: &mut Program,
@@ -99,7 +173,7 @@ fn pair(top:     &Statement,
 	if args.len() != 2 {
 		panic!("should have two args");
 	} else {
-		env.result = Rc::new(Sourcedata(Source::default(), Coredata::Pair(args.first().unwrap().clone(),
+		env.result = Rc::new(Sourcedata(None, Coredata::Pair(args.first().unwrap().clone(),
 		                                                                  args.get(1).unwrap().clone())));
 	}
 	println!["Took tail"];
@@ -118,7 +192,7 @@ fn make_macro(top:     &Statement,
 		},
 	};
 	let mut code = collect_pair_into_vec(&args.tail());
-	env.result = Rc::new(Sourcedata(Source::default(), Coredata::Macro(Macro::Library(params, code))));
+	env.result = Rc::new(Sourcedata(None, Coredata::Macro(Macro::Library(params, code))));
 	println!["Created macro object"];
 }
 
@@ -128,7 +202,7 @@ fn function(top:     &Statement,
 	let args = env.result.clone();
 	let params = collect_pair_into_vec_string(&args.head());
 	let mut code = collect_pair_into_vec(&args.tail());
-	env.result = Rc::new(Sourcedata(Source::default(), Coredata::Function(Function::Library(params, code))));
+	env.result = Rc::new(Sourcedata(None, Coredata::Function(Function::Library(params, code))));
 	println!["Created function object"];
 }
 
@@ -144,10 +218,10 @@ fn define(top:     &Statement,
 	println!["Inside define"];
 	{
 		let arguments = env.result.clone();
-		program.push(Rc::new(Sourcedata(Source::default(),
-		                                Coredata::Internal(Commands::Call(Rc::new(Sourcedata(Source::default(),
+		program.push(Rc::new(Sourcedata(None,
+		                                Coredata::Internal(Commands::Call(Rc::new(Sourcedata(None,
 		                                                                                     Coredata::Function(Function::Builtin(define_internal)))))))));
-		program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Parameterize))));
+		program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Parameterize))));
 		match arguments.tail().1 {
 			Coredata::Pair(ref heado, _) => {
 				program.push(heado.clone());
@@ -156,10 +230,10 @@ fn define(top:     &Statement,
 				panic!{"it cant be"};
 			}
 		}
-		program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Parameterize))));
+		program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Parameterize))));
 		match arguments.head().1 {
 			Coredata::Symbol(ref string) => {
-				program.push(Rc::new(Sourcedata(Source::default(), Coredata::String(string.clone()))));
+				program.push(Rc::new(Sourcedata(None, Coredata::String(string.clone()))));
 			},
 			_ => {
 				panic!("Define did not get a symbol!");
@@ -174,7 +248,7 @@ fn if_conditional(top:     &Statement,
                   env:     &mut Env) {
 	println!["Inside if"];
 	let arguments = env.result.clone();
-	program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::If(arguments.tail().head(), arguments.tail().tail().head())))));
+	program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::If(arguments.tail().head(), arguments.tail().tail().head())))));
 	program.push(arguments.head());
 }
 
@@ -236,7 +310,7 @@ fn plus(top:     &Statement,
 		}
 	}
 	println!["plus: {}", sum];
-	env.result = Rc::new(Sourcedata(Source::default(), Coredata::Integer(sum)));
+	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
 fn minus(top:     &Statement,
@@ -288,7 +362,7 @@ fn minus(top:     &Statement,
 		}
 	}
 	println!["minus: {}", sum];
-	env.result = Rc::new(Sourcedata(Source::default(), Coredata::Integer(sum)));
+	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
 fn multiply(top:     &Statement,
@@ -313,7 +387,7 @@ fn multiply(top:     &Statement,
 		}
 	}
 	println!["plus: {}", sum];
-	env.result = Rc::new(Sourcedata(Source::default(), Coredata::Integer(sum)));
+	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
 fn divide(top:     &Statement,
@@ -366,7 +440,7 @@ fn divide(top:     &Statement,
 		unimplemented!();
 	}
 	println!["plus: {}", sum];
-	env.result = Rc::new(Sourcedata(Source::default(), Coredata::Integer(sum)));
+	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
 fn collect_pair_into_vec_string(data: &Rc<Sourcedata>) -> Vec<String> {
@@ -401,42 +475,58 @@ fn collect_pair_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
 	to_return
 }
 
+fn pop_parameters(top:     &Statement,
+                  program: &mut Program,
+                  env:     &mut Env,
+                  args:    &Vec<String>) {
+	for arg in args {
+		print!["{}, ", arg];
+		env.store.get_mut(arg).expect("Should exist in the argument store!").pop();
+		if env.store.get(arg).unwrap().is_empty() {
+			env.store.remove(arg);
+		}
+	}
+}
+
+macro_rules! construct_builtins {
+	($($t:tt : $e:expr => $i:ident),*,) => {
+		construct_builtins![$($t : $e => $i),*]
+	};
+	($($t:tt : $e:expr => $i:ident),*) => {
+		[
+			$(
+				($e.into(), vec![Rc::new(Sourcedata(None, Coredata::$t($t::Builtin($i))))])
+			),*
+		].iter().cloned().collect()
+	};
+}
+
 pub fn interpret(program: Program) {
 	let env = Env {
-		store:  [("+".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                              Coredata::Function(Function::Builtin(plus))))]),
-		         ("-".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                              Coredata::Function(Function::Builtin(minus))))]),
-		         ("*".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                              Coredata::Function(Function::Builtin(multiply))))]),
-		         ("/".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                              Coredata::Function(Function::Builtin(divide))))]),
-		         ("head".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                                 Coredata::Function(Function::Builtin(head))))]),
-		         ("tail".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                                 Coredata::Function(Function::Builtin(tail))))]),
-		         ("pair".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                                 Coredata::Function(Function::Builtin(pair))))]),
-		         ("sleep".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                                  Coredata::Function(Function::Builtin(sleep))))]),
-		         ("define".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                                   Coredata::Macro(Macro::Builtin(define))))]),
-		         ("'".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                              Coredata::Macro(Macro::Builtin(quote))))]),
-		         ("if".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                               Coredata::Macro(Macro::Builtin(if_conditional))))]),
-		         ("set!".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                                 Coredata::Macro(Macro::Builtin(set))))]),
-		         ("wind".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                                 Coredata::Macro(Macro::Builtin(wind))))]),
-		         ("unwind".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                                   Coredata::Macro(Macro::Builtin(unwind))))]),
-		         ("mo".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                               Coredata::Macro(Macro::Builtin(make_macro))))]),
-		         ("fn".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                               Coredata::Macro(Macro::Builtin(function))))])].iter().cloned().collect(),
+		store: construct_builtins! {
+			// TODO: could be made even shorter by creating one space for functions and another for macros, or too much context to be readable?
+			Function : "+" => plus,
+			Function : "-" => minus,
+			Function : "*" => multiply,
+			Function : "/" => divide,
+			Function : "not" => not,
+			Function : "error" => error,
+			Function : "head" => head,
+			Function : "tail" => tail,
+			Function : "pair" => pair,
+			Function : "sleep" => sleep,
+			Function : "unwind" => unwind,
+			Macro : "'" => quote,
+			Macro : "\"" => string,
+			Macro : "if" => if_conditional,
+			Macro : "set!" => set,
+			Macro : "wind" => wind,
+			Macro : "define" => define,
+			Macro : "fn" => function,
+			Macro : "mo" => make_macro,
+		},
 		params: Vec::with_capacity(VEC_CAPACITY),
-		result: Rc::new(Sourcedata(Source::default(), Coredata::Null)),
+		result: Rc::new(Sourcedata(None, Coredata::Null)),
 	};
 	eval(program, env);
 }
@@ -447,38 +537,18 @@ pub fn interpret(program: Program) {
 /// is stored in `env.result`.
 fn eval(mut program: Program, mut env: Env) {
 	program.reverse(); // TODO: Do this in the parser instead, doesn't fit in here.
-	macro_rules! push { ($t:tt) => { program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::$t)))); }; }
+	macro_rules! push { ($t:tt) => { program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::$t)))); }; }
 	while let Some(top) = program.pop() {
 		println!["PROGRAM LENGTH: {}", program.len()];
 		println!["{}", top];
 		match &*top {
 			&Sourcedata(ref source, Coredata::Pair(ref head, ref tail)) => {
 				println!["Expanding"];
-				// TODO Use Option<Source> instead, since here we're not interested in the source of an Internal
 				program.push(Rc::new(Sourcedata(tail.0.clone(), Coredata::Internal(Commands::Prepare(tail.clone())))));
 				program.push(head.clone());
 			},
 			&Sourcedata(_, Coredata::Internal(Commands::Wind)) => {
-			},
-			&Sourcedata(_, Coredata::Internal(Commands::Unwind)) => {
-				while let Some(top) = program.pop() {
-					match top.1 {
-						Coredata::Internal(Commands::Deparameterize(ref arguments)) => {
-							for arg in arguments {
-								print!["{}, ", arg];
-								env.store.get_mut(arg).expect("Should exist in the argument store!").pop();
-								if env.store.get(arg).unwrap().is_empty() {
-									env.store.remove(arg);
-								}
-							}
-						},
-						Coredata::Internal(Commands::Wind) => {
-							break;
-						},
-						_ => {
-						},
-					}
-				}
+				// Do nothing
 			},
 			&Sourcedata(_, Coredata::Internal(Commands::Parameterize)) => {
 				println!["Parameterize"];
@@ -508,8 +578,8 @@ fn eval(mut program: Program, mut env: Env) {
 						} else {
 							env.store.insert(bound.clone(), vec![arguments.clone()]);
 						}
-						program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Evaluate))));
-						let next = Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Deparameterize(deparameterize(&mut program, &vec![bound.clone()])))));
+						program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Evaluate))));
+						let next = Rc::new(Sourcedata(None, Coredata::Internal(Commands::Deparameterize(optimize_tail_call(&mut program, &vec![bound.clone()])))));
 						program.push(next);
 						program.extend(code.iter().cloned());
 					},
@@ -537,12 +607,13 @@ fn eval(mut program: Program, mut env: Env) {
 							} else {
 								env.store.insert(arg.clone(), vec![env.params.last().unwrap()[counter].clone()]);
 							}
+							// TODO Don't do this. It's dangerous: panics easily
 							counter += 1;
 						}
 						env.params.pop();
-						let next = Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Deparameterize(deparameterize(&mut program, arguments)))));
+						let next = Rc::new(Sourcedata(None, Coredata::Internal(Commands::Deparameterize(optimize_tail_call(&mut program, arguments)))));
 						program.push(next);
-						// program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Deparameterize(arguments.clone())))));
+						// program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Deparameterize(arguments.clone())))));
 						program.extend(transfer.iter().cloned());
 					},
 					_ => {
@@ -559,14 +630,7 @@ fn eval(mut program: Program, mut env: Env) {
 			},
 			&Sourcedata(ref source, Coredata::Internal(Commands::Deparameterize(ref arguments))) => {
 				print!["Deparameterizing: "];
-				for arg in arguments {
-					print!["{}, ", arg];
-					env.store.get_mut(arg).expect("Should exist in the argument store!").pop();
-					if env.store.get(arg).unwrap().is_empty() {
-						env.store.remove(arg);
-					}
-				}
-				println![""];
+				pop_parameters(&top, &mut program, &mut env, arguments);
 			},
 			&Sourcedata(ref source, Coredata::Symbol(ref string)) => {
 				print!["Atom: "];

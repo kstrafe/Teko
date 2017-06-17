@@ -23,8 +23,10 @@ use super::VEC_CAPACITY;
 ✓ wind/unwind
 ✓ ' quote
   ` quasiquote
-  " strings
-  Macroize the initial environment (to clean up code)
+✓ " strings
+✓ Add the error creation function
+✓ Make Source data optional
+✓ Macroize the initial environment (to clean up code)
   Test different TCO strategies (HashSet, sorted Vec,..)
   Implement powers for numbers
   Replace all panics with unwinds
@@ -37,6 +39,9 @@ impl fmt::Display for Sourcedata {
 		use data_structures::Commands::*;
 		match self.1 {
 			Complex  (ref arg) => {
+				write![f, "{}", line!()]
+			},
+			Error (ref arg) => {
 				write![f, "{}", line!()]
 			},
 			Function (ref arg) => {
@@ -61,9 +66,6 @@ impl fmt::Display for Sourcedata {
 						write![f, "{}", line!()]
 					},
 					If(..) => {
-						write![f, "{}", line!()]
-					},
-					Unwind => {
 						write![f, "{}", line!()]
 					},
 					Wind => {
@@ -110,14 +112,14 @@ impl Sourcedata {
 		if let &Sourcedata(_, Coredata::Pair(ref head, _)) = self {
 			head.clone()
 		} else {
-			Rc::new(Sourcedata(Source::default(), Coredata::Null))
+			Rc::new(Sourcedata(None, Coredata::Null))
 		}
 	}
 	pub fn tail(&self) -> Rc<Sourcedata> {
 		if let &Sourcedata(_, Coredata::Pair(_, ref tail)) = self {
 			tail.clone()
 		} else {
-			Rc::new(Sourcedata(Source::default(), Coredata::Null))
+			Rc::new(Sourcedata(None, Coredata::Null))
 		}
 	}
 }

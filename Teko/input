@@ -15,4 +15,9 @@
 
 (+ (head (pair 1 ())))
 
-(+ (wind (+ 1) ((fn () (unwind 2))) (+ 3) (sleep 10000)))
+(+ 5 (wind (+ 1) (+ ((fn () (unwind 6 (+ 2 1) 6))) 8) (+ 3) (sleep 10000)))
+
+(define true (' true))
+(define false ())
+
+(+ (if (not true) 1 2))
