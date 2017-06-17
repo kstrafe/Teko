@@ -1,2 +1,4 @@
-(define k (fn () 30 31))
+(define k (fn () (+ 30 31)))
 (+ (k) 3)
+(define x (fn (qt pi) (- qt pi)))
+(x 8 (k))

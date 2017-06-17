@@ -16,6 +16,24 @@ use data_structures::{Commands, Env, Source, Program, Sourcedata,
 /// Macro::Library types are called by binding input to the macro's input variable.
 /// Function::Builtin types are called with env.params containing evaluated parameters.
 /// Function::Library types are called with env.params containing evaluated parameters, bound to parameters.
+fn make_macro(top:     &Statement,
+              program: &mut Program,
+              env:     &mut Env) {
+	let args = env.result.clone();
+	let params = match args.head().1 {
+		Coredata::Symbol(ref string) => {
+			string.clone()
+		},
+		_ => {
+			panic!("Wrong use of macro");
+		},
+	};
+	let mut code = collect_pair_into_vec(&args.tail());
+	code.reverse();
+	env.result = Rc::new(Sourcedata(Source::default(), Coredata::Macro(Macro::Library(params, code))));
+	println!["Created macro object"];
+}
+
 fn function(top:     &Statement,
             program: &mut Program,
             env:     &mut Env) {
@@ -25,6 +43,12 @@ fn function(top:     &Statement,
 	code.reverse();
 	env.result = Rc::new(Sourcedata(Source::default(), Coredata::Function(Function::Library(params, code))));
 	println!["Created function object"];
+}
+
+fn set(top:     &Statement,
+       program: &mut Program,
+       env:     &mut Env) {
+	unimplemented!();
 }
 
 fn define(top:     &Statement,
@@ -106,6 +130,7 @@ fn plus(top:     &Statement,
 fn minus(top:     &Statement,
          program: &mut Program,
          env:     &mut Env) {
+	println!["Length in minus: {}", env.params.last().unwrap().len()];
 	let arguments = env.params.last().expect("The state machine should ensure this exists");
 	let mut sum = 0.to_bigint().expect("Constant zero should always be parsed correctly");
 	if arguments.len() == 1 {
@@ -133,6 +158,7 @@ fn minus(top:     &Statement,
 					unimplemented![];
 				},
 				&Sourcedata(_, Coredata::Integer(ref integer)) => {
+					println!["Subtracting {}", integer];
 					if first {
 						sum = integer.clone();
 					} else {
@@ -273,6 +299,10 @@ pub fn interpret(program: Program) {
 		                                              Coredata::Function(Function::Builtin(divide))))]),
 		         ("define".into(), vec![Rc::new(Sourcedata(Source::default(),
 		                                                   Coredata::Macro(Macro::Builtin(define))))]),
+		         ("set!".into(), vec![Rc::new(Sourcedata(Source::default(),
+		                                                 Coredata::Macro(Macro::Builtin(set))))]),
+		         ("mo".into(), vec![Rc::new(Sourcedata(Source::default(),
+		                                               Coredata::Macro(Macro::Builtin(make_macro))))]),
 		         ("fn".into(), vec![Rc::new(Sourcedata(Source::default(),
 		                                               Coredata::Macro(Macro::Builtin(function))))])].iter().cloned().collect(),
 		params: Vec::with_capacity(VEC_CAPACITY),
@@ -281,8 +311,12 @@ pub fn interpret(program: Program) {
 	eval(program, env);
 }
 
+/// Evaluates a program with a given environment
+///
+/// The `program` is considered completely evaluated when it is empty. The result of the program
+/// is stored in `env.result`.
 fn eval(mut program: Program, mut env: Env) {
-	program.reverse();
+	program.reverse(); // TODO: Do this in the parser instead, doesn't fit in here.
 	macro_rules! push { ($t:tt) => { program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::$t)))); }; }
 	while let Some(top) = program.pop() {
 		println!["PROGRAM LENGTH: {}", program.len()];
@@ -329,6 +363,9 @@ fn eval(mut program: Program, mut env: Env) {
 					},
 				}
 			},
+			&Sourcedata(ref source, Coredata::Internal(Commands::Evaluate)) => {
+				program.push(env.result.clone());
+			},
 			&Sourcedata(ref source, Coredata::Internal(Commands::Call(ref statement))) => {
 				println!["Call"];
 				match &**statement {
@@ -344,6 +381,7 @@ fn eval(mut program: Program, mut env: Env) {
 							} else {
 								env.store.insert(arg.clone(), vec![env.params.last().unwrap()[counter].clone()]);
 							}
+							counter += 1;
 						}
 						env.params.pop();
 						program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Deparameterize(arguments.clone())))));
@@ -355,6 +393,15 @@ fn eval(mut program: Program, mut env: Env) {
 				}
 			},
 			&Sourcedata(ref source, Coredata::Internal(Commands::Deparameterize(ref arguments))) => {
+				print!["Deparameterizing: "];
+				for arg in arguments {
+					print!["{}, ", arg];
+					env.store.get_mut(arg).expect("Should exist in the argument store!").pop();
+					if env.store.get(arg).unwrap().is_empty() {
+						env.store.remove(arg);
+					}
+				}
+				println![""];
 			},
 			&Sourcedata(ref source, Coredata::Symbol(ref string)) => {
 				print!["Atom: "];
