@@ -105,6 +105,11 @@ fn make_unwind() -> Statement {
 	Rc::new(Sourcedata(None, Coredata::Internal(Commands::Call(Rc::new(Sourcedata(None, Coredata::Function(Function::Builtin(unwind))))))))
 }
 
+fn unwind_with_error_message(string: &str, program: &mut Program, env: &mut Env) {
+	env.params.push(vec![Rc::new(Sourcedata(None, Coredata::Error(Rc::new(Sourcedata(None, Coredata::String(string.into()))))))]);
+	program.push(make_unwind());
+}
+
 fn error(top:     &Statement,
          program: &mut Program,
          env:     &mut Env) {
@@ -537,13 +542,11 @@ pub fn interpret(program: Program) {
 /// is stored in `env.result`.
 fn eval(mut program: Program, mut env: Env) {
 	program.reverse(); // TODO: Do this in the parser instead, doesn't fit in here.
-	macro_rules! push { ($t:tt) => { program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::$t)))); }; }
 	while let Some(top) = program.pop() {
 		println!["PROGRAM LENGTH: {}", program.len()];
 		println!["{}", top];
 		match &*top {
 			&Sourcedata(ref source, Coredata::Pair(ref head, ref tail)) => {
-				println!["Expanding"];
 				program.push(Rc::new(Sourcedata(tail.0.clone(), Coredata::Internal(Commands::Prepare(tail.clone())))));
 				program.push(head.clone());
 			},
@@ -552,23 +555,27 @@ fn eval(mut program: Program, mut env: Env) {
 			},
 			&Sourcedata(_, Coredata::Internal(Commands::Parameterize)) => {
 				println!["Parameterize"];
-				// TODO Unwrap in case of parameter failure
-				env.params.last_mut().expect("The parameter stack should exist").push(env.result.clone());
+				let succeeded = if let Some(ref mut last) = env.params.last_mut() {
+					last.push(env.result.clone());
+					false
+				} else {
+					true
+				};
+				if succeeded {
+					unwind_with_error_message("Error during parameterization: the parameter stack is nonexistent", &mut program, &mut env);
+				}
 			},
 			&Sourcedata(ref source, Coredata::Internal(Commands::Prepare(ref arguments))) => {
 				match &*env.result.clone() {
 					&Sourcedata(_, Coredata::Function(..)) => {
-						println!["Prepare function"];
 						env.params.push(vec![]);
 						program.push(Rc::new(Sourcedata(env.result.0.clone(), Coredata::Internal(Commands::Call(env.result.clone())))));
-						// TODO see if this can be unrolled and made faster
 						for argument in collect_pair_into_vec(arguments).iter() {
-							push!(Parameterize);
+							program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Parameterize))));
 							program.push(argument.clone());
 						}
 					},
 					&Sourcedata(_, Coredata::Macro(Macro::Builtin(ref transfer))) => {
-						println!["Prepare macro"];
 						env.result = arguments.clone();
 						transfer(&top, &mut program, &mut env);
 					},
@@ -584,8 +591,7 @@ fn eval(mut program: Program, mut env: Env) {
 						program.extend(code.iter().cloned());
 					},
 					_ => {
-						println!["Prepare unknown"];
-						panic!("Can't prepare unknown");
+						unwind_with_error_message("Error during prepare routine: element not callable", &mut program, &mut env);
 					},
 				}
 			},
@@ -593,31 +599,40 @@ fn eval(mut program: Program, mut env: Env) {
 				program.push(env.result.clone());
 			},
 			&Sourcedata(ref source, Coredata::Internal(Commands::Call(ref statement))) => {
-				println!["Call"];
 				match &**statement {
 					&Sourcedata(_, Coredata::Function(Function::Builtin(ref transfer))) => {
 						transfer(&top, &mut program, &mut env);
-						env.params.pop();
-					},
-					&Sourcedata(_, Coredata::Function(Function::Library(ref arguments, ref transfer))) => {
-						let mut counter = 0;
-						for arg in arguments.iter() {
-							if env.store.contains_key(arg) {
-								env.store.get_mut(arg).unwrap().push(env.params.last().unwrap()[counter].clone());
-							} else {
-								env.store.insert(arg.clone(), vec![env.params.last().unwrap()[counter].clone()]);
-							}
-							// TODO Don't do this. It's dangerous: panics easily
-							counter += 1;
+						if let Some(top) = env.params.pop() {
+							// Do nothing
+						} else {
+							unwind_with_error_message("Error during builtin function call: parameter stack not poppable", &mut program, &mut env);
 						}
-						env.params.pop();
-						let next = Rc::new(Sourcedata(None, Coredata::Internal(Commands::Deparameterize(optimize_tail_call(&mut program, arguments)))));
-						program.push(next);
-						// program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Deparameterize(arguments.clone())))));
-						program.extend(transfer.iter().cloned());
+					},
+					&Sourcedata(_, Coredata::Function(Function::Library(ref parameters, ref transfer))) => {
+						if let Some(arguments) = env.params.pop() {
+							if arguments.len() != parameters.len() {
+								unwind_with_error_message("Error during library function call: arity mismatch", &mut program, &mut env);
+							} else {
+								let mut counter = 0;
+								for parameter in parameters.iter() {
+									if env.store.contains_key(parameter) {
+										env.store.get_mut(parameter).unwrap().push(arguments[counter].clone());
+									} else {
+										env.store.insert(parameter.clone(), vec![arguments[counter].clone()]);
+									}
+									counter += 1;
+								}
+								let next = Rc::new(Sourcedata(None, Coredata::Internal(Commands::Deparameterize(optimize_tail_call(&mut program, parameters)))));
+								program.push(next);
+								// program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Deparameterize(arguments.clone())))));
+								program.extend(transfer.iter().cloned());
+							}
+						} else {
+							unwind_with_error_message("Error during library function call: parameter stack empty", &mut program, &mut env);
+						}
 					},
 					_ => {
-						panic!("unknown transfer function");
+						unwind_with_error_message("Error calling: Element not recognized as callable", &mut program, &mut env);
 					},
 				}
 			},
@@ -629,25 +644,33 @@ fn eval(mut program: Program, mut env: Env) {
 				}
 			},
 			&Sourcedata(ref source, Coredata::Internal(Commands::Deparameterize(ref arguments))) => {
-				print!["Deparameterizing: "];
 				pop_parameters(&top, &mut program, &mut env, arguments);
 			},
 			&Sourcedata(ref source, Coredata::Symbol(ref string)) => {
-				print!["Atom: "];
 				if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
-					println!["number"];
 					env.result = Rc::new(Sourcedata(source.clone(), Coredata::Integer(number)));
 				} else {
-					println!["reference"];
-					env.result = env.store.get(string).unwrap().last().unwrap().clone();
+					let error = if let Some(value) = env.store.get(string) {
+						if let Some(value) = value.last() {
+							env.result = value.clone();
+							None
+						} else {
+							Some("variable does exist but its stack is empty")
+						}
+					} else {
+						Some("variable does not exist")
+					};
+					if let Some(error) = error {
+						unwind_with_error_message(error, &mut program, &mut env);
+					}
 				}
 			},
 			other => {
-				println!["Other"];
 				env.result = top.clone();
 			},
 		}
 	}
+	println!["{}", env.result];
 }
 
 #[cfg(test)]

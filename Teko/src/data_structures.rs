@@ -22,9 +22,11 @@ pub type Program   = Vec<Statement>;
 pub type Transfer  = fn(top:     &Statement,
                         program: &mut Program,
                         env:     &mut Env);
+pub enum Boolean { True, False }
 pub enum Function { Builtin(Transfer), Library(Vec<String>, Program) }
 pub enum Macro { Builtin(Transfer), Library(String, Program) }
 pub enum Coredata {
+	Boolean  (Boolean),
 	Complex  (Complex<BigRational>),
 	Error    (Statement),
 	Function (Function),

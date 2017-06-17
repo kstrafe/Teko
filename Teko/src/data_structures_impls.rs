@@ -37,18 +37,25 @@ impl fmt::Display for Sourcedata {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		use data_structures::Coredata::*;
 		use data_structures::Commands::*;
+		use data_structures::Boolean;
 		match self.1 {
+			Boolean (Boolean::True) => {
+				write![f, "true"]
+			},
+			Boolean (Boolean::False) => {
+				write![f, "false"]
+			},
 			Complex  (ref arg) => {
-				write![f, "{}", line!()]
+				write![f, "{}", arg]
 			},
 			Error (ref arg) => {
-				write![f, "{}", line!()]
+				write![f, "(error {})", arg]
 			},
 			Function (ref arg) => {
 				write![f, "{}", line!()]
 			},
 			Integer  (ref arg) => {
-				write![f, "{}", line!()]
+				write![f, "{}", arg]
 			},
 			Internal (ref arg) => {
 				write![f, "{}-", line!()]?;
@@ -80,22 +87,22 @@ impl fmt::Display for Sourcedata {
 				}
 			},
 			Macro    (ref arg) => {
-				write![f, "{}", line!()]
+				write![f, "(mo {})", line!()]
 			},
 			Null      => {
-				write![f, "{}", line!()]
+				write![f, "()"]
 			},
 			Pair     (ref arg, ref arg2) => {
-				write![f, "{}", line!()]
+				write![f, "({} {})", arg, arg2]
 			},
 			Rational (ref arg) => {
-				write![f, "{}", line!()]
+				write![f, "{}", arg]
 			},
 			String   (ref arg) => {
-				write![f, "{}", line!()]
+				write![f, "(\" {})", arg]
 			},
 			Symbol   (ref arg) => {
-				write![f, "{}:{}", line!(), arg]
+				write![f, "{}", arg]
 			},
 		}
 	}

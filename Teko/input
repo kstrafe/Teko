@@ -20,4 +20,10 @@
 (define true (' true))
 (define false ())
 
-(+ (if (not true) 1 2))
+(+ (if (not true) (/ 1 9 9) (- 2 8 (k))))
+
+(define q (fn (a b c) c))
+(+ (q 2 5 8))
+
+(wind parapara)
+(' (+ 1 2))
