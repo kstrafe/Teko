@@ -9,7 +9,6 @@ use num::Complex;
 pub enum Commands {
 	Call(Statement),
 	Prepare(Statement),
-	Pushcall,
 	Parameterize,
 	Deparameterize(Vec<String>),
 	Unwind,
@@ -42,7 +41,6 @@ pub enum Coredata {
 #[derive(Clone)]
 pub struct Env {
 	pub store:  HashMap<String, Program>,
-	pub calls:  Program,
 	pub params: Vec<Program>,
 	pub result: Statement,
 }

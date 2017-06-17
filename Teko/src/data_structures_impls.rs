@@ -30,9 +30,6 @@ impl fmt::Display for Sourcedata {
 					Prepare(ref arg) => {
 						write![f, "{}", line!()]
 					},
-					Pushcall => {
-						write![f, "{}", line!()]
-					},
 					Parameterize => {
 						write![f, "{}", line!()]
 					},
@@ -66,7 +63,7 @@ impl fmt::Display for Sourcedata {
 				write![f, "{}", line!()]
 			},
 			Symbol   (ref arg) => {
-				write![f, "{}", line!()]
+				write![f, "{}:{}", line!(), arg]
 			},
 		}
 	}

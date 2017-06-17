@@ -12,6 +12,53 @@ use num::FromPrimitive;
 use data_structures::{Commands, Env, Source, Program, Sourcedata,
                       Coredata, Statement, Macro, Function};
 
+fn define(top:     &Statement,
+          program: &mut Program,
+          env:     &mut Env) {
+	println!["Inside define"];
+	{
+		let arguments = env.params.last().expect("The state machine should ensure this exists").first().expect("A macro call ensures this");
+		program.push(Rc::new(Sourcedata(Source::default(),
+																		Coredata::Internal(Commands::Call(Rc::new(Sourcedata(Source::default(),
+																																												 Coredata::Function(Function::Builtin(define_internal)))))))));
+		program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Parameterize))));
+		match arguments.tail().1 {
+			Coredata::Pair(ref heado, _) => {
+				program.push(heado.clone());
+			},
+			_ => {
+				panic!{"it cant be"};
+			}
+		}
+		program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Parameterize))));
+		match arguments.head().1 {
+			Coredata::Symbol(ref string) => {
+				program.push(Rc::new(Sourcedata(Source::default(), Coredata::String(string.clone()))));
+			},
+			_ => {
+				panic!("Define did not get a symbol!");
+			},
+		}
+	}
+	env.params.last_mut().expect("Should exist").clear();
+}
+
+fn define_internal(top:     &Statement,
+                   program: &mut Program,
+                   env:     &mut Env) {
+	println!["define_internal"];
+	let args = env.params.last().expect("Must be defined by previous macro");
+	match args[0].1 {
+		Coredata::String(ref string) => {
+			env.store.insert(string.clone(), vec!(args[1].clone()));
+		},
+		_ => {
+			unimplemented!();
+		},
+	}
+	println!("dfine internal {}", args.len());
+}
+
 fn plus(top:     &Statement,
         program: &mut Program,
         env:     &mut Env) {
@@ -106,8 +153,9 @@ pub fn interpret(program: Program) {
 		store:  [("+".into(), vec![Rc::new(Sourcedata(Source::default(),
 		                                              Coredata::Function(Function::Builtin(plus))))]),
 		         ("-".into(), vec![Rc::new(Sourcedata(Source::default(),
-		                                              Coredata::Function(Function::Builtin(minus))))])].iter().cloned().collect(),
-		calls:  Vec::with_capacity(VEC_CAPACITY),
+		                                              Coredata::Function(Function::Builtin(minus))))]),
+		         ("define".into(), vec![Rc::new(Sourcedata(Source::default(),
+		                                                   Coredata::Macro(Macro::Builtin(define))))])].iter().cloned().collect(),
 		params: Vec::with_capacity(VEC_CAPACITY),
 		result: Rc::new(Sourcedata(Source::default(), Coredata::Null)),
 	};
@@ -126,25 +174,25 @@ fn eval(mut program: Program, mut env: Env) {
 				program.push(Rc::new(Sourcedata(tail.0.clone(), Coredata::Internal(Commands::Prepare(tail.clone())))));
 				program.push(head.clone());
 			},
-			&Sourcedata(ref source, Coredata::Internal(Commands::Parameterize)) => {
+			&Sourcedata(_, Coredata::Internal(Commands::Parameterize)) => {
 				println!["Parameterize"];
 				env.params.last_mut().expect("Guaranteed to exist").push(env.result.clone());
 			},
 			&Sourcedata(ref source, Coredata::Internal(Commands::Prepare(ref arguments))) => {
-				match &*env.result {
+				match &*env.result.clone() {
 					&Sourcedata(_, Coredata::Function(..)) => {
 						println!["Prepare function"];
 						env.params.push(vec!());
-						env.calls.push(env.result.clone());
 						program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Call(env.result.clone())))));
 						for argument in collect_pair_into_vec(arguments).iter().rev() {
 							push!(Parameterize);
 							program.push(argument.clone());
 						}
 					},
-					&Sourcedata(_, Coredata::Macro(..)) => {
+					&Sourcedata(_, Coredata::Macro(Macro::Builtin(ref transfer))) => {
 						println!["Prepare macro"];
 						env.params.push(vec!(arguments.clone()));
+						transfer(&top, &mut program, &mut env);
 					},
 					_ => {
 						println!["Prepare unknown"];
@@ -160,7 +208,7 @@ fn eval(mut program: Program, mut env: Env) {
 						env.params.pop();
 					},
 					&Sourcedata(_, Coredata::Function(Function::Library(ref arguments, ref transfer))) => {
-						// Not finished
+						unimplemented!();
 						program.extend(collect_pair_into_vec(transfer));
 						env.params.pop();
 					},
