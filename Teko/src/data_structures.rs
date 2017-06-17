@@ -18,6 +18,7 @@ pub enum Commands {
 }
 
 pub struct Sourcedata(pub Source, pub Coredata);
+
 pub type Statement = Rc<Sourcedata>;
 pub type Program   = Vec<Statement>;
 pub type Transfer  = fn(top:     &Statement,
@@ -40,10 +41,10 @@ pub enum Coredata {
 
 #[derive(Clone)]
 pub struct Env {
-	pub content:      HashMap<String, Program>,
-	pub call_stack:   Vec<Rc<Sourcedata>>,
-	pub params:       Vec<Vec<Rc<Sourcedata>>>,
-	pub return_value: Rc<Sourcedata>,
+	pub store:  HashMap<String, Program>,
+	pub calls:  Program,
+	pub params: Vec<Program>,
+	pub result: Statement,
 }
 
 #[derive(Clone)]

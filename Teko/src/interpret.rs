@@ -3,6 +3,7 @@ use std::rc::Rc;
 use std::fmt;
 use super::VEC_CAPACITY;
 
+use num::bigint::ToBigInt;
 use num::bigint::BigInt;
 use num::rational::BigRational;
 use num::Complex;
@@ -14,8 +15,51 @@ use data_structures::{Commands, Env, Source, Program, Sourcedata,
 fn plus(top:     &Statement,
         program: &mut Program,
         env:     &mut Env) {
-	env.params.last().expect("State machine should ensure this exists");
-	println!("Adding");
+	let arguments = env.params.last().expect("The state machine should ensure this exists");
+	let mut sum = 0.to_bigint().expect("Constant zero should always be parsed correctly");
+	for argument in arguments.iter() {
+		match &**argument {
+			&Sourcedata(_, Coredata::Complex(ref complex)) => {
+				unimplemented![];
+			},
+			&Sourcedata(_, Coredata::Integer(ref integer)) => {
+				sum = sum + integer;
+			},
+			&Sourcedata(_, Coredata::Rational(ref rational)) => {
+				unimplemented![];
+			},
+			_ => {
+				unimplemented![];
+			},
+		}
+	}
+	println!["plus: {}", sum];
+	env.result = Rc::new(Sourcedata(Source::default(), Coredata::Integer(sum)));
+}
+
+fn minus(top:     &Statement,
+         program: &mut Program,
+         env:     &mut Env) {
+	let arguments = env.params.last().expect("The state machine should ensure this exists");
+	let mut sum = 0.to_bigint().expect("Constant zero should always be parsed correctly");
+	for argument in arguments.iter() {
+		match &**argument {
+			&Sourcedata(_, Coredata::Complex(ref complex)) => {
+				unimplemented![];
+			},
+			&Sourcedata(_, Coredata::Integer(ref integer)) => {
+				sum = sum - integer;
+			},
+			&Sourcedata(_, Coredata::Rational(ref rational)) => {
+				unimplemented![];
+			},
+			_ => {
+				unimplemented![];
+			},
+		}
+	}
+	println!["minus: {}", sum];
+	env.result = Rc::new(Sourcedata(Source::default(), Coredata::Integer(sum)));
 }
 
 fn collect_pair_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
@@ -34,18 +78,20 @@ fn collect_pair_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
 
 pub fn interpret(program: Program) {
 	let env = Env {
-		content:      [("+".into(), vec![Rc::new(Sourcedata(
-																								 Source::default(),
-																								 Coredata::Function(Function::Builtin(plus))))])].iter().cloned().collect(),
-		call_stack:   Vec::with_capacity(VEC_CAPACITY),
-		params:       Vec::with_capacity(VEC_CAPACITY),
-		return_value: Rc::new(Sourcedata(Source::default(), Coredata::Null)),
+		store:  [("+".into(), vec![Rc::new(Sourcedata(Source::default(),
+		                                              Coredata::Function(Function::Builtin(plus))))]),
+		         ("-".into(), vec![Rc::new(Sourcedata(Source::default(),
+		                                              Coredata::Function(Function::Builtin(minus))))])].iter().cloned().collect(),
+		calls:  Vec::with_capacity(VEC_CAPACITY),
+		params: Vec::with_capacity(VEC_CAPACITY),
+		result: Rc::new(Sourcedata(Source::default(), Coredata::Null)),
 	};
 	eval(program, env);
 }
 
 fn eval(mut program: Program, mut env: Env) {
 	program.reverse();
+	macro_rules! push { ($t:tt) => { program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::$t)))); }; }
 	while let Some(top) = program.pop() {
 		println!["PROGRAM LENGTH: {}", program.len()];
 		println!["{}", top];
@@ -57,19 +103,17 @@ fn eval(mut program: Program, mut env: Env) {
 			},
 			&Sourcedata(ref source, Coredata::Internal(Commands::Parameterize)) => {
 				println!["Parameterize"];
-				env.params.last_mut().expect("Guaranteed to exist").push(env.return_value.clone());
+				env.params.last_mut().expect("Guaranteed to exist").push(env.result.clone());
 			},
 			&Sourcedata(ref source, Coredata::Internal(Commands::Prepare(ref arguments))) => {
-				match &*env.return_value {
+				match &*env.result {
 					&Sourcedata(_, Coredata::Function(..)) => {
 						println!["Prepare function"];
 						env.params.push(vec!());
-						env.call_stack.push(env.return_value.clone());
-						program.push(Rc::new(Sourcedata(Source::default(),
-							Coredata::Internal(Commands::Call))));
+						env.calls.push(env.result.clone());
+						push!(Call);
 						for argument in collect_pair_into_vec(arguments).iter() {
-							program.push(Rc::new(Sourcedata(Source::default(),
-								Coredata::Internal(Commands::Parameterize))));
+							push!(Parameterize);
 							program.push(argument.clone());
 						}
 					},
@@ -85,12 +129,15 @@ fn eval(mut program: Program, mut env: Env) {
 			},
 			&Sourcedata(ref source, Coredata::Internal(Commands::Call)) => {
 				println!["Call"];
-				match &*env.call_stack.pop().expect("YesNO") {
+				match &*env.calls.pop().expect("YesNO") {
 					&Sourcedata(_, Coredata::Function(Function::Builtin(ref transfer))) => {
 						transfer(&top, &mut program, &mut env);
+						env.params.pop();
 					},
 					&Sourcedata(_, Coredata::Function(Function::Library(ref arguments, ref transfer))) => {
-						unimplemented!{};
+						// Not finished
+						program.extend(collect_pair_into_vec(transfer));
+						env.params.pop();
 					},
 					_ => {
 						panic!("unknown transfer function");
@@ -100,15 +147,15 @@ fn eval(mut program: Program, mut env: Env) {
 			&Sourcedata(ref source, Coredata::Symbol(ref string)) => {
 				if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
 					println!["Atom number"];
-					env.return_value = Rc::new(Sourcedata(source.clone(), Coredata::Integer(number)));
+					env.result = Rc::new(Sourcedata(source.clone(), Coredata::Integer(number)));
 				} else {
 					println!["Atom reference"];
-					env.return_value = env.content.get(string).unwrap().last().unwrap().clone();
+					env.result = env.store.get(string).unwrap().last().unwrap().clone();
 				}
 			},
 			other => {
 				println!["Other element on stack"];
-				env.return_value = top.clone();
+				env.result = top.clone();
 			},
 		}
 	}
