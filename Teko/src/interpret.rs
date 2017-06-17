@@ -134,6 +134,84 @@ fn minus(top:     &Statement,
 	env.result = Rc::new(Sourcedata(Source::default(), Coredata::Integer(sum)));
 }
 
+fn multiply(top:     &Statement,
+            program: &mut Program,
+            env:     &mut Env) {
+	let arguments = env.params.last().expect("The state machine should ensure this exists");
+	let mut sum = 1.to_bigint().expect("Constant zero should always be parsed correctly");
+	for argument in arguments.iter() {
+		match &**argument {
+			&Sourcedata(_, Coredata::Complex(ref complex)) => {
+				unimplemented![];
+			},
+			&Sourcedata(_, Coredata::Integer(ref integer)) => {
+				sum = sum * integer;
+			},
+			&Sourcedata(_, Coredata::Rational(ref rational)) => {
+				unimplemented![];
+			},
+			_ => {
+				unimplemented![];
+			},
+		}
+	}
+	println!["plus: {}", sum];
+	env.result = Rc::new(Sourcedata(Source::default(), Coredata::Integer(sum)));
+}
+
+fn divide(top:     &Statement,
+          program: &mut Program,
+          env:     &mut Env) {
+	let arguments = env.params.last().expect("The state machine should ensure this exists");
+	let mut sum = 1.to_bigint().expect("Constant zero should always be parsed correctly");
+	if arguments.len() == 1 {
+		for argument in arguments.iter() {
+			match &**argument {
+				&Sourcedata(_, Coredata::Complex(ref complex)) => {
+					unimplemented![];
+				},
+				&Sourcedata(_, Coredata::Integer(ref integer)) => {
+					sum = sum / integer;
+				},
+				&Sourcedata(_, Coredata::Rational(ref rational)) => {
+					unimplemented![];
+				},
+				_ => {
+					unimplemented![];
+				},
+			}
+		}
+	} else if arguments.len() > 1 {
+		let mut first = true;
+		for argument in arguments.iter() {
+			match &**argument {
+				&Sourcedata(_, Coredata::Complex(ref complex)) => {
+					unimplemented![];
+				},
+				&Sourcedata(_, Coredata::Integer(ref integer)) => {
+					if first {
+						sum = integer.clone();
+					} else {
+						sum = sum / integer;
+					}
+				},
+				&Sourcedata(_, Coredata::Rational(ref rational)) => {
+					unimplemented![];
+				},
+				_ => {
+					unimplemented![];
+				},
+			}
+			first = false;
+		}
+	} else {
+		// Arity mismatch
+		unimplemented!();
+	}
+	println!["plus: {}", sum];
+	env.result = Rc::new(Sourcedata(Source::default(), Coredata::Integer(sum)));
+}
+
 fn collect_pair_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
 	let mut to_return = vec![];
 	let mut current   = data.clone();
@@ -154,6 +232,10 @@ pub fn interpret(program: Program) {
 		                                              Coredata::Function(Function::Builtin(plus))))]),
 		         ("-".into(), vec![Rc::new(Sourcedata(Source::default(),
 		                                              Coredata::Function(Function::Builtin(minus))))]),
+		         ("*".into(), vec![Rc::new(Sourcedata(Source::default(),
+		                                              Coredata::Function(Function::Builtin(multiply))))]),
+		         ("/".into(), vec![Rc::new(Sourcedata(Source::default(),
+		                                              Coredata::Function(Function::Builtin(divide))))]),
 		         ("define".into(), vec![Rc::new(Sourcedata(Source::default(),
 		                                                   Coredata::Macro(Macro::Builtin(define))))])].iter().cloned().collect(),
 		params: Vec::with_capacity(VEC_CAPACITY),
@@ -218,16 +300,17 @@ fn eval(mut program: Program, mut env: Env) {
 				}
 			},
 			&Sourcedata(ref source, Coredata::Symbol(ref string)) => {
+				print!["Atom: "];
 				if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
-					println!["Atom number"];
+					println!["number"];
 					env.result = Rc::new(Sourcedata(source.clone(), Coredata::Integer(number)));
 				} else {
-					println!["Atom reference"];
+					println!["reference"];
 					env.result = env.store.get(string).unwrap().last().unwrap().clone();
 				}
 			},
 			other => {
-				println!["Other element on stack"];
+				println!["Other"];
 				env.result = top.clone();
 			},
 		}

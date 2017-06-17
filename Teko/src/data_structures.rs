@@ -4,8 +4,6 @@ use num::bigint::BigInt;
 use num::rational::BigRational;
 use num::Complex;
 
-/// Primitive forms
-#[derive(Clone)]
 pub enum Commands {
 	Call(Statement),
 	Prepare(Statement),
@@ -38,7 +36,6 @@ pub enum Coredata {
 	Symbol   (String),
 }
 
-#[derive(Clone)]
 pub struct Env {
 	pub store:  HashMap<String, Program>,
 	pub params: Vec<Program>,
