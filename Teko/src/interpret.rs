@@ -16,6 +16,32 @@ use data_structures::{Commands, Env, Source, Program, Sourcedata,
 /// Macro::Library types are called by binding input to the macro's input variable.
 /// Function::Builtin types are called with env.params containing evaluated parameters.
 /// Function::Library types are called with env.params containing evaluated parameters, bound to parameters.
+fn deparameterize(program: &mut Program,
+                  params:  &Vec<String>) -> Vec<String> {
+	if let Some(top) = program.pop() {
+		let mut to_add = vec![];
+		match top.1 {
+			Coredata::Internal(Commands::Deparameterize(ref content)) => {
+				for parameter in params {
+					if content.contains(parameter) {
+						// Do nothing
+					} else {
+						to_add.push(parameter.clone());
+					}
+				}
+				to_add.extend(content.iter().cloned());
+				to_add
+			},
+			_ => {
+				program.push(top.clone());
+				params.clone()
+			},
+		}
+	} else {
+		params.clone()
+	}
+}
+
 fn make_macro(top:     &Statement,
               program: &mut Program,
               env:     &mut Env) {
@@ -99,6 +125,21 @@ fn define_internal(top:     &Statement,
 		},
 	}
 	println!("dfine internal {}", args.len());
+}
+
+fn sleep(top:     &Statement,
+         program: &mut Program,
+         env:     &mut Env) {
+	use std::{thread, time};
+	use num::ToPrimitive;
+	let arguments = env.params.last().expect("The state machine should ensure this exists").first().expect("Srs guys");
+	match arguments.1 {
+		Coredata::Integer(ref value) => {
+			thread::sleep(time::Duration::from_millis(value.to_u64().expect("Handling non numbers not implemented yet")));
+		},
+		_ => {
+		},
+	}
 }
 
 fn plus(top:     &Statement,
@@ -297,6 +338,8 @@ pub fn interpret(program: Program) {
 		                                              Coredata::Function(Function::Builtin(multiply))))]),
 		         ("/".into(), vec![Rc::new(Sourcedata(Source::default(),
 		                                              Coredata::Function(Function::Builtin(divide))))]),
+		         ("sleep".into(), vec![Rc::new(Sourcedata(Source::default(),
+		                                                  Coredata::Function(Function::Builtin(sleep))))]),
 		         ("define".into(), vec![Rc::new(Sourcedata(Source::default(),
 		                                                   Coredata::Macro(Macro::Builtin(define))))]),
 		         ("set!".into(), vec![Rc::new(Sourcedata(Source::default(),
@@ -324,19 +367,22 @@ fn eval(mut program: Program, mut env: Env) {
 		match &*top {
 			&Sourcedata(ref source, Coredata::Pair(ref head, ref tail)) => {
 				println!["Expanding"];
+				// TODO Use Option<Source> instead, since here we're not interested in the source of an Internal
 				program.push(Rc::new(Sourcedata(tail.0.clone(), Coredata::Internal(Commands::Prepare(tail.clone())))));
 				program.push(head.clone());
 			},
 			&Sourcedata(_, Coredata::Internal(Commands::Parameterize)) => {
 				println!["Parameterize"];
+				// TODO Unwrap in case of parameter failure
 				env.params.last_mut().expect("The parameter stack should exist").push(env.result.clone());
 			},
 			&Sourcedata(ref source, Coredata::Internal(Commands::Prepare(ref arguments))) => {
 				match &*env.result.clone() {
 					&Sourcedata(_, Coredata::Function(..)) => {
 						println!["Prepare function"];
-						env.params.push(vec!());
+						env.params.push(vec![]);
 						program.push(Rc::new(Sourcedata(env.result.0.clone(), Coredata::Internal(Commands::Call(env.result.clone())))));
+						// TODO see if this can be unrolled and made faster
 						for argument in collect_pair_into_vec(arguments).iter().rev() {
 							push!(Parameterize);
 							program.push(argument.clone());
@@ -354,7 +400,8 @@ fn eval(mut program: Program, mut env: Env) {
 							env.store.insert(bound.clone(), vec![arguments.clone()]);
 						}
 						program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Evaluate))));
-						program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Deparameterize(vec![bound.clone()])))));
+						let next = Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Deparameterize(deparameterize(&mut program, &vec![bound.clone()])))));
+						program.push(next);
 						program.extend(code.iter().cloned());
 					},
 					_ => {
@@ -384,7 +431,9 @@ fn eval(mut program: Program, mut env: Env) {
 							counter += 1;
 						}
 						env.params.pop();
-						program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Deparameterize(arguments.clone())))));
+						let next = Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Deparameterize(deparameterize(&mut program, arguments)))));
+						program.push(next);
+						// program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Deparameterize(arguments.clone())))));
 						program.extend(transfer.iter().cloned());
 					},
 					_ => {
