@@ -7,7 +7,7 @@ use num::Complex;
 /// Primitive forms
 #[derive(Clone)]
 pub enum Commands {
-	Call,
+	Call(Statement),
 	Prepare(Statement),
 	Pushcall,
 	Parameterize,

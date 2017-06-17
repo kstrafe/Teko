@@ -136,7 +136,7 @@ fn eval(mut program: Program, mut env: Env) {
 						println!["Prepare function"];
 						env.params.push(vec!());
 						env.calls.push(env.result.clone());
-						push!(Call);
+						program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Call(env.result.clone())))));
 						for argument in collect_pair_into_vec(arguments).iter().rev() {
 							push!(Parameterize);
 							program.push(argument.clone());
@@ -152,9 +152,9 @@ fn eval(mut program: Program, mut env: Env) {
 					},
 				}
 			},
-			&Sourcedata(ref source, Coredata::Internal(Commands::Call)) => {
+			&Sourcedata(ref source, Coredata::Internal(Commands::Call(ref statement))) => {
 				println!["Call"];
-				match &*env.calls.pop().expect("YesNO") {
+				match &**statement {
 					&Sourcedata(_, Coredata::Function(Function::Builtin(ref transfer))) => {
 						transfer(&top, &mut program, &mut env);
 						env.params.pop();
