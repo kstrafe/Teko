@@ -42,6 +42,9 @@ impl fmt::Display for Sourcedata {
 					Wind => {
 						write![f, "{}", line!()]
 					},
+					Evaluate => {
+						write![f, "{}", line!()]
+					},
 					Empty => {
 						write![f, "{}", line!()]
 					},

@@ -11,6 +11,7 @@ pub enum Commands {
 	Deparameterize(Vec<String>),
 	Unwind,
 	Wind,
+	Evaluate,
 	Empty,
 }
 
@@ -22,7 +23,7 @@ pub type Transfer  = fn(top:     &Statement,
                         program: &mut Program,
                         env:     &mut Env);
 pub enum Function { Builtin(Transfer), Library(Vec<String>, Program) }
-pub enum Macro { Builtin(Transfer), Library(String, Statement) }
+pub enum Macro { Builtin(Transfer), Library(String, Program) }
 pub enum Coredata {
 	Complex  (Complex<BigRational>),
 	Function (Function),

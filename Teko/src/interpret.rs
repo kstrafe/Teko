@@ -12,18 +12,19 @@ use num::FromPrimitive;
 use data_structures::{Commands, Env, Source, Program, Sourcedata,
                       Coredata, Statement, Macro, Function};
 
+/// Macro::Builtin types are called with env.result as input, so (macro a b c) has env.result = (a b c).
+/// Macro::Library types are called by binding input to the macro's input variable.
+/// Function::Builtin types are called with env.params containing evaluated parameters.
+/// Function::Library types are called with env.params containing evaluated parameters, bound to parameters.
 fn function(top:     &Statement,
             program: &mut Program,
             env:     &mut Env) {
-	{
-		let args = env.params.last().expect("Must exist").first().expect("Must also exist");
-		let params = collect_pair_into_vec_string(&args.head());
-		let mut code = collect_pair_into_vec(&args.tail());
-		code.reverse();
-		env.result = Rc::new(Sourcedata(Source::default(), Coredata::Function(Function::Library(params, code))));
-		println!["Created function object"];
-	}
-	env.params.pop();
+	let args = env.result.clone();
+	let params = collect_pair_into_vec_string(&args.head());
+	let mut code = collect_pair_into_vec(&args.tail());
+	code.reverse();
+	env.result = Rc::new(Sourcedata(Source::default(), Coredata::Function(Function::Library(params, code))));
+	println!["Created function object"];
 }
 
 fn define(top:     &Statement,
@@ -31,7 +32,7 @@ fn define(top:     &Statement,
           env:     &mut Env) {
 	println!["Inside define"];
 	{
-		let arguments = env.params.last().expect("The state machine should ensure this exists").first().expect("A macro call ensures this");
+		let arguments = env.result.clone();
 		program.push(Rc::new(Sourcedata(Source::default(),
 		                                Coredata::Internal(Commands::Call(Rc::new(Sourcedata(Source::default(),
 		                                                                                     Coredata::Function(Function::Builtin(define_internal)))))))));
@@ -54,7 +55,7 @@ fn define(top:     &Statement,
 			},
 		}
 	}
-	env.params.last_mut().expect("Should exist").clear();
+	env.params.push(vec!());
 }
 
 fn define_internal(top:     &Statement,
@@ -92,7 +93,8 @@ fn plus(top:     &Statement,
 			&Sourcedata(_, Coredata::Rational(ref rational)) => {
 				unimplemented![];
 			},
-			_ => {
+			ref a => {
+				println!["{}", a];
 				unimplemented![];
 			},
 		}
@@ -293,7 +295,7 @@ fn eval(mut program: Program, mut env: Env) {
 			},
 			&Sourcedata(_, Coredata::Internal(Commands::Parameterize)) => {
 				println!["Parameterize"];
-				env.params.last_mut().expect("Guaranteed to exist").push(env.result.clone());
+				env.params.last_mut().expect("The parameter stack should exist").push(env.result.clone());
 			},
 			&Sourcedata(ref source, Coredata::Internal(Commands::Prepare(ref arguments))) => {
 				match &*env.result.clone() {
@@ -308,12 +310,18 @@ fn eval(mut program: Program, mut env: Env) {
 					},
 					&Sourcedata(_, Coredata::Macro(Macro::Builtin(ref transfer))) => {
 						println!["Prepare macro"];
-						// Why not just put it inside env.result? Much simpler. No messing with params
-						env.params.push(vec!(arguments.clone()));
+						env.result = arguments.clone();
 						transfer(&top, &mut program, &mut env);
 					},
 					&Sourcedata(_, Coredata::Macro(Macro::Library(ref bound, ref code))) => {
-						unimplemented!();
+						if env.store.contains_key(bound) {
+							env.store.get_mut(bound).unwrap().push(arguments.clone());
+						} else {
+							env.store.insert(bound.clone(), vec![arguments.clone()]);
+						}
+						program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Evaluate))));
+						program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Deparameterize(vec![bound.clone()])))));
+						program.extend(code.iter().cloned());
 					},
 					_ => {
 						println!["Prepare unknown"];
@@ -329,13 +337,24 @@ fn eval(mut program: Program, mut env: Env) {
 						env.params.pop();
 					},
 					&Sourcedata(_, Coredata::Function(Function::Library(ref arguments, ref transfer))) => {
-						program.extend(transfer.iter().cloned());
+						let mut counter = 0;
+						for arg in arguments.iter() {
+							if env.store.contains_key(arg) {
+								env.store.get_mut(arg).unwrap().push(env.params.last().unwrap()[counter].clone());
+							} else {
+								env.store.insert(arg.clone(), vec![env.params.last().unwrap()[counter].clone()]);
+							}
+						}
 						env.params.pop();
+						program.push(Rc::new(Sourcedata(Source::default(), Coredata::Internal(Commands::Deparameterize(arguments.clone())))));
+						program.extend(transfer.iter().cloned());
 					},
 					_ => {
 						panic!("unknown transfer function");
 					},
 				}
+			},
+			&Sourcedata(ref source, Coredata::Internal(Commands::Deparameterize(ref arguments))) => {
 			},
 			&Sourcedata(ref source, Coredata::Symbol(ref string)) => {
 				print!["Atom: "];
