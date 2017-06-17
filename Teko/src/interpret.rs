@@ -42,20 +42,45 @@ fn minus(top:     &Statement,
          env:     &mut Env) {
 	let arguments = env.params.last().expect("The state machine should ensure this exists");
 	let mut sum = 0.to_bigint().expect("Constant zero should always be parsed correctly");
-	for argument in arguments.iter() {
-		match &**argument {
-			&Sourcedata(_, Coredata::Complex(ref complex)) => {
-				unimplemented![];
-			},
-			&Sourcedata(_, Coredata::Integer(ref integer)) => {
-				sum = sum - integer;
-			},
-			&Sourcedata(_, Coredata::Rational(ref rational)) => {
-				unimplemented![];
-			},
-			_ => {
-				unimplemented![];
-			},
+	if arguments.len() == 1 {
+		for argument in arguments.iter() {
+			match &**argument {
+				&Sourcedata(_, Coredata::Complex(ref complex)) => {
+					unimplemented![];
+				},
+				&Sourcedata(_, Coredata::Integer(ref integer)) => {
+					sum = sum - integer;
+				},
+				&Sourcedata(_, Coredata::Rational(ref rational)) => {
+					unimplemented![];
+				},
+				_ => {
+					unimplemented![];
+				},
+			}
+		}
+	} else if arguments.len() > 1 {
+		let mut first = true;
+		for argument in arguments.iter() {
+			match &**argument {
+				&Sourcedata(_, Coredata::Complex(ref complex)) => {
+					unimplemented![];
+				},
+				&Sourcedata(_, Coredata::Integer(ref integer)) => {
+					if first {
+						sum = integer.clone();
+					} else {
+						sum = sum - integer;
+					}
+				},
+				&Sourcedata(_, Coredata::Rational(ref rational)) => {
+					unimplemented![];
+				},
+				_ => {
+					unimplemented![];
+				},
+			}
+			first = false;
 		}
 	}
 	println!["minus: {}", sum];
@@ -112,7 +137,7 @@ fn eval(mut program: Program, mut env: Env) {
 						env.params.push(vec!());
 						env.calls.push(env.result.clone());
 						push!(Call);
-						for argument in collect_pair_into_vec(arguments).iter() {
+						for argument in collect_pair_into_vec(arguments).iter().rev() {
 							push!(Parameterize);
 							program.push(argument.clone());
 						}
