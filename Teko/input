@@ -25,7 +25,13 @@
 (define q (fn (a b c) c))
 (+ (q 2 5 8))
 
-(wind parapara)
+(wind (+ parapara))
 (' (+ 1 2))
 
-'
+(eval (' + 1 2 3 4 5 6))
+
+(define fact (fn (n accum)
+                 (if (>= n 1)
+                     (fact (- n 1) (* n accum))
+                     accum)))
+(+ (fact 500 1))

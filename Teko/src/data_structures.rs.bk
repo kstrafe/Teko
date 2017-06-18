@@ -1,5 +1,3 @@
-//! Data structures used by the Teko library
-
 use std::rc::Rc;
 use std::collections::HashMap;
 use num::bigint::BigInt;
@@ -84,7 +82,7 @@ pub enum Coredata {
 /// Environment used by the implementation
 pub struct Env {
 	/// Maps variables to stacks of variables (Program)
-	pub store: HashMap<String, Program>,
+	pub store:  HashMap<String, Program>,
 	/// Parameter stack used for function calls
 	pub params: Vec<Program>,
 	/// Register used to store results of previous computations

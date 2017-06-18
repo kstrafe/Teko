@@ -1,12 +1,23 @@
+//! Parsing interface for Teko.
+//!
+//! Provides utility functions as well as primitives for parsing Teko.
+//!
+//! ```
+//! extern crate teko;
+//! assert![teko::parse::parse_string("(+ 1 2 3) (' a (b) c)").is_ok()];
+//! ```
 use std::fs::File;
 use std::io::Read;
 use std::rc::Rc;
 
-use data_structures::{Commands, Coredata, ParseState,
-                      Program, Sourcedata};
+use data_structures::{Commands, Coredata, ParseState, Program, Sourcedata};
 
-////////////////////////////////////////////////////////////
 
+// //////////////////////////////////////////////////////////
+
+/// Parse a `File` into a `Program`
+///
+/// Utility function to easily parse a `File`.
 pub fn parse_file(filename: &str) -> Result<Program, ParseState> {
 	let mut file = File::open(filename).ok().unwrap();
 	let mut contents = String::new();
@@ -14,14 +25,22 @@ pub fn parse_file(filename: &str) -> Result<Program, ParseState> {
 	parse_string_with_state(&contents, ParseState::from_file(filename))
 }
 
-////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////
 
+/// Parse a `String` into a `Program`
+///
+/// Utility function to easily parse any `String`.
+///
+/// ```
+/// extern crate teko;
+/// assert![teko::parse::parse_string("(+ 1 2 3) (' a b c)").is_ok()];
+/// ```
 pub fn parse_string(string: &str) -> Result<Program, ParseState> {
 	let state = ParseState::default();
 	parse_string_with_state(string, state)
 }
 
-////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////
 
 fn parse_string_with_state(string: &str, mut state: ParseState) -> Result<Program, ParseState> {
 	for character in string.chars() {
@@ -33,11 +52,22 @@ fn parse_string_with_state(string: &str, mut state: ParseState) -> Result<Progra
 	finish_parsing_characters(state)
 }
 
-////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////
 
+/// Convert the parser into an actual program
+///
+/// This function should be called after a series of calls to `parse_character`.
+/// It takes a `state` and finalizes it into a program.
+/// See `parse_character` for an example.
+///
+/// ```
+/// extern crate teko;
+/// assert![teko::parse::finish_parsing_characters(
+///         teko::data_structures::ParseState::default()).is_ok()];
+/// ```
 pub fn finish_parsing_characters(mut state: ParseState) -> Result<Program, ParseState> {
 	whitespace(&mut state);
-	if ! state.unmatched_opening_parentheses.is_empty() {
+	if !state.unmatched_opening_parentheses.is_empty() {
 		Err(set_error(&mut state, "Unmatched opening parenthesis"))
 	} else if state.error.is_some() {
 		Err(state)
@@ -46,20 +76,32 @@ pub fn finish_parsing_characters(mut state: ParseState) -> Result<Program, Parse
 	}
 }
 
+/// Mutate the `state` by a single input character
+///
+/// Parses character-by-character to allow parsing from arbitrary character sources.
+///
+/// ```
+/// extern crate teko;
+/// let mut state = teko::data_structures::ParseState::default();
+/// for ch in "(+ 1 2 3) (' a b c)".chars() {
+/// 	assert![teko::parse::parse_character(ch, &mut state).is_ok()];
+/// }
+/// assert![teko::parse::finish_parsing_characters(state).is_ok()];
+/// ```
 pub fn parse_character(character: char, state: &mut ParseState) -> Result<(), ParseState> {
 	parse_internal(character, state)?;
 	count_characters_and_lines(character, state);
 	Ok(())
 }
 
-////////////////////////////////////////////////////////////
-// Internal                                               //
-////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////
+// Internal                                                //
+// //////////////////////////////////////////////////////////
 
 fn count_characters_and_lines(character: char, state: &mut ParseState) {
 	if character == '\n' {
-		state.current_read_position.line   += 1;
-		state.current_read_position.column =  1;
+		state.current_read_position.line += 1;
+		state.current_read_position.column = 1;
 	} else {
 		state.current_read_position.column += 1;
 	}
@@ -78,7 +120,7 @@ fn parse_internal(character: char, state: &mut ParseState) -> Result<(), ParseSt
 	Ok(())
 }
 
-////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////
 
 fn whitespace(state: &mut ParseState) {
 	move_token_to_stack_if_nonempty(state);
@@ -87,7 +129,8 @@ fn whitespace(state: &mut ParseState) {
 fn left_parenthesis(state: &mut ParseState) {
 	move_token_to_stack_if_nonempty(state);
 	copy_current_read_position_to_unmatched_opening_parentheses(state);
-	state.stack.push(Rc::new(Sourcedata(Some(state.current_read_position.clone()), Coredata::Internal(Commands::Empty))));
+	state.stack.push(Rc::new(Sourcedata(Some(state.current_read_position.clone()),
+	                                    Coredata::Internal(Commands::Empty))));
 }
 
 fn right_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
@@ -100,10 +143,10 @@ fn right_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
 			&Sourcedata(ref pair_source, Coredata::Internal(Commands::Empty)) => {
 				source = pair_source.clone();
 				break;
-			},
+			}
 			_ => {
 				active = Rc::new(Sourcedata(top.0.clone(), Coredata::Pair(top.clone(), active)));
-			},
+			}
 		}
 	}
 	Rc::get_mut(&mut active).expect("There are no other references to the active set").0 = source;
@@ -118,11 +161,12 @@ fn otherwise(character: char, state: &mut ParseState) {
 	state.token.push(character);
 }
 
-////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////
 
 fn move_token_to_stack_if_nonempty(state: &mut ParseState) {
-	if ! state.token.is_empty() {
-		state.stack.push(Rc::new(Sourcedata(Some(state.start_of_current_lexeme.clone()), Coredata::Symbol(state.token.clone()))));
+	if !state.token.is_empty() {
+		state.stack.push(Rc::new(Sourcedata(Some(state.start_of_current_lexeme.clone()),
+		                                    Coredata::Symbol(state.token.clone()))));
 		clear_token(state);
 	}
 }
@@ -141,17 +185,16 @@ fn copy_current_read_position_to_unmatched_opening_parentheses(state: &mut Parse
 }
 
 fn pop_previous_opening_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
-	if ! state.unmatched_opening_parentheses.pop().is_some() {
+	if !state.unmatched_opening_parentheses.pop().is_some() {
 		Err(set_error(state, "Unmatched closing parenthesis"))
 	} else {
 		Ok(())
 	}
 }
 
-////////////////////////////////////////////////////////////
-// Tests                                                  //
-////////////////////////////////////////////////////////////
-
+// //////////////////////////////////////////////////////////
+// Tests                                                   //
+// //////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -179,13 +222,6 @@ mod tests {
 
 	#[test]
 	fn assert_expressions_err() {
-		assert_errs![
-			parse_string,
-			"(",
-			")",
-			"(test",
-			"test)",
-			"(test1 (test2)"
-		];
+		assert_errs![parse_string, "(", ")", "(test", "test)", "(test1 (test2)"];
 	}
 }
