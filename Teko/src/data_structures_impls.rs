@@ -1,10 +1,6 @@
 use std::rc::Rc;
-use std::collections::HashMap;
 use std::fmt;
-use num::bigint::BigInt;
-use num::rational::BigRational;
-use num::Complex;
-use data_structures::{Commands, Coredata, Env, ParseState, Source, Sourcedata};
+use data_structures::{Coredata, ParseState, Source, Sourcedata};
 use super::VEC_CAPACITY;
 
 /* Implementor's checklist:
@@ -30,6 +26,8 @@ use super::VEC_CAPACITY;
   Test different TCO strategies (HashSet, sorted Vec,..)
   Implement powers for numbers
   Replace all panics with unwinds
+✓   Replace panics with unwinds in eval
+  Formalize error messages and feedback (similar to rust errors, they are nice)
 
 */
 
@@ -51,7 +49,7 @@ impl fmt::Display for Sourcedata {
 			Error (ref arg) => {
 				write![f, "(error {})", arg]
 			},
-			Function (ref arg) => {
+			Function (..) => {
 				write![f, "{}", line!()]
 			},
 			Integer  (ref arg) => {
@@ -63,13 +61,13 @@ impl fmt::Display for Sourcedata {
 					Call(..) => {
 						write![f, "{}", line!()]
 					},
-					Prepare(ref arg) => {
+					Prepare(..) => {
 						write![f, "{}", line!()]
 					},
 					Parameterize => {
 						write![f, "{}", line!()]
 					},
-					Deparameterize(ref arg) => {
+					Deparameterize(..) => {
 						write![f, "{}", line!()]
 					},
 					If(..) => {
@@ -86,7 +84,7 @@ impl fmt::Display for Sourcedata {
 					},
 				}
 			},
-			Macro    (ref arg) => {
+			Macro    (..) => {
 				write![f, "(mo {})", line!()]
 			},
 			Null      => {
@@ -111,6 +109,12 @@ impl fmt::Display for Sourcedata {
 impl Default for Source {
 	fn default() -> Source {
 		Source { line: 1, column: 1, source: "unknown".into() }
+	}
+}
+
+impl fmt::Display for Source {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write![f, "{}:{}:{}", self.line, self.column, self.source]
 	}
 }
 

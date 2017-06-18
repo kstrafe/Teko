@@ -1,15 +1,10 @@
-use std::collections::HashMap;
 use std::rc::Rc;
-use std::fmt;
 use super::VEC_CAPACITY;
 
 use num::bigint::ToBigInt;
 use num::bigint::BigInt;
-use num::rational::BigRational;
-use num::Complex;
-use num::FromPrimitive;
 
-use data_structures::{Commands, Env, Source, Program, Sourcedata,
+use data_structures::{Commands, Env, Program, Sourcedata,
                       Coredata, Statement, Macro, Function};
 
 /// Macro::Builtin types are called with env.result as input, so (macro a b c) has env.result = (a b c).
@@ -51,9 +46,9 @@ fn optimize_tail_call(program: &mut Program,
 ///
 /// A builtin macro always stores the tail of the invocation inside `env.result`, so this macro is
 /// empty; it doesn't need to do anything.
-fn quote(top:     &Statement,
-         program: &mut Program,
-         env:     &mut Env) {
+fn quote(_: &Statement,
+         _: &mut Program,
+         _: &mut Env) {
 	println!["Created quoted list"];
 }
 
@@ -61,15 +56,15 @@ fn quote(top:     &Statement,
 ///
 /// Creates a string from the given symbols by inserting single spaces inbetween each symbol.
 /// TODO: Allow subexpressions; implement string interpolation and non-printable character insertion.
-fn string(top:     &Statement,
-          program: &mut Program,
-          env:     &mut Env) {
+fn string(_:   &Statement,
+          _:   &mut Program,
+          env: &mut Env) {
 	let vec = collect_pair_into_vec_string(&env.result);
 	env.result = Rc::new(Sourcedata(None, Coredata::String(vec.join(" "))));
 	println!["Created string"];
 }
 
-fn wind(top:     &Statement,
+fn wind(_:       &Statement,
         program: &mut Program,
         env:     &mut Env) {
 	println!["Wind macro"];
@@ -79,7 +74,7 @@ fn wind(top:     &Statement,
 	program.extend(code.iter().cloned());
 }
 
-fn unwind(top:     &Statement,
+fn unwind(_:       &Statement,
           program: &mut Program,
           env:     &mut Env) {
 	println!["Unwind macro"];
@@ -110,7 +105,7 @@ fn unwind_with_error_message(string: &str, program: &mut Program, env: &mut Env)
 	program.push(make_unwind());
 }
 
-fn error(top:     &Statement,
+fn error(_:       &Statement,
          program: &mut Program,
          env:     &mut Env) {
 	if let Some(args) = env.params.last() {
@@ -129,7 +124,7 @@ fn error(top:     &Statement,
 	}
 }
 
-fn not(top:     &Statement,
+fn not(_:       &Statement,
        program: &mut Program,
        env:     &mut Env) {
 	let args = env.params.last().expect("Should exist by virtue of functions");
@@ -147,9 +142,9 @@ fn not(top:     &Statement,
 }
 
 
-fn head(top:     &Statement,
-        program: &mut Program,
-        env:     &mut Env) {
+fn head(_:   &Statement,
+        _:   &mut Program,
+        env: &mut Env) {
 	let args = env.params.last().expect("Should exist by virtue of functions");
 	if args.len() != 1 {
 		panic!("should have only a single arg");
@@ -159,9 +154,9 @@ fn head(top:     &Statement,
 	println!["Took head"];
 }
 
-fn tail(top:     &Statement,
-        program: &mut Program,
-        env:     &mut Env) {
+fn tail(_:   &Statement,
+        _:   &mut Program,
+        env: &mut Env) {
 	let args = env.params.last().expect("Should exist by virtue of functions");
 	if args.len() != 1 {
 		panic!("should have only a single arg");
@@ -171,9 +166,9 @@ fn tail(top:     &Statement,
 	println!["Took tail"];
 }
 
-fn pair(top:     &Statement,
-        program: &mut Program,
-        env:     &mut Env) {
+fn pair(_:   &Statement,
+        _:   &mut Program,
+        env: &mut Env) {
 	let args = env.params.last().expect("Should exist by virtue of functions");
 	if args.len() != 2 {
 		panic!("should have two args");
@@ -184,9 +179,9 @@ fn pair(top:     &Statement,
 	println!["Took tail"];
 }
 
-fn make_macro(top:     &Statement,
-              program: &mut Program,
-              env:     &mut Env) {
+fn make_macro(_:   &Statement,
+              _:   &mut Program,
+              env: &mut Env) {
 	let args = env.result.clone();
 	let params = match args.head().1 {
 		Coredata::Symbol(ref string) => {
@@ -196,28 +191,28 @@ fn make_macro(top:     &Statement,
 			panic!("Wrong use of macro");
 		},
 	};
-	let mut code = collect_pair_into_vec(&args.tail());
+	let code = collect_pair_into_vec(&args.tail());
 	env.result = Rc::new(Sourcedata(None, Coredata::Macro(Macro::Library(params, code))));
 	println!["Created macro object"];
 }
 
-fn function(top:     &Statement,
-            program: &mut Program,
-            env:     &mut Env) {
+fn function(_:   &Statement,
+            _:   &mut Program,
+            env: &mut Env) {
 	let args = env.result.clone();
 	let params = collect_pair_into_vec_string(&args.head());
-	let mut code = collect_pair_into_vec(&args.tail());
+	let code = collect_pair_into_vec(&args.tail());
 	env.result = Rc::new(Sourcedata(None, Coredata::Function(Function::Library(params, code))));
 	println!["Created function object"];
 }
 
-fn set(top:     &Statement,
-       program: &mut Program,
-       env:     &mut Env) {
+fn set(_: &Statement,
+       _: &mut Program,
+       _: &mut Env) {
 	unimplemented!();
 }
 
-fn define(top:     &Statement,
+fn define(_:       &Statement,
           program: &mut Program,
           env:     &mut Env) {
 	println!["Inside define"];
@@ -248,7 +243,7 @@ fn define(top:     &Statement,
 	env.params.push(vec!());
 }
 
-fn if_conditional(top:     &Statement,
+fn if_conditional(_:       &Statement,
                   program: &mut Program,
                   env:     &mut Env) {
 	println!["Inside if"];
@@ -257,9 +252,9 @@ fn if_conditional(top:     &Statement,
 	program.push(arguments.head());
 }
 
-fn define_internal(top:     &Statement,
-                   program: &mut Program,
-                   env:     &mut Env) {
+fn define_internal(_:   &Statement,
+                   _:   &mut Program,
+                   env: &mut Env) {
 	println!["define_internal"];
 	let args = env.params.last().expect("Must be defined by previous macro");
 	println!["Arglen: {}", args.len()];
@@ -276,9 +271,9 @@ fn define_internal(top:     &Statement,
 	println!("dfine internal {}", args.len());
 }
 
-fn sleep(top:     &Statement,
-         program: &mut Program,
-         env:     &mut Env) {
+fn sleep(_:   &Statement,
+         _:   &mut Program,
+         env: &mut Env) {
 	use std::{thread, time};
 	use num::ToPrimitive;
 	println!["Sleep func"];
@@ -292,20 +287,20 @@ fn sleep(top:     &Statement,
 	}
 }
 
-fn plus(top:     &Statement,
-        program: &mut Program,
-        env:     &mut Env) {
+fn plus(_:   &Statement,
+        _:   &mut Program,
+        env: &mut Env) {
 	let arguments = env.params.last().expect("The state machine should ensure this exists");
 	let mut sum = 0.to_bigint().expect("Constant zero should always be parsed correctly");
 	for argument in arguments.iter() {
 		match &**argument {
-			&Sourcedata(_, Coredata::Complex(ref complex)) => {
+			&Sourcedata(_, Coredata::Complex(_)) => {
 				unimplemented![];
 			},
 			&Sourcedata(_, Coredata::Integer(ref integer)) => {
 				sum = sum + integer;
 			},
-			&Sourcedata(_, Coredata::Rational(ref rational)) => {
+			&Sourcedata(_, Coredata::Rational(_)) => {
 				unimplemented![];
 			},
 			ref a => {
@@ -318,22 +313,22 @@ fn plus(top:     &Statement,
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
-fn minus(top:     &Statement,
-         program: &mut Program,
-         env:     &mut Env) {
+fn minus(_:   &Statement,
+         _:   &mut Program,
+         env: &mut Env) {
 	println!["Length in minus: {}", env.params.last().unwrap().len()];
 	let arguments = env.params.last().expect("The state machine should ensure this exists");
 	let mut sum = 0.to_bigint().expect("Constant zero should always be parsed correctly");
 	if arguments.len() == 1 {
 		for argument in arguments.iter() {
 			match &**argument {
-				&Sourcedata(_, Coredata::Complex(ref complex)) => {
+				&Sourcedata(_, Coredata::Complex(_)) => {
 					unimplemented![];
 				},
 				&Sourcedata(_, Coredata::Integer(ref integer)) => {
 					sum = sum - integer;
 				},
-				&Sourcedata(_, Coredata::Rational(ref rational)) => {
+				&Sourcedata(_, Coredata::Rational(_)) => {
 					unimplemented![];
 				},
 				_ => {
@@ -345,7 +340,7 @@ fn minus(top:     &Statement,
 		let mut first = true;
 		for argument in arguments.iter() {
 			match &**argument {
-				&Sourcedata(_, Coredata::Complex(ref complex)) => {
+				&Sourcedata(_, Coredata::Complex(_)) => {
 					unimplemented![];
 				},
 				&Sourcedata(_, Coredata::Integer(ref integer)) => {
@@ -356,7 +351,7 @@ fn minus(top:     &Statement,
 						sum = sum - integer;
 					}
 				},
-				&Sourcedata(_, Coredata::Rational(ref rational)) => {
+				&Sourcedata(_, Coredata::Rational(_)) => {
 					unimplemented![];
 				},
 				_ => {
@@ -370,20 +365,20 @@ fn minus(top:     &Statement,
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
-fn multiply(top:     &Statement,
-            program: &mut Program,
-            env:     &mut Env) {
+fn multiply(_:   &Statement,
+            _:   &mut Program,
+            env: &mut Env) {
 	let arguments = env.params.last().expect("The state machine should ensure this exists");
 	let mut sum = 1.to_bigint().expect("Constant zero should always be parsed correctly");
 	for argument in arguments.iter() {
 		match &**argument {
-			&Sourcedata(_, Coredata::Complex(ref complex)) => {
+			&Sourcedata(_, Coredata::Complex(_)) => {
 				unimplemented![];
 			},
 			&Sourcedata(_, Coredata::Integer(ref integer)) => {
 				sum = sum * integer;
 			},
-			&Sourcedata(_, Coredata::Rational(ref rational)) => {
+			&Sourcedata(_, Coredata::Rational(_)) => {
 				unimplemented![];
 			},
 			_ => {
@@ -395,21 +390,21 @@ fn multiply(top:     &Statement,
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
-fn divide(top:     &Statement,
-          program: &mut Program,
-          env:     &mut Env) {
+fn divide(_:   &Statement,
+          _:   &mut Program,
+          env: &mut Env) {
 	let arguments = env.params.last().expect("The state machine should ensure this exists");
 	let mut sum = 1.to_bigint().expect("Constant zero should always be parsed correctly");
 	if arguments.len() == 1 {
 		for argument in arguments.iter() {
 			match &**argument {
-				&Sourcedata(_, Coredata::Complex(ref complex)) => {
+				&Sourcedata(_, Coredata::Complex(_)) => {
 					unimplemented![];
 				},
 				&Sourcedata(_, Coredata::Integer(ref integer)) => {
 					sum = sum / integer;
 				},
-				&Sourcedata(_, Coredata::Rational(ref rational)) => {
+				&Sourcedata(_, Coredata::Rational(_)) => {
 					unimplemented![];
 				},
 				_ => {
@@ -421,7 +416,7 @@ fn divide(top:     &Statement,
 		let mut first = true;
 		for argument in arguments.iter() {
 			match &**argument {
-				&Sourcedata(_, Coredata::Complex(ref complex)) => {
+				&Sourcedata(_, Coredata::Complex(_)) => {
 					unimplemented![];
 				},
 				&Sourcedata(_, Coredata::Integer(ref integer)) => {
@@ -431,7 +426,7 @@ fn divide(top:     &Statement,
 						sum = sum / integer;
 					}
 				},
-				&Sourcedata(_, Coredata::Rational(ref rational)) => {
+				&Sourcedata(_, Coredata::Rational(_)) => {
 					unimplemented![];
 				},
 				_ => {
@@ -480,9 +475,9 @@ fn collect_pair_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
 	to_return
 }
 
-fn pop_parameters(top:     &Statement,
-                  program: &mut Program,
-                  env:     &mut Env,
+fn pop_parameters(_:   &Statement,
+                  _:   &mut Program,
+                  env: &mut Env,
                   args:    &Vec<String>) {
 	for arg in args {
 		print!["{}, ", arg];
@@ -546,7 +541,7 @@ fn eval(mut program: Program, mut env: Env) {
 		println!["PROGRAM LENGTH: {}", program.len()];
 		println!["{}", top];
 		match &*top {
-			&Sourcedata(ref source, Coredata::Pair(ref head, ref tail)) => {
+			&Sourcedata(_, Coredata::Pair(ref head, ref tail)) => {
 				program.push(Rc::new(Sourcedata(tail.0.clone(), Coredata::Internal(Commands::Prepare(tail.clone())))));
 				program.push(head.clone());
 			},
@@ -565,7 +560,7 @@ fn eval(mut program: Program, mut env: Env) {
 					unwind_with_error_message("Error during parameterization: the parameter stack is nonexistent", &mut program, &mut env);
 				}
 			},
-			&Sourcedata(ref source, Coredata::Internal(Commands::Prepare(ref arguments))) => {
+			&Sourcedata(_, Coredata::Internal(Commands::Prepare(ref arguments))) => {
 				match &*env.result.clone() {
 					&Sourcedata(_, Coredata::Function(..)) => {
 						env.params.push(vec![]);
@@ -595,23 +590,23 @@ fn eval(mut program: Program, mut env: Env) {
 					},
 				}
 			},
-			&Sourcedata(ref source, Coredata::Internal(Commands::Evaluate)) => {
+			&Sourcedata(_, Coredata::Internal(Commands::Evaluate)) => {
 				program.push(env.result.clone());
 			},
-			&Sourcedata(ref source, Coredata::Internal(Commands::Call(ref statement))) => {
+			&Sourcedata(_, Coredata::Internal(Commands::Call(ref statement))) => {
 				match &**statement {
 					&Sourcedata(_, Coredata::Function(Function::Builtin(ref transfer))) => {
 						transfer(&top, &mut program, &mut env);
-						if let Some(top) = env.params.pop() {
+						if let Some(_) = env.params.pop() {
 							// Do nothing
 						} else {
-							unwind_with_error_message("Error during builtin function call: parameter stack not poppable", &mut program, &mut env);
+							unwind_with_error_message("during builtin function call: parameter stack not poppable", &mut program, &mut env);
 						}
 					},
 					&Sourcedata(_, Coredata::Function(Function::Library(ref parameters, ref transfer))) => {
 						if let Some(arguments) = env.params.pop() {
 							if arguments.len() != parameters.len() {
-								unwind_with_error_message("Error during library function call: arity mismatch", &mut program, &mut env);
+								unwind_with_error_message("during library function call: arity mismatch", &mut program, &mut env);
 							} else {
 								let mut counter = 0;
 								for parameter in parameters.iter() {
@@ -628,22 +623,22 @@ fn eval(mut program: Program, mut env: Env) {
 								program.extend(transfer.iter().cloned());
 							}
 						} else {
-							unwind_with_error_message("Error during library function call: parameter stack empty", &mut program, &mut env);
+							unwind_with_error_message("during library function call: parameter stack empty", &mut program, &mut env);
 						}
 					},
 					_ => {
-						unwind_with_error_message("Error calling: Element not recognized as callable", &mut program, &mut env);
+						unwind_with_error_message("calling: Element not recognized as callable", &mut program, &mut env);
 					},
 				}
 			},
-			&Sourcedata(ref source, Coredata::Internal(Commands::If(ref first, ref second))) => {
+			&Sourcedata(_, Coredata::Internal(Commands::If(ref first, ref second))) => {
 				if let Coredata::Null = env.result.1 {
 					program.push(second.clone());
 				} else {
 					program.push(first.clone());
 				}
 			},
-			&Sourcedata(ref source, Coredata::Internal(Commands::Deparameterize(ref arguments))) => {
+			&Sourcedata(_, Coredata::Internal(Commands::Deparameterize(ref arguments))) => {
 				pop_parameters(&top, &mut program, &mut env, arguments);
 			},
 			&Sourcedata(ref source, Coredata::Symbol(ref string)) => {
@@ -655,17 +650,25 @@ fn eval(mut program: Program, mut env: Env) {
 							env.result = value.clone();
 							None
 						} else {
-							Some("variable does exist but its stack is empty")
+							if let &Some(ref source) = source {
+								Some(format!["{} => variable `{}' does exist but its stack is empty", source, string])
+							} else {
+								Some(format!["_ variable `{}' does exist but its stack is empty", string])
+							}
 						}
 					} else {
-						Some("variable does not exist")
+						if let &Some(ref source) = source {
+							Some(format!["{} => variable `{}' does not exist", source, string])
+						} else {
+							Some(format!["variable `{}' does not exist", string])
+						}
 					};
 					if let Some(error) = error {
-						unwind_with_error_message(error, &mut program, &mut env);
+						unwind_with_error_message(&error, &mut program, &mut env);
 					}
 				}
 			},
-			other => {
+			_ => {
 				env.result = top.clone();
 			},
 		}
