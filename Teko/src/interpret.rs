@@ -22,6 +22,7 @@ use super::VEC_CAPACITY;
 
 use num::bigint::ToBigInt;
 use num::bigint::BigInt;
+use std::collections::HashMap;
 
 use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Statement, Macro,
                       Function};
@@ -80,13 +81,21 @@ fn optimize_tail_call(program: &mut Program, env: &mut Env, params: &Vec<String>
 }
 
 macro_rules! construct_builtins {
-	($($t:tt : $e:expr => $i:ident),*,) => { construct_builtins![$($t : $e => $i),*] };
-	($($t:tt : $e:expr => $i:ident),*) => {
-		[
-			$(
-				($e.into(), vec![Rc::new(Sourcedata(None, Coredata::$t($t::Builtin($i))))])
-			),*
-		].iter().cloned().collect()
+	({$($c:expr => $x:expr),*,} $($t:ident: $e:expr => $i:ident),*,) => {
+		{
+			let mut functions_and_macros : HashMap<String, Program> = [
+				$(
+					($e.into(), vec![Rc::new(Sourcedata(None, Coredata::$t($t::Builtin($i))))])
+				),*
+			].iter().cloned().collect();
+			let constants : HashMap<String, Program> = [
+				$(
+					($c.into(), vec![Rc::new(Sourcedata(None, $x))])
+				),*
+			].iter().cloned().collect();
+			functions_and_macros.extend(constants);
+			functions_and_macros
+		}
 	};
 }
 
@@ -102,8 +111,10 @@ use builtins::*;
 pub fn initialize_environment_with_standard_library() -> Env {
 	Env {
 		store: construct_builtins! {
-			// TODO: could be made even shorter by creating one space for functions and another for
-			// macros, or too much context to be readable?
+			{
+				"true" => Coredata::Boolean(Boolean::True),
+				"false" => Coredata::Boolean(Boolean::False),
+			}
 			Function : "+" => plus,
 			Function : "-" => minus,
 			Function : "*" => multiply,
@@ -253,7 +264,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				program.push(env.result.clone());
 			}
 			&Sourcedata(_, Coredata::Internal(Commands::If(ref first, ref second))) => {
-				if let Coredata::Null = env.result.1 {
+				if let Coredata::Boolean(Boolean::False) = env.result.1 {
 					program.push(second.clone());
 				} else {
 					program.push(first.clone());

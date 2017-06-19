@@ -264,7 +264,7 @@ pub fn geq(_: &mut Program, env: &mut Env) {
 					if previous >= integer {
 						// Do nothing
 					} else {
-						result = Rc::new(Sourcedata(None, Coredata::Null));
+						result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
 						break;
 					}
 					last = Some(integer);

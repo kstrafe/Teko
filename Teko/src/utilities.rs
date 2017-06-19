@@ -31,6 +31,8 @@ use super::VEC_CAPACITY;
 // ✓ Change transfer functions, do we need top?
 //   Formalize errors (need line, column, file, standard format)
 //   Implement a proper fmt::Display for Sourcedata
+// ✓ Use booleans for If
+// ✓ Easily add constants (pi, e, true, false)
 
 impl fmt::Display for Sourcedata {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
