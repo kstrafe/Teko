@@ -22,10 +22,10 @@ use super::VEC_CAPACITY;
 
 use num::bigint::ToBigInt;
 use num::bigint::BigInt;
-use std::collections::HashMap;
 
 use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Statement, Macro,
                       Function};
+use utilities::*;
 
 /// Takes the union of two sets.
 fn compute_union(a: &Vec<String>, b: &Vec<String>) -> Vec<String> {
@@ -80,25 +80,6 @@ fn optimize_tail_call(program: &mut Program, env: &mut Env, params: &Vec<String>
 	}
 }
 
-macro_rules! construct_builtins {
-	({$($c:expr => $x:expr),*,} $($t:ident: $e:expr => $i:ident),*,) => {
-		{
-			let mut functions_and_macros : HashMap<String, Program> = [
-				$(
-					($e.into(), vec![Rc::new(Sourcedata(None, Coredata::$t($t::Builtin($i))))])
-				),*
-			].iter().cloned().collect();
-			let constants : HashMap<String, Program> = [
-				$(
-					($c.into(), vec![Rc::new(Sourcedata(None, $x))])
-				),*
-			].iter().cloned().collect();
-			functions_and_macros.extend(constants);
-			functions_and_macros
-		}
-	};
-}
-
 use builtins::*;
 
 /// Initializes the environment with the standard library
@@ -110,33 +91,7 @@ use builtins::*;
 /// ```
 pub fn initialize_environment_with_standard_library() -> Env {
 	Env {
-		store: construct_builtins! {
-			{
-				"true" => Coredata::Boolean(Boolean::True),
-				"false" => Coredata::Boolean(Boolean::False),
-			}
-			Function : "+" => plus,
-			Function : "-" => minus,
-			Function : "*" => multiply,
-			Function : "/" => divide,
-			Function : ">=" => geq,
-			Function : "not" => not,
-			Function : "error" => error,
-			Function : "head" => head,
-			Function : "tail" => tail,
-			Function : "pair" => pair,
-			Function : "sleep" => sleep,
-			Function : "unwind" => unwind,
-			Function : "eval" => eval_expose,
-			Macro : "'" => quote,
-			Macro : "\"" => string,
-			Macro : "if" => if_conditional,
-			Macro : "set!" => set,
-			Macro : "wind" => wind,
-			Macro : "define" => define,
-			Macro : "fn" => function,
-			Macro : "mo" => make_macro,
-		},
+		store: create_builtin_library_table(),
 		params: Vec::with_capacity(VEC_CAPACITY),
 		result: Rc::new(Sourcedata(None, Coredata::Null)),
 	}
@@ -206,10 +161,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						if let Some(_) = env.params.pop() {
 							// Do nothing
 						} else {
-							unwind_with_error_message("during builtin function call: parameter \
-							                           stack not poppable",
-							                          &mut program,
-							                          &mut env);
+							make_unwind_with_error_message("during builtin function call: \
+							                                parameter stack not poppable",
+							                               &mut program,
+							                               &mut env);
 						}
 					}
 					&Sourcedata(_,
@@ -217,10 +172,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					                                                 ref transfer))) => {
 						if let Some(arguments) = env.params.pop() {
 							if arguments.len() != parameters.len() {
-								unwind_with_error_message("during library function call: arity \
-								                           mismatch",
-								                          &mut program,
-								                          &mut env);
+								make_unwind_with_error_message("during library function call: \
+								                                arity mismatch",
+								                               &mut program,
+								                               &mut env);
 							} else {
 								let mut counter = 0;
 								let cmd =
@@ -244,16 +199,17 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 								program.extend(transfer.iter().cloned());
 							}
 						} else {
-							unwind_with_error_message("during library function call: parameter \
-							                           stack empty",
-							                          &mut program,
-							                          &mut env);
+							make_unwind_with_error_message("during library function call: \
+							                                parameter stack empty",
+							                               &mut program,
+							                               &mut env);
 						}
 					}
 					_ => {
-						unwind_with_error_message("calling: Element not recognized as callable",
-						                          &mut program,
-						                          &mut env);
+						make_unwind_with_error_message("calling: Element not recognized as \
+						                                callable",
+						                               &mut program,
+						                               &mut env);
 					}
 				}
 			}
@@ -278,10 +234,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					true
 				};
 				if succeeded {
-					unwind_with_error_message("Error during parameterization: the parameter \
-					                           stack is nonexistent",
-					                          &mut program,
-					                          &mut env);
+					make_unwind_with_error_message("Error during parameterization: the parameter \
+					                                stack is nonexistent",
+					                               &mut program,
+					                               &mut env);
 				}
 			}
 			&Sourcedata(ref s, Coredata::Internal(Commands::Prepare(ref arguments))) => {
@@ -316,10 +272,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						program.extend(code.iter().cloned());
 					}
 					_ => {
-						unwind_with_error_message("Error during prepare routine: element not \
-						                           callable",
-						                          &mut program,
-						                          &mut env);
+						make_unwind_with_error_message("Error during prepare routine: element \
+						                                not callable",
+						                               &mut program,
+						                               &mut env);
 					}
 				}
 			}
@@ -358,7 +314,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						}
 					};
 					if let Some(error) = error {
-						unwind_with_error_message(&error, &mut program, &mut env);
+						make_unwind_with_error_message(&error, &mut program, &mut env);
 					}
 				}
 			}

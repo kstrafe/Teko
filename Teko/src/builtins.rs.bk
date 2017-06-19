@@ -99,7 +99,7 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 ///
 /// A builtin macro always stores the tail of the invocation inside `env.result`, so this macro is
 /// empty; it doesn't need to do anything.
-fn quote(_: &mut Program, _: &mut Env) {}
+fn quote(_: &mut Program, _: &mut Env) { }
 
 /// Evaluates the argument as if it's a program.
 fn eval_expose(program: &mut Program, env: &mut Env) {

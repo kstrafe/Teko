@@ -1,8 +1,7 @@
 //! Contains utilities used by the implementation
 use std::rc::Rc;
 use std::fmt;
-use data_structures::{Function, Commands, Coredata, Env, Statement, ParseState, Source, Program,
-                      Sourcedata};
+use data_structures::{Function, Commands, Coredata, Env, Statement, ParseState, Source, Program, Sourcedata};
 use super::VEC_CAPACITY;
 
 // //////////////////////////////////////////////////////////
@@ -35,7 +34,6 @@ use super::VEC_CAPACITY;
 //   Implement a proper fmt::Display for Sourcedata
 // ✓ Use booleans for If
 // ✓ Easily add constants (pi, e, true, false)
-//   Sort the builtins.rs file by function names
 // //////////////////////////////////////////////////////////
 
 impl fmt::Display for Sourcedata {
