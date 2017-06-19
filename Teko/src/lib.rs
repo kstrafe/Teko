@@ -27,6 +27,33 @@
 //!                           accum)))
 //! (factorial 5 1)
 //! ```
+//! Example: using this library to interpret Teko:
+//!
+//! ```
+//! extern crate teko;
+//! extern crate num_traits;
+//! use num_traits::cast::ToPrimitive;
+//! fn main() {
+//! 	let program = teko::parse::parse_string("
+//! 	(define factorial (fn (n accum)
+//! 	                      (if (>= n 1)
+//! 	                         (factorial (- n 1) (* n accum))
+//! 	                         accum)))
+//! 	(write (factorial 5 1))").ok().unwrap();
+//! 	let env = teko::interpret::interpret(program);
+//! 	match env.result.1 {
+//! 		teko::data_structures::Coredata::Integer(ref value) => {
+//! 			assert_eq![value.to_i32().unwrap(), 120];
+//! 		}
+//! 		_ => {
+//! 			panic!["Expected Integer but got a different data type"];
+//! 		}
+//! 	}
+//! }
+//! ```
+//!
+//! Note that `write` doesn't yield a result in the example above so the previous
+//! result from `factorial` is left inside the environment instead.
 
 // //////////////////////////////////////////////////////////
 // ✓ Implementor's checklist:
@@ -64,10 +91,10 @@
 #![feature(slice_patterns)]
 extern crate num;
 
-mod builtins;
-mod data_structures;
-mod interpret;
-mod parse;
-mod utilities;
+pub mod builtins;
+pub mod data_structures;
+pub mod interpret;
+pub mod parse;
+pub mod utilities;
 
 const VEC_CAPACITY: usize = 10;

@@ -151,12 +151,16 @@ pub fn make_unwind() -> Statement {
 /// This function doesn't unwind directly.
 pub fn make_unwind_with_error_message(string: &str, program: &mut Program, env: &mut Env) {
 	let sub = Rc::new(Sourcedata(None, Coredata::String(string.into())));
+	let old = env.params.pop();
 	env.params.push(vec![Rc::new(Sourcedata(None, Coredata::Error(sub)))]);
+	if let Some(old) = old {
+		env.params.push(old);
+	}
 	program.push(make_unwind());
 }
 
 // TODO change from panic to unwind, but can we be safe about such a serious error by
-// unwinding?
+// unwinding? Maybe a stop function that freezes the interpreter...
 /// Pops the specified parameters from the stack.
 ///
 /// If the parameters do not exist then there's an internal programmer error and
@@ -192,6 +196,7 @@ pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &Vec<String>) {
 /// Preserves stack consistency (pops parameters when necessary).
 pub fn unwind(program: &mut Program, env: &mut Env) {
 	env.result = env.params.last().unwrap().last().unwrap().clone();
+	println!("Unwinding with: {}", env.result);
 	while let Some(top) = program.pop() {
 		match top.1 {
 			Coredata::Internal(Commands::Deparameterize(ref arguments)) => {

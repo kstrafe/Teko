@@ -20,10 +20,9 @@
 use std::rc::Rc;
 use super::VEC_CAPACITY;
 
-use num::bigint::ToBigInt;
 use num::bigint::BigInt;
 
-use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Statement, Macro,
+use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro,
                       Function};
 use utilities::*;
 
@@ -149,10 +148,8 @@ pub fn interpret(program: Program) -> Env {
 /// ```
 pub fn eval(mut program: Program, mut env: Env) -> Env {
 	program.reverse(); // TODO: Do this in the parser instead, doesn't fit in here.
-	let mut coun = 0;
 	while let Some(top) = program.pop() {
 		println!["{}", top];
-		coun += 1;
 		match &*top {
 			&Sourcedata(_, Coredata::Internal(Commands::Call(ref statement))) => {
 				match &**statement {
@@ -240,7 +237,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					                               &mut env);
 				}
 			}
-			&Sourcedata(ref s, Coredata::Internal(Commands::Prepare(ref arguments))) => {
+			&Sourcedata(_, Coredata::Internal(Commands::Prepare(ref arguments))) => {
 				match &*env.result.clone() {
 					&Sourcedata(_, Coredata::Function(..)) => {
 						env.params.push(vec![]);
@@ -252,7 +249,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 							program.push(argument.clone());
 						}
 					}
-					&Sourcedata(ref k, Coredata::Macro(Macro::Builtin(ref transfer))) => {
+					&Sourcedata(_, Coredata::Macro(Macro::Builtin(ref transfer))) => {
 						env.result = arguments.clone();
 						transfer(&mut program, &mut env);
 					}
@@ -323,7 +320,6 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			}
 		}
 	}
-	println!["Total eval iterations: {}", coun];
 	env
 }
 

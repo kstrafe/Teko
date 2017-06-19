@@ -21,10 +21,8 @@
 
 use std::rc::Rc;
 use std::collections::HashMap;
-use super::VEC_CAPACITY;
 use num::bigint::ToBigInt;
-use num::bigint::BigInt;
-use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Statement, Macro,
+use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro,
                       Function};
 use utilities::*;
 
@@ -74,12 +72,14 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Function : ">=" => geq,
 		Function : "not" => not,
 		Function : "error" => error,
+		Function : "error?" => is_error,
 		Function : "head" => head,
 		Function : "tail" => tail,
 		Function : "pair" => pair,
 		Function : "sleep" => sleep,
 		Function : "unwind" => unwind,
 		Function : "eval" => eval_expose,
+		Function : "write" => write,
 		Macro : "'" => quote,
 		Macro : "\"" => string,
 		Macro : "if" => if_conditional,
@@ -181,7 +181,6 @@ fn divide(_: &mut Program, env: &mut Env) {
 		// Arity mismatch
 		unimplemented!();
 	}
-	println!["plus: {}", sum];
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
@@ -240,7 +239,6 @@ fn function(_: &mut Program, env: &mut Env) {
 	let params = collect_pair_of_symbols_into_vec_string(&args.head());
 	let code = collect_pair_into_vec(&args.tail());
 	env.result = Rc::new(Sourcedata(None, Coredata::Function(Function::Library(params, code))));
-	println!["Created function object"];
 }
 
 fn geq(_: &mut Program, env: &mut Env) {
@@ -268,8 +266,7 @@ fn geq(_: &mut Program, env: &mut Env) {
 			&Sourcedata(_, Coredata::Rational(_)) => {
 				unimplemented![];
 			}
-			ref a => {
-				println!["{}", a];
+			_ => {
 				unimplemented![];
 			}
 		}
@@ -304,6 +301,14 @@ fn if_conditional(program: &mut Program, env: &mut Env) {
 	program.push(arguments.head());
 }
 
+fn is_error(_: &mut Program, env: &mut Env) {
+	if let Coredata::Error(_) = env.params.last().unwrap().first().unwrap().1 {
+		env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
+	} else {
+		env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
+	}
+}
+
 fn make_macro(_: &mut Program, env: &mut Env) {
 	let args = env.result.clone();
 	let params = match args.head().1 {
@@ -314,7 +319,6 @@ fn make_macro(_: &mut Program, env: &mut Env) {
 	};
 	let code = collect_pair_into_vec(&args.tail());
 	env.result = Rc::new(Sourcedata(None, Coredata::Macro(Macro::Library(params, code))));
-	println!["Created macro object"];
 }
 
 fn multiply(_: &mut Program, env: &mut Env) {
@@ -336,7 +340,6 @@ fn multiply(_: &mut Program, env: &mut Env) {
 			}
 		}
 	}
-	println!["plus: {}", sum];
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
@@ -345,12 +348,11 @@ fn not(program: &mut Program, env: &mut Env) {
 	let args = env.params.last().expect("Should exist by virtue of functions");
 	if args.len() != 1 {
 		program.push(make_unwind());
-		println!["Should have a single arg"];
 	} else {
-		if let Coredata::Null = args.first().unwrap().1 {
-			env.result = Rc::new(Sourcedata(None, Coredata::Symbol("true".into())));
+		if let Coredata::Boolean(Boolean::False) = args.first().unwrap().1 {
+			env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
 		} else {
-			env.result = Rc::new(Sourcedata(None, Coredata::Null));
+			env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
 		}
 	}
 }
@@ -364,7 +366,6 @@ fn pair(_: &mut Program, env: &mut Env) {
 		                                Coredata::Pair(args.first().unwrap().clone(),
 		                                               args.get(1).unwrap().clone())));
 	}
-	println!["Took tail"];
 }
 
 fn plus(_: &mut Program, env: &mut Env) {
@@ -381,8 +382,7 @@ fn plus(_: &mut Program, env: &mut Env) {
 			&Sourcedata(_, Coredata::Rational(_)) => {
 				unimplemented![];
 			}
-			ref a => {
-				println!["{}", a];
+			_ => {
 				unimplemented![];
 			}
 		}
@@ -403,7 +403,6 @@ fn set(_: &mut Program, _: &mut Env) {
 fn sleep(_: &mut Program, env: &mut Env) {
 	use std::{thread, time};
 	use num::ToPrimitive;
-	println!["Sleep func"];
 	let arguments = env.params
 		.last()
 		.expect("The state machine should ensure this exists")
@@ -426,7 +425,6 @@ fn sleep(_: &mut Program, env: &mut Env) {
 fn string(_: &mut Program, env: &mut Env) {
 	let vec = collect_pair_of_symbols_into_vec_string(&env.result);
 	env.result = Rc::new(Sourcedata(None, Coredata::String(vec.join(" "))));
-	println!["Created string"];
 }
 
 fn subtract(_: &mut Program, env: &mut Env) {
@@ -483,13 +481,18 @@ fn tail(_: &mut Program, env: &mut Env) {
 	} else {
 		env.result = args.first().unwrap().tail().clone();
 	}
-	println!["Took tail"];
 }
 
 fn wind(program: &mut Program, env: &mut Env) {
-	println!["Wind macro"];
 	let args = env.result.clone();
 	let code = collect_pair_into_vec(&args);
 	program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Wind))));
 	program.extend(code.iter().cloned());
 }
+
+fn write(_: &mut Program, env: &mut Env) {
+	for i in env.params.last().unwrap() {
+		println!["EU: {}", i];
+	}
+}
+

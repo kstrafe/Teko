@@ -1,5 +1,1 @@
-(define f (fn (m n accum)
-              (if (>= m 1)
-                  (f (- m 1) n (+ accum n))
-                  accum)))
-(* (f 1000000 100 0))
+(write (wind (if (not (error? ((head)))) 1 2)))
