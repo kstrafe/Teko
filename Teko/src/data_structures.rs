@@ -31,6 +31,8 @@ pub type Program = Vec<Statement>;
 ///
 /// An example of a transfer function is the definition of not:
 ///
+pub type Transfermacro = fn(top: &Statement, argument: &Statement, program: &mut Program, env: &mut Env) -> Statement;
+pub type Transferfunction = fn(top: &Statement, arguments: Vec<Statement>, program: &mut Program, env: &mut Env) -> Statement;
 pub type Transfer = fn(top: &Statement, program: &mut Program, env: &mut Env);
 /// Boolean values
 pub enum Boolean {

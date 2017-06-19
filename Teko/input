@@ -1,37 +1,6 @@
-(define k (fn () 2 2 (+ 30 31)))
-(k)
-(define x (fn (qi tu zhe) (- zhe)))
-(x 8 30 (k))
-(sleep 300)
-(define qe (fn (b) (sleep 400) (ok b)))
-(define ok (fn (a) (sleep 300) (qe a)))
-
-(define something (fn () if))
-(+ ((something) () 0 2))
-
-((mo a (if (' cool) (' + 1 2) (' + 1 2 3))))
-
-(+ ((mo _ (head (tail (' 1 2 3))))))
-
-(+ (head (pair 1 ())))
-
-(+ 5 (wind (+ 1) (+ ((fn () (unwind 6 (+ 2 1) 6))) 8) (+ 3) (sleep 10000)))
-
-(define true (' true))
-(define false ())
-
-(+ (if (not true) (/ 1 9 9) (- 2 8 (k))))
-
-(define q (fn (a b c) c))
-(+ (q 2 5 8))
-
-(wind (+ parapara))
-(' (+ 1 2))
-
-(eval (' + 1 2 3 4 5 6))
-
-(define fact (fn (n accum)
-                 (if (>= n 1)
-                     (fact (- n 1) (* n accum))
-                     accum)))
-(+ (fact 500 1))
+(define f (fn (m n accum)
+							(sleep 100)
+              (if (>= m 1)
+                  (f (- m 1) n (+ accum n))
+                  accum)))
+(* (f 10 100 0))

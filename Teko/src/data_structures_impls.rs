@@ -26,9 +26,9 @@ use super::VEC_CAPACITY;
 // Test different TCO strategies (HashSet, sorted Vec,..)
 // Implement powers for numbers
 // Replace all panics with unwinds
-// ✓   Replace panics with unwinds in eval
+// ✓ Replace panics with unwinds in 'fn eval'
 // Formalize error messages and feedback (similar to rust errors, they are nice)
-//
+// Change transfer functions to fn(&top, &arg, &mut prog, &mut env) -> Statement, do we need top?
 //
 
 impl fmt::Display for Sourcedata {

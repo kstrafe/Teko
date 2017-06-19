@@ -1,3 +1,3 @@
 .PHONY:
 all:
-	cargo test -- --nocapture
+	cargo test test_interpreter --color=always -- --nocapture 2>&1

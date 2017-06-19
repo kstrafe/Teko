@@ -179,9 +179,7 @@ fn not(_: &Statement, program: &mut Program, env: &mut Env) {
 			env.result = Rc::new(Sourcedata(None, Coredata::Null));
 		}
 	}
-	println!["Took head"];
 }
-
 
 fn head(_: &Statement, _: &mut Program, env: &mut Env) {
 	let args = env.params.last().expect("Should exist by virtue of functions");
@@ -190,7 +188,6 @@ fn head(_: &Statement, _: &mut Program, env: &mut Env) {
 	} else {
 		env.result = args.first().unwrap().head().clone();
 	}
-	println!["Took head"];
 }
 
 fn tail(_: &Statement, _: &mut Program, env: &mut Env) {
@@ -241,7 +238,6 @@ fn set(_: &Statement, _: &mut Program, _: &mut Env) {
 }
 
 fn define(_: &Statement, program: &mut Program, env: &mut Env) {
-	println!["Inside define"];
 	{
 		let arguments = env.result.clone();
 		let sub = Rc::new(Sourcedata(None, Coredata::Function(Function::Builtin(define_internal))));
@@ -269,7 +265,6 @@ fn define(_: &Statement, program: &mut Program, env: &mut Env) {
 }
 
 fn if_conditional(_: &Statement, program: &mut Program, env: &mut Env) {
-	println!["Inside if"];
 	let arguments = env.result.clone();
 	program.push(Rc::new(Sourcedata(None,
 	                                Coredata::Internal(Commands::If(arguments.tail().head(),
@@ -280,11 +275,7 @@ fn if_conditional(_: &Statement, program: &mut Program, env: &mut Env) {
 }
 
 fn define_internal(_: &Statement, _: &mut Program, env: &mut Env) {
-	println!["define_internal"];
 	let args = env.params.last().expect("Must be defined by previous macro");
-	println!["Arglen: {}", args.len()];
-	println!["Arg0: {}", args[0]];
-	println!["Arg1: {}", args[1]];
 	match args[0].1 {
 		Coredata::String(ref string) => {
 			env.store.insert(string.clone(), vec![args[1].clone()]);
@@ -293,7 +284,6 @@ fn define_internal(_: &Statement, _: &mut Program, env: &mut Env) {
 			unimplemented!();
 		}
 	}
-	println!("dfine internal {}", args.len());
 }
 
 fn sleep(_: &Statement, _: &mut Program, env: &mut Env) {
@@ -368,12 +358,10 @@ fn plus(_: &Statement, _: &mut Program, env: &mut Env) {
 			}
 		}
 	}
-	println!["plus: {}", sum];
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
 fn minus(_: &Statement, _: &mut Program, env: &mut Env) {
-	println!["Length in minus: {}", env.params.last().unwrap().len()];
 	let arguments = env.params.last().expect("The state machine should ensure this exists");
 	let mut sum = 0.to_bigint().expect("Constant zero should always be parsed correctly");
 	if arguments.len() == 1 {
@@ -401,7 +389,6 @@ fn minus(_: &Statement, _: &mut Program, env: &mut Env) {
 					unimplemented![];
 				}
 				&Sourcedata(_, Coredata::Integer(ref integer)) => {
-					println!["Subtracting {}", integer];
 					if first {
 						sum = integer.clone();
 					} else {
@@ -418,7 +405,6 @@ fn minus(_: &Statement, _: &mut Program, env: &mut Env) {
 			first = false;
 		}
 	}
-	println!["minus: {}", sum];
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
@@ -644,9 +630,8 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 	program.reverse(); // TODO: Do this in the parser instead, doesn't fit in here.
 	let mut coun = 0;
 	while let Some(top) = program.pop() {
-		coun += 1;
-		println!["PROGRAM LENGTH: {}, {}", program.len(), coun];
 		println!["{}", top];
+		coun += 1;
 		match &*top {
 			&Sourcedata(_, Coredata::Pair(ref head, ref tail)) => {
 				program.push(Rc::new(Sourcedata(tail.0.clone(),
@@ -657,7 +642,6 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				// Do nothing
 			}
 			&Sourcedata(_, Coredata::Internal(Commands::Parameterize)) => {
-				println!["Parameterize"];
 				let succeeded = if let Some(ref mut last) = env.params.last_mut() {
 					last.push(env.result.clone());
 					false
@@ -815,7 +799,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			}
 		}
 	}
-	println!["{}", env.result];
+	println!["{}", coun];
 	env
 }
 
