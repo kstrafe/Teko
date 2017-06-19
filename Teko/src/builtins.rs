@@ -68,7 +68,7 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		}
 		// The rest of the table defines functions and macros
 		Function : "+" => plus,
-		Function : "-" => minus,
+		Function : "-" => subtract,
 		Function : "*" => multiply,
 		Function : "/" => divide,
 		Function : ">=" => geq,
@@ -95,150 +95,16 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 // Standard Library Entries
 // //////////////////////////////////////////////////////////
 
-/// Quote elements
-///
-/// A builtin macro always stores the tail of the invocation inside `env.result`, so this macro is
-/// empty; it doesn't need to do anything.
-fn quote(_: &mut Program, _: &mut Env) {}
-
-/// Evaluates the argument as if it's a program.
-fn eval_expose(program: &mut Program, env: &mut Env) {
-	let error: Option<_> = if let Some(args) = env.params.last() {
-		if args.len() != 1 {
-			Some("eval: arity mismatch")
-		} else {
-			if let Some(arg) = args.first() {
-				program.push(arg.clone());
-				None
-			} else {
-				Some("eval: arity mismatch")
-			}
+fn define_internal(_: &mut Program, env: &mut Env) {
+	let args = env.params.last().expect("Must be defined by previous macro");
+	match args[0].1 {
+		Coredata::String(ref string) => {
+			env.store.insert(string.clone(), vec![args[1].clone()]);
 		}
-	} else {
-		Some("eval: parameter stack empty")
-	};
-	if let Some(error) = error {
-		make_unwind_with_error_message(error, program, env);
-	}
-}
-
-/// Create a string
-///
-/// Creates a string from the given symbols by inserting single spaces inbetween each symbol.
-/// TODO: Allow subexpressions; implement string interpolation and non-printable
-/// character insertion.
-fn string(_: &mut Program, env: &mut Env) {
-	let vec = collect_pair_of_symbols_into_vec_string(&env.result);
-	env.result = Rc::new(Sourcedata(None, Coredata::String(vec.join(" "))));
-	println!["Created string"];
-}
-
-fn wind(program: &mut Program, env: &mut Env) {
-	println!["Wind macro"];
-	let args = env.result.clone();
-	let code = collect_pair_into_vec(&args);
-	program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Wind))));
-	program.extend(code.iter().cloned());
-}
-
-
-fn error(program: &mut Program, env: &mut Env) {
-	if let Some(args) = env.params.last() {
-		if args.len() >= 2 {
-			env.result =
-				Rc::new(Sourcedata(None,
-				                   Coredata::Error(Rc::new(Sourcedata(None,
-				                                                      Coredata::String("Arity \
-				                                                                        mismatch; \
-				                                                                        Too \
-				                                                                        many \
-				                                                                        arguments \
-				                                                                        to error"
-					                                                      .into()))))));
-			program.push(make_unwind());
-		} else {
-			if let Some(arg) = args.first() {
-				env.result = Rc::new(Sourcedata(None, Coredata::Error(arg.clone())));
-			} else {
-				env.result =
-					Rc::new(Sourcedata(None,
-					                   Coredata::Error(Rc::new(Sourcedata(None, Coredata::Null)))));
-			}
-		}
-	} else {
-		panic!["The parameter list does not contain a list; this is an internal error that \
-		        should not happen"];
-	}
-}
-
-fn not(program: &mut Program, env: &mut Env) {
-	let args = env.params.last().expect("Should exist by virtue of functions");
-	if args.len() != 1 {
-		program.push(make_unwind());
-		println!["Should have a single arg"];
-	} else {
-		if let Coredata::Null = args.first().unwrap().1 {
-			env.result = Rc::new(Sourcedata(None, Coredata::Symbol("true".into())));
-		} else {
-			env.result = Rc::new(Sourcedata(None, Coredata::Null));
-		}
-	}
-}
-
-fn head(_: &mut Program, env: &mut Env) {
-	let args = env.params.last().expect("Should exist by virtue of functions");
-	if args.len() != 1 {
-		panic!("should have only a single arg");
-	} else {
-		env.result = args.first().unwrap().head().clone();
-	}
-}
-
-fn tail(_: &mut Program, env: &mut Env) {
-	let args = env.params.last().expect("Should exist by virtue of functions");
-	if args.len() != 1 {
-		panic!("should have only a single arg");
-	} else {
-		env.result = args.first().unwrap().tail().clone();
-	}
-	println!["Took tail"];
-}
-
-fn pair(_: &mut Program, env: &mut Env) {
-	let args = env.params.last().expect("Should exist by virtue of functions");
-	if args.len() != 2 {
-		panic!("should have two args");
-	} else {
-		env.result = Rc::new(Sourcedata(None,
-		                                Coredata::Pair(args.first().unwrap().clone(),
-		                                               args.get(1).unwrap().clone())));
-	}
-	println!["Took tail"];
-}
-
-fn make_macro(_: &mut Program, env: &mut Env) {
-	let args = env.result.clone();
-	let params = match args.head().1 {
-		Coredata::Symbol(ref string) => string.clone(),
 		_ => {
-			panic!("Wrong use of macro");
+			unimplemented!();
 		}
-	};
-	let code = collect_pair_into_vec(&args.tail());
-	env.result = Rc::new(Sourcedata(None, Coredata::Macro(Macro::Library(params, code))));
-	println!["Created macro object"];
-}
-
-fn function(_: &mut Program, env: &mut Env) {
-	let args = env.result.clone();
-	let params = collect_pair_of_symbols_into_vec_string(&args.head());
-	let code = collect_pair_into_vec(&args.tail());
-	env.result = Rc::new(Sourcedata(None, Coredata::Function(Function::Library(params, code))));
-	println!["Created function object"];
-}
-
-fn set(_: &mut Program, _: &mut Env) {
-	unimplemented!();
+	}
 }
 
 fn define(program: &mut Program, env: &mut Env) {
@@ -266,173 +132,6 @@ fn define(program: &mut Program, env: &mut Env) {
 		}
 	}
 	env.params.push(vec![]);
-}
-
-fn if_conditional(program: &mut Program, env: &mut Env) {
-	let arguments = env.result.clone();
-	program.push(Rc::new(Sourcedata(None,
-	                                Coredata::Internal(Commands::If(arguments.tail().head(),
-	                                                                arguments.tail()
-		                                                                .tail()
-		                                                                .head())))));
-	program.push(arguments.head());
-}
-
-fn define_internal(_: &mut Program, env: &mut Env) {
-	let args = env.params.last().expect("Must be defined by previous macro");
-	match args[0].1 {
-		Coredata::String(ref string) => {
-			env.store.insert(string.clone(), vec![args[1].clone()]);
-		}
-		_ => {
-			unimplemented!();
-		}
-	}
-}
-
-fn sleep(_: &mut Program, env: &mut Env) {
-	use std::{thread, time};
-	use num::ToPrimitive;
-	println!["Sleep func"];
-	let arguments = env.params
-		.last()
-		.expect("The state machine should ensure this exists")
-		.first()
-		.expect("Srs guys");
-	match arguments.1 {
-		Coredata::Integer(ref value) => {
-			thread::sleep(time::Duration::from_millis(value.to_u64()
-				.expect("Handling non numbers not implemented yet")));
-		}
-		_ => {}
-	}
-}
-
-fn geq(_: &mut Program, env: &mut Env) {
-	let arguments = env.params.last().expect("The state machine should ensure this exists");
-	let mut last = None;
-	let mut result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
-	for argument in arguments.iter() {
-		match &**argument {
-			&Sourcedata(_, Coredata::Complex(_)) => {
-				unimplemented![];
-			}
-			&Sourcedata(_, Coredata::Integer(ref integer)) => {
-				if let Some(previous) = last {
-					if previous >= integer {
-						// Do nothing
-					} else {
-						result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
-						break;
-					}
-					last = Some(integer);
-				} else {
-					last = Some(integer);
-				}
-			}
-			&Sourcedata(_, Coredata::Rational(_)) => {
-				unimplemented![];
-			}
-			ref a => {
-				println!["{}", a];
-				unimplemented![];
-			}
-		}
-	}
-	env.result = result;
-}
-
-fn plus(_: &mut Program, env: &mut Env) {
-	let arguments = env.params.last().expect("The state machine should ensure this exists");
-	let mut sum = 0.to_bigint().expect("Constant zero should always be parsed correctly");
-	for argument in arguments.iter() {
-		match &**argument {
-			&Sourcedata(_, Coredata::Complex(_)) => {
-				unimplemented![];
-			}
-			&Sourcedata(_, Coredata::Integer(ref integer)) => {
-				sum = sum + integer;
-			}
-			&Sourcedata(_, Coredata::Rational(_)) => {
-				unimplemented![];
-			}
-			ref a => {
-				println!["{}", a];
-				unimplemented![];
-			}
-		}
-	}
-	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
-}
-
-fn minus(_: &mut Program, env: &mut Env) {
-	let arguments = env.params.last().expect("The state machine should ensure this exists");
-	let mut sum = 0.to_bigint().expect("Constant zero should always be parsed correctly");
-	if arguments.len() == 1 {
-		for argument in arguments.iter() {
-			match &**argument {
-				&Sourcedata(_, Coredata::Complex(_)) => {
-					unimplemented![];
-				}
-				&Sourcedata(_, Coredata::Integer(ref integer)) => {
-					sum = sum - integer;
-				}
-				&Sourcedata(_, Coredata::Rational(_)) => {
-					unimplemented![];
-				}
-				_ => {
-					unimplemented![];
-				}
-			}
-		}
-	} else if arguments.len() > 1 {
-		let mut first = true;
-		for argument in arguments.iter() {
-			match &**argument {
-				&Sourcedata(_, Coredata::Complex(_)) => {
-					unimplemented![];
-				}
-				&Sourcedata(_, Coredata::Integer(ref integer)) => {
-					if first {
-						sum = integer.clone();
-					} else {
-						sum = sum - integer;
-					}
-				}
-				&Sourcedata(_, Coredata::Rational(_)) => {
-					unimplemented![];
-				}
-				_ => {
-					unimplemented![];
-				}
-			}
-			first = false;
-		}
-	}
-	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
-}
-
-fn multiply(_: &mut Program, env: &mut Env) {
-	let arguments = env.params.last().expect("The state machine should ensure this exists");
-	let mut sum = 1.to_bigint().expect("Constant zero should always be parsed correctly");
-	for argument in arguments.iter() {
-		match &**argument {
-			&Sourcedata(_, Coredata::Complex(_)) => {
-				unimplemented![];
-			}
-			&Sourcedata(_, Coredata::Integer(ref integer)) => {
-				sum = sum * integer;
-			}
-			&Sourcedata(_, Coredata::Rational(_)) => {
-				unimplemented![];
-			}
-			_ => {
-				unimplemented![];
-			}
-		}
-	}
-	println!["plus: {}", sum];
-	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
 fn divide(_: &mut Program, env: &mut Env) {
@@ -484,4 +183,313 @@ fn divide(_: &mut Program, env: &mut Env) {
 	}
 	println!["plus: {}", sum];
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
+}
+
+fn error(program: &mut Program, env: &mut Env) {
+	if let Some(args) = env.params.last() {
+		if args.len() >= 2 {
+			env.result =
+				Rc::new(Sourcedata(None,
+				                   Coredata::Error(Rc::new(Sourcedata(None,
+				                                                      Coredata::String("Arity \
+				                                                                        mismatch; \
+				                                                                        Too \
+				                                                                        many \
+				                                                                        arguments \
+				                                                                        to error"
+					                                                      .into()))))));
+			program.push(make_unwind());
+		} else {
+			if let Some(arg) = args.first() {
+				env.result = Rc::new(Sourcedata(None, Coredata::Error(arg.clone())));
+			} else {
+				env.result =
+					Rc::new(Sourcedata(None,
+					                   Coredata::Error(Rc::new(Sourcedata(None, Coredata::Null)))));
+			}
+		}
+	} else {
+		panic!["The parameter list does not contain a list; this is an internal error that \
+		        should not happen"];
+	}
+}
+
+/// Evaluates the argument as if it's a program.
+fn eval_expose(program: &mut Program, env: &mut Env) {
+	let error: Option<_> = if let Some(args) = env.params.last() {
+		if args.len() != 1 {
+			Some("eval: arity mismatch")
+		} else {
+			if let Some(arg) = args.first() {
+				program.push(arg.clone());
+				None
+			} else {
+				Some("eval: arity mismatch")
+			}
+		}
+	} else {
+		Some("eval: parameter stack empty")
+	};
+	if let Some(error) = error {
+		make_unwind_with_error_message(error, program, env);
+	}
+}
+
+fn function(_: &mut Program, env: &mut Env) {
+	let args = env.result.clone();
+	let params = collect_pair_of_symbols_into_vec_string(&args.head());
+	let code = collect_pair_into_vec(&args.tail());
+	env.result = Rc::new(Sourcedata(None, Coredata::Function(Function::Library(params, code))));
+	println!["Created function object"];
+}
+
+fn geq(_: &mut Program, env: &mut Env) {
+	let arguments = env.params.last().expect("The state machine should ensure this exists");
+	let mut last = None;
+	let mut result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
+	for argument in arguments.iter() {
+		match &**argument {
+			&Sourcedata(_, Coredata::Complex(_)) => {
+				unimplemented![];
+			}
+			&Sourcedata(_, Coredata::Integer(ref integer)) => {
+				if let Some(previous) = last {
+					if previous >= integer {
+						// Do nothing
+					} else {
+						result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
+						break;
+					}
+					last = Some(integer);
+				} else {
+					last = Some(integer);
+				}
+			}
+			&Sourcedata(_, Coredata::Rational(_)) => {
+				unimplemented![];
+			}
+			ref a => {
+				println!["{}", a];
+				unimplemented![];
+			}
+		}
+	}
+	env.result = result;
+}
+
+fn head(program: &mut Program, env: &mut Env) {
+	let error = if let Some(args) = env.params.last() {
+		if args.len() != 1 {
+			Some(format!["head: arity mismatch, expected 1 argument but got {}", args.len()])
+		} else {
+			env.result = args.first().unwrap().head().clone();
+			None
+		}
+	} else {
+		Some(format!["head: parameter stack is empty"])
+	};
+
+	if let Some(error) = error {
+		make_unwind_with_error_message(&error, program, env);
+	}
+}
+
+fn if_conditional(program: &mut Program, env: &mut Env) {
+	let arguments = env.result.clone();
+	program.push(Rc::new(Sourcedata(None,
+	                                Coredata::Internal(Commands::If(arguments.tail().head(),
+	                                                                arguments.tail()
+		                                                                .tail()
+		                                                                .head())))));
+	program.push(arguments.head());
+}
+
+fn make_macro(_: &mut Program, env: &mut Env) {
+	let args = env.result.clone();
+	let params = match args.head().1 {
+		Coredata::Symbol(ref string) => string.clone(),
+		_ => {
+			panic!("Wrong use of macro");
+		}
+	};
+	let code = collect_pair_into_vec(&args.tail());
+	env.result = Rc::new(Sourcedata(None, Coredata::Macro(Macro::Library(params, code))));
+	println!["Created macro object"];
+}
+
+fn multiply(_: &mut Program, env: &mut Env) {
+	let arguments = env.params.last().expect("The state machine should ensure this exists");
+	let mut sum = 1.to_bigint().expect("Constant zero should always be parsed correctly");
+	for argument in arguments.iter() {
+		match &**argument {
+			&Sourcedata(_, Coredata::Complex(_)) => {
+				unimplemented![];
+			}
+			&Sourcedata(_, Coredata::Integer(ref integer)) => {
+				sum = sum * integer;
+			}
+			&Sourcedata(_, Coredata::Rational(_)) => {
+				unimplemented![];
+			}
+			_ => {
+				unimplemented![];
+			}
+		}
+	}
+	println!["plus: {}", sum];
+	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
+}
+
+
+fn not(program: &mut Program, env: &mut Env) {
+	let args = env.params.last().expect("Should exist by virtue of functions");
+	if args.len() != 1 {
+		program.push(make_unwind());
+		println!["Should have a single arg"];
+	} else {
+		if let Coredata::Null = args.first().unwrap().1 {
+			env.result = Rc::new(Sourcedata(None, Coredata::Symbol("true".into())));
+		} else {
+			env.result = Rc::new(Sourcedata(None, Coredata::Null));
+		}
+	}
+}
+
+fn pair(_: &mut Program, env: &mut Env) {
+	let args = env.params.last().expect("Should exist by virtue of functions");
+	if args.len() != 2 {
+		panic!("should have two args");
+	} else {
+		env.result = Rc::new(Sourcedata(None,
+		                                Coredata::Pair(args.first().unwrap().clone(),
+		                                               args.get(1).unwrap().clone())));
+	}
+	println!["Took tail"];
+}
+
+fn plus(_: &mut Program, env: &mut Env) {
+	let arguments = env.params.last().expect("The state machine should ensure this exists");
+	let mut sum = 0.to_bigint().expect("Constant zero should always be parsed correctly");
+	for argument in arguments.iter() {
+		match &**argument {
+			&Sourcedata(_, Coredata::Complex(_)) => {
+				unimplemented![];
+			}
+			&Sourcedata(_, Coredata::Integer(ref integer)) => {
+				sum = sum + integer;
+			}
+			&Sourcedata(_, Coredata::Rational(_)) => {
+				unimplemented![];
+			}
+			ref a => {
+				println!["{}", a];
+				unimplemented![];
+			}
+		}
+	}
+	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
+}
+
+/// Quote elements
+///
+/// A builtin macro always stores the tail of the invocation inside `env.result`, so this macro is
+/// empty; it doesn't need to do anything.
+fn quote(_: &mut Program, _: &mut Env) {}
+
+fn set(_: &mut Program, _: &mut Env) {
+	unimplemented!();
+}
+
+fn sleep(_: &mut Program, env: &mut Env) {
+	use std::{thread, time};
+	use num::ToPrimitive;
+	println!["Sleep func"];
+	let arguments = env.params
+		.last()
+		.expect("The state machine should ensure this exists")
+		.first()
+		.expect("Srs guys");
+	match arguments.1 {
+		Coredata::Integer(ref value) => {
+			thread::sleep(time::Duration::from_millis(value.to_u64()
+				.expect("Handling non numbers not implemented yet")));
+		}
+		_ => {}
+	}
+}
+
+/// Create a string
+///
+/// Creates a string from the given symbols by inserting single spaces inbetween each symbol.
+/// TODO: Allow subexpressions; implement string interpolation and non-printable
+/// character insertion.
+fn string(_: &mut Program, env: &mut Env) {
+	let vec = collect_pair_of_symbols_into_vec_string(&env.result);
+	env.result = Rc::new(Sourcedata(None, Coredata::String(vec.join(" "))));
+	println!["Created string"];
+}
+
+fn subtract(_: &mut Program, env: &mut Env) {
+	let arguments = env.params.last().expect("The state machine should ensure this exists");
+	let mut sum = 0.to_bigint().expect("Constant zero should always be parsed correctly");
+	if arguments.len() == 1 {
+		for argument in arguments.iter() {
+			match &**argument {
+				&Sourcedata(_, Coredata::Complex(_)) => {
+					unimplemented![];
+				}
+				&Sourcedata(_, Coredata::Integer(ref integer)) => {
+					sum = sum - integer;
+				}
+				&Sourcedata(_, Coredata::Rational(_)) => {
+					unimplemented![];
+				}
+				_ => {
+					unimplemented![];
+				}
+			}
+		}
+	} else if arguments.len() > 1 {
+		let mut first = true;
+		for argument in arguments.iter() {
+			match &**argument {
+				&Sourcedata(_, Coredata::Complex(_)) => {
+					unimplemented![];
+				}
+				&Sourcedata(_, Coredata::Integer(ref integer)) => {
+					if first {
+						sum = integer.clone();
+					} else {
+						sum = sum - integer;
+					}
+				}
+				&Sourcedata(_, Coredata::Rational(_)) => {
+					unimplemented![];
+				}
+				_ => {
+					unimplemented![];
+				}
+			}
+			first = false;
+		}
+	}
+	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
+}
+
+fn tail(_: &mut Program, env: &mut Env) {
+	let args = env.params.last().expect("Should exist by virtue of functions");
+	if args.len() != 1 {
+		panic!("should have only a single arg");
+	} else {
+		env.result = args.first().unwrap().tail().clone();
+	}
+	println!["Took tail"];
+}
+
+fn wind(program: &mut Program, env: &mut Env) {
+	println!["Wind macro"];
+	let args = env.result.clone();
+	let code = collect_pair_into_vec(&args);
+	program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Wind))));
+	program.extend(code.iter().cloned());
 }
