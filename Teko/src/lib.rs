@@ -31,14 +31,10 @@
 #![feature(slice_patterns)]
 extern crate num;
 
-macro_rules! mods { ($($i:ident),*) => { $(mod $i;)* }; }
-
-mods! {
-	builtins,
-	data_structures,
-	interpret,
-	parse,
-	utilities
-}
+mod builtins;
+mod data_structures;
+mod interpret;
+mod parse;
+mod utilities;
 
 const VEC_CAPACITY: usize = 10;

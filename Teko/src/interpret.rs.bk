@@ -317,7 +317,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			}
 			&Sourcedata(_, Coredata::Pair(ref head, ref tail)) => {
 				program.push(Rc::new(Sourcedata(tail.0.clone(),
-					                         Coredata::Internal(Commands::Prepare(tail.clone())))));
+				                                Coredata::Internal(Commands::Prepare(tail.clone())))));
 				program.push(head.clone());
 			}
 			&Sourcedata(ref source, Coredata::Symbol(ref string)) => {

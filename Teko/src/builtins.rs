@@ -11,11 +11,11 @@ use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Sta
 ///
 /// A builtin macro always stores the tail of the invocation inside `env.result`, so this macro is
 /// empty; it doesn't need to do anything.
-pub fn quote(_: &Statement, _: &mut Program, _: &mut Env) {
+pub fn quote(_: &mut Program, _: &mut Env) {
 	println!["Created quoted list"];
 }
 
-pub fn eval_expose(_: &Statement, program: &mut Program, env: &mut Env) {
+pub fn eval_expose(program: &mut Program, env: &mut Env) {
 	let error: Option<_> = if let Some(args) = env.params.last() {
 		if args.len() != 1 {
 			Some("eval: arity mismatch")
@@ -40,13 +40,13 @@ pub fn eval_expose(_: &Statement, program: &mut Program, env: &mut Env) {
 /// Creates a string from the given symbols by inserting single spaces inbetween each symbol.
 /// TODO: Allow subexpressions; implement string interpolation and non-printable
 /// character insertion.
-pub fn string(_: &Statement, _: &mut Program, env: &mut Env) {
+pub fn string(_: &mut Program, env: &mut Env) {
 	let vec = collect_pair_into_vec_string(&env.result);
 	env.result = Rc::new(Sourcedata(None, Coredata::String(vec.join(" "))));
 	println!["Created string"];
 }
 
-pub fn wind(_: &Statement, program: &mut Program, env: &mut Env) {
+pub fn wind(program: &mut Program, env: &mut Env) {
 	println!["Wind macro"];
 	let args = env.result.clone();
 	let code = collect_pair_into_vec(&args);
@@ -54,13 +54,13 @@ pub fn wind(_: &Statement, program: &mut Program, env: &mut Env) {
 	program.extend(code.iter().cloned());
 }
 
-pub fn unwind(_: &Statement, program: &mut Program, env: &mut Env) {
+pub fn unwind(program: &mut Program, env: &mut Env) {
 	println!["Unwind macro"];
 	env.result = env.params.last().unwrap().last().unwrap().clone();
 	while let Some(top) = program.pop() {
 		match top.1 {
 			Coredata::Internal(Commands::Deparameterize(ref arguments)) => {
-				pop_parameters(&top, program, env, arguments);
+				pop_parameters(program, env, arguments);
 			}
 			Coredata::Internal(Commands::Call(..)) => {
 				env.params.pop();
@@ -84,7 +84,7 @@ pub fn unwind_with_error_message(string: &str, program: &mut Program, env: &mut 
 	program.push(make_unwind());
 }
 
-pub fn error(_: &Statement, program: &mut Program, env: &mut Env) {
+pub fn error(program: &mut Program, env: &mut Env) {
 	if let Some(args) = env.params.last() {
 		if args.len() >= 2 {
 			env.result =
@@ -113,7 +113,7 @@ pub fn error(_: &Statement, program: &mut Program, env: &mut Env) {
 	}
 }
 
-pub fn not(_: &Statement, program: &mut Program, env: &mut Env) {
+pub fn not(program: &mut Program, env: &mut Env) {
 	let args = env.params.last().expect("Should exist by virtue of functions");
 	if args.len() != 1 {
 		program.push(make_unwind());
@@ -127,7 +127,7 @@ pub fn not(_: &Statement, program: &mut Program, env: &mut Env) {
 	}
 }
 
-pub fn head(_: &Statement, _: &mut Program, env: &mut Env) {
+pub fn head(_: &mut Program, env: &mut Env) {
 	let args = env.params.last().expect("Should exist by virtue of functions");
 	if args.len() != 1 {
 		panic!("should have only a single arg");
@@ -136,7 +136,7 @@ pub fn head(_: &Statement, _: &mut Program, env: &mut Env) {
 	}
 }
 
-pub fn tail(_: &Statement, _: &mut Program, env: &mut Env) {
+pub fn tail(_: &mut Program, env: &mut Env) {
 	let args = env.params.last().expect("Should exist by virtue of functions");
 	if args.len() != 1 {
 		panic!("should have only a single arg");
@@ -146,7 +146,7 @@ pub fn tail(_: &Statement, _: &mut Program, env: &mut Env) {
 	println!["Took tail"];
 }
 
-pub fn pair(_: &Statement, _: &mut Program, env: &mut Env) {
+pub fn pair(_: &mut Program, env: &mut Env) {
 	let args = env.params.last().expect("Should exist by virtue of functions");
 	if args.len() != 2 {
 		panic!("should have two args");
@@ -158,7 +158,7 @@ pub fn pair(_: &Statement, _: &mut Program, env: &mut Env) {
 	println!["Took tail"];
 }
 
-pub fn make_macro(_: &Statement, _: &mut Program, env: &mut Env) {
+pub fn make_macro(_: &mut Program, env: &mut Env) {
 	let args = env.result.clone();
 	let params = match args.head().1 {
 		Coredata::Symbol(ref string) => string.clone(),
@@ -171,7 +171,7 @@ pub fn make_macro(_: &Statement, _: &mut Program, env: &mut Env) {
 	println!["Created macro object"];
 }
 
-pub fn function(_: &Statement, _: &mut Program, env: &mut Env) {
+pub fn function(_: &mut Program, env: &mut Env) {
 	let args = env.result.clone();
 	let params = collect_pair_into_vec_string(&args.head());
 	let code = collect_pair_into_vec(&args.tail());
@@ -179,11 +179,11 @@ pub fn function(_: &Statement, _: &mut Program, env: &mut Env) {
 	println!["Created function object"];
 }
 
-pub fn set(_: &Statement, _: &mut Program, _: &mut Env) {
+pub fn set(_: &mut Program, _: &mut Env) {
 	unimplemented!();
 }
 
-pub fn define(_: &Statement, program: &mut Program, env: &mut Env) {
+pub fn define(program: &mut Program, env: &mut Env) {
 	{
 		let arguments = env.result.clone();
 		let sub = Rc::new(Sourcedata(None, Coredata::Function(Function::Builtin(define_internal))));
@@ -210,7 +210,7 @@ pub fn define(_: &Statement, program: &mut Program, env: &mut Env) {
 	env.params.push(vec![]);
 }
 
-pub fn if_conditional(_: &Statement, program: &mut Program, env: &mut Env) {
+pub fn if_conditional(program: &mut Program, env: &mut Env) {
 	let arguments = env.result.clone();
 	program.push(Rc::new(Sourcedata(None,
 	                                Coredata::Internal(Commands::If(arguments.tail().head(),
@@ -220,7 +220,7 @@ pub fn if_conditional(_: &Statement, program: &mut Program, env: &mut Env) {
 	program.push(arguments.head());
 }
 
-pub fn define_internal(_: &Statement, _: &mut Program, env: &mut Env) {
+pub fn define_internal(_: &mut Program, env: &mut Env) {
 	let args = env.params.last().expect("Must be defined by previous macro");
 	match args[0].1 {
 		Coredata::String(ref string) => {
@@ -232,7 +232,7 @@ pub fn define_internal(_: &Statement, _: &mut Program, env: &mut Env) {
 	}
 }
 
-pub fn sleep(_: &Statement, _: &mut Program, env: &mut Env) {
+pub fn sleep(_: &mut Program, env: &mut Env) {
 	use std::{thread, time};
 	use num::ToPrimitive;
 	println!["Sleep func"];
@@ -250,7 +250,7 @@ pub fn sleep(_: &Statement, _: &mut Program, env: &mut Env) {
 	}
 }
 
-pub fn geq(_: &Statement, _: &mut Program, env: &mut Env) {
+pub fn geq(_: &mut Program, env: &mut Env) {
 	let arguments = env.params.last().expect("The state machine should ensure this exists");
 	let mut last = None;
 	let mut result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
@@ -284,7 +284,7 @@ pub fn geq(_: &Statement, _: &mut Program, env: &mut Env) {
 	env.result = result;
 }
 
-pub fn plus(_: &Statement, _: &mut Program, env: &mut Env) {
+pub fn plus(_: &mut Program, env: &mut Env) {
 	let arguments = env.params.last().expect("The state machine should ensure this exists");
 	let mut sum = 0.to_bigint().expect("Constant zero should always be parsed correctly");
 	for argument in arguments.iter() {
@@ -307,7 +307,7 @@ pub fn plus(_: &Statement, _: &mut Program, env: &mut Env) {
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
-pub fn minus(_: &Statement, _: &mut Program, env: &mut Env) {
+pub fn minus(_: &mut Program, env: &mut Env) {
 	let arguments = env.params.last().expect("The state machine should ensure this exists");
 	let mut sum = 0.to_bigint().expect("Constant zero should always be parsed correctly");
 	if arguments.len() == 1 {
@@ -354,7 +354,7 @@ pub fn minus(_: &Statement, _: &mut Program, env: &mut Env) {
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
-pub fn multiply(_: &Statement, _: &mut Program, env: &mut Env) {
+pub fn multiply(_: &mut Program, env: &mut Env) {
 	let arguments = env.params.last().expect("The state machine should ensure this exists");
 	let mut sum = 1.to_bigint().expect("Constant zero should always be parsed correctly");
 	for argument in arguments.iter() {
@@ -377,7 +377,7 @@ pub fn multiply(_: &Statement, _: &mut Program, env: &mut Env) {
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
-pub fn divide(_: &Statement, _: &mut Program, env: &mut Env) {
+pub fn divide(_: &mut Program, env: &mut Env) {
 	let arguments = env.params.last().expect("The state machine should ensure this exists");
 	let mut sum = 1.to_bigint().expect("Constant zero should always be parsed correctly");
 	if arguments.len() == 1 {
@@ -460,7 +460,7 @@ pub fn collect_pair_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
 	to_return
 }
 
-pub fn pop_parameters(_: &Statement, _: &mut Program, env: &mut Env, args: &Vec<String>) {
+pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &Vec<String>) {
 	for arg in args {
 		print!["{}, ", arg];
 		env.store.get_mut(arg).expect("Should exist in the argument store!").pop();

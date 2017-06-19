@@ -18,18 +18,19 @@ use super::VEC_CAPACITY;
 // ✓ head/tail/pair
 // ✓ wind/unwind
 // ✓ ' quote
-// ` quasiquote
+//   ` quasiquote
 // ✓ " strings
 // ✓ Add the error creation function
 // ✓ Make Source data optional
 // ✓ Macroize the initial environment (to clean up code)
-// Test different TCO strategies (HashSet, sorted Vec,..)
-// Implement powers for numbers
-// Replace all panics with unwinds
+//   Test different TCO strategies (HashSet, sorted Vec,..)
+//   Implement powers for numbers
+//   Replace all panics with unwinds
 // ✓ Replace panics with unwinds in 'fn eval'
-// Formalize error messages and feedback (similar to rust errors, they are nice)
-// Change transfer functions to fn(&top, &arg, &mut prog, &mut env) -> Statement, do we need top?
-//
+//   Formalize error messages and feedback (similar to rust errors, they are nice)
+// ✓ Change transfer functions, do we need top?
+//   Formalize errors (need line, column, file, standard format)
+//   Implement a proper fmt::Display for Sourcedata
 
 impl fmt::Display for Sourcedata {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
