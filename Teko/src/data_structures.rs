@@ -31,8 +31,16 @@ pub type Program = Vec<Statement>;
 ///
 /// An example of a transfer function is the definition of not:
 ///
-pub type Transfermacro = fn(top: &Statement, argument: &Statement, program: &mut Program, env: &mut Env) -> Statement;
-pub type Transferfunction = fn(top: &Statement, arguments: Vec<Statement>, program: &mut Program, env: &mut Env) -> Statement;
+pub type Transfermacro = fn(top: &Statement,
+                            argument: &Statement,
+                            program: &mut Program,
+                            env: &mut Env)
+                            -> Statement;
+pub type Transferfunction = fn(top: &Statement,
+                               arguments: Vec<Statement>,
+                               program: &mut Program,
+                               env: &mut Env)
+                               -> Statement;
 pub type Transfer = fn(top: &Statement, program: &mut Program, env: &mut Env);
 /// Boolean values
 pub enum Boolean {
@@ -53,6 +61,9 @@ pub enum Macro {
 	Builtin(Transfer),
 	/// Parameter name with a sequence of statements that are inserted into the program when called
 	Library(String, Program),
+}
+
+pub enum Userdata {
 }
 
 /// Core data types of the Teko machine
@@ -81,6 +92,9 @@ pub enum Coredata {
 	String(String),
 	/// Symbol type
 	Symbol(String),
+	/// Types defined by the user, for use by other
+	/// builtins
+	User(Userdata),
 }
 
 /// Environment used by the implementation

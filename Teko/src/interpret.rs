@@ -23,7 +23,8 @@ use super::VEC_CAPACITY;
 use num::bigint::ToBigInt;
 use num::bigint::BigInt;
 
-use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Statement, Macro, Function};
+use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Statement, Macro,
+                      Function};
 
 /// Macro::Builtin types are called with env.result as input, so (macro a b c) has
 /// env.result = (a b c).
@@ -36,14 +37,24 @@ use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Sta
 ///
 /// If the top of the stack contains `Commands::Deparameterize`, then the variables to be popped
 /// are merged into that [top] object. This is all that's needed to optimize tail calls.
-fn optimize_tail_call(program: &mut Program, params: &Vec<String>) -> Vec<String> {
+fn optimize_tail_call(program: &mut Program, env: &mut Env, params: &Vec<String>) -> Vec<String> {
+	// TODO break this function up, it does 2 things, merge a list of strings and pop stuff from
+	// the stack
 	if let Some(top) = program.pop() {
 		let mut to_add = vec![];
 		match top.1 {
 			Coredata::Internal(Commands::Deparameterize(ref content)) => {
 				for parameter in params {
 					if content.contains(parameter) {
-						// Do nothing
+						if let Some(ref mut entry) = env.store.get_mut(parameter) {
+							if let Some(_) = entry.pop() {
+								// OK
+							} else {
+								panic!["Unable to pop entry"];
+							}
+						} else {
+							panic!["Unable to perform TCO"];
+						}
 					} else {
 						to_add.push(parameter.clone());
 					}
@@ -672,14 +683,15 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						transfer(&top, &mut program, &mut env);
 					}
 					&Sourcedata(_, Coredata::Macro(Macro::Library(ref bound, ref code))) => {
+						program.push(Rc::new(Sourcedata(None,
+						                                Coredata::Internal(Commands::Evaluate))));
+						let command =
+							optimize_tail_call(&mut program, &mut env, &vec![bound.clone()]);
 						if env.store.contains_key(bound) {
 							env.store.get_mut(bound).unwrap().push(arguments.clone());
 						} else {
 							env.store.insert(bound.clone(), vec![arguments.clone()]);
 						}
-						program.push(Rc::new(Sourcedata(None,
-						                                Coredata::Internal(Commands::Evaluate))));
-						let command = optimize_tail_call(&mut program, &vec![bound.clone()]);
 						let deparam = Coredata::Internal(Commands::Deparameterize(command));
 						let next = Rc::new(Sourcedata(None, deparam));
 						program.push(next);
@@ -720,6 +732,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 								                          &mut env);
 							} else {
 								let mut counter = 0;
+								let cmd =
+									Commands::Deparameterize(optimize_tail_call(&mut program,
+									                                            &mut env,
+									                                            parameters));
 								for parameter in parameters.iter() {
 									if env.store.contains_key(parameter) {
 										env.store
@@ -732,9 +748,6 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 									}
 									counter += 1;
 								}
-								let cmd =
-									Commands::Deparameterize(optimize_tail_call(&mut program,
-									                                            parameters));
 								let next = Rc::new(Sourcedata(None, Coredata::Internal(cmd)));
 								program.push(next);
 								program.extend(transfer.iter().cloned());

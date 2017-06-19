@@ -1,6 +1,5 @@
 (define f (fn (m n accum)
-							(sleep 100)
               (if (>= m 1)
                   (f (- m 1) n (+ accum n))
                   accum)))
-(* (f 10 100 0))
+(* (f 1000000 100 0))

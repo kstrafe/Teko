@@ -23,7 +23,7 @@ use super::VEC_CAPACITY;
 use num::bigint::ToBigInt;
 use num::bigint::BigInt;
 
-use data_structures::{Commands, Env, Program, Sourcedata, Coredata, Statement, Macro, Function};
+use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Statement, Macro, Function};
 
 /// Macro::Builtin types are called with env.result as input, so (macro a b c) has
 /// env.result = (a b c).
@@ -36,14 +36,23 @@ use data_structures::{Commands, Env, Program, Sourcedata, Coredata, Statement, M
 ///
 /// If the top of the stack contains `Commands::Deparameterize`, then the variables to be popped
 /// are merged into that [top] object. This is all that's needed to optimize tail calls.
-fn optimize_tail_call(program: &mut Program, params: &Vec<String>) -> Vec<String> {
+fn optimize_tail_call(program: &mut Program, env: &mut Env, params: &Vec<String>) -> Vec<String> {
+	// TODO break this function up, it does 2 things, merge a list of strings and pop stuff from the stack
 	if let Some(top) = program.pop() {
 		let mut to_add = vec![];
 		match top.1 {
 			Coredata::Internal(Commands::Deparameterize(ref content)) => {
 				for parameter in params {
 					if content.contains(parameter) {
-						// Do nothing
+						if let Some(ref mut entry) = env.store.get_mut(parameter) {
+							if let Some(_) = entry.pop() {
+								// OK
+							} else {
+								panic!["Unable to pop entry"];
+							}
+						} else {
+							panic!["Unable to perform TCO"];
+						}
 					} else {
 						to_add.push(parameter.clone());
 					}
@@ -179,9 +188,7 @@ fn not(_: &Statement, program: &mut Program, env: &mut Env) {
 			env.result = Rc::new(Sourcedata(None, Coredata::Null));
 		}
 	}
-	println!["Took head"];
 }
-
 
 fn head(_: &Statement, _: &mut Program, env: &mut Env) {
 	let args = env.params.last().expect("Should exist by virtue of functions");
@@ -190,7 +197,6 @@ fn head(_: &Statement, _: &mut Program, env: &mut Env) {
 	} else {
 		env.result = args.first().unwrap().head().clone();
 	}
-	println!["Took head"];
 }
 
 fn tail(_: &Statement, _: &mut Program, env: &mut Env) {
@@ -241,7 +247,6 @@ fn set(_: &Statement, _: &mut Program, _: &mut Env) {
 }
 
 fn define(_: &Statement, program: &mut Program, env: &mut Env) {
-	println!["Inside define"];
 	{
 		let arguments = env.result.clone();
 		let sub = Rc::new(Sourcedata(None, Coredata::Function(Function::Builtin(define_internal))));
@@ -269,7 +274,6 @@ fn define(_: &Statement, program: &mut Program, env: &mut Env) {
 }
 
 fn if_conditional(_: &Statement, program: &mut Program, env: &mut Env) {
-	println!["Inside if"];
 	let arguments = env.result.clone();
 	program.push(Rc::new(Sourcedata(None,
 	                                Coredata::Internal(Commands::If(arguments.tail().head(),
@@ -280,11 +284,7 @@ fn if_conditional(_: &Statement, program: &mut Program, env: &mut Env) {
 }
 
 fn define_internal(_: &Statement, _: &mut Program, env: &mut Env) {
-	println!["define_internal"];
 	let args = env.params.last().expect("Must be defined by previous macro");
-	println!["Arglen: {}", args.len()];
-	println!["Arg0: {}", args[0]];
-	println!["Arg1: {}", args[1]];
 	match args[0].1 {
 		Coredata::String(ref string) => {
 			env.store.insert(string.clone(), vec![args[1].clone()]);
@@ -293,7 +293,6 @@ fn define_internal(_: &Statement, _: &mut Program, env: &mut Env) {
 			unimplemented!();
 		}
 	}
-	println!("dfine internal {}", args.len());
 }
 
 fn sleep(_: &Statement, _: &mut Program, env: &mut Env) {
@@ -312,6 +311,40 @@ fn sleep(_: &Statement, _: &mut Program, env: &mut Env) {
 		}
 		_ => {}
 	}
+}
+
+fn geq(_: &Statement, _: &mut Program, env: &mut Env) {
+	let arguments = env.params.last().expect("The state machine should ensure this exists");
+	let mut last = None;
+	let mut result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
+	for argument in arguments.iter() {
+		match &**argument {
+			&Sourcedata(_, Coredata::Complex(_)) => {
+				unimplemented![];
+			}
+			&Sourcedata(_, Coredata::Integer(ref integer)) => {
+				if let Some(previous) = last {
+					if previous >= integer {
+						// Do nothing
+					} else {
+						result = Rc::new(Sourcedata(None, Coredata::Null));
+						break;
+					}
+					last = Some(integer);
+				} else {
+					last = Some(integer);
+				}
+			}
+			&Sourcedata(_, Coredata::Rational(_)) => {
+				unimplemented![];
+			}
+			ref a => {
+				println!["{}", a];
+				unimplemented![];
+			}
+		}
+	}
+	env.result = result;
 }
 
 fn plus(_: &Statement, _: &mut Program, env: &mut Env) {
@@ -334,12 +367,10 @@ fn plus(_: &Statement, _: &mut Program, env: &mut Env) {
 			}
 		}
 	}
-	println!["plus: {}", sum];
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
 fn minus(_: &Statement, _: &mut Program, env: &mut Env) {
-	println!["Length in minus: {}", env.params.last().unwrap().len()];
 	let arguments = env.params.last().expect("The state machine should ensure this exists");
 	let mut sum = 0.to_bigint().expect("Constant zero should always be parsed correctly");
 	if arguments.len() == 1 {
@@ -367,7 +398,6 @@ fn minus(_: &Statement, _: &mut Program, env: &mut Env) {
 					unimplemented![];
 				}
 				&Sourcedata(_, Coredata::Integer(ref integer)) => {
-					println!["Subtracting {}", integer];
 					if first {
 						sum = integer.clone();
 					} else {
@@ -384,7 +414,6 @@ fn minus(_: &Statement, _: &mut Program, env: &mut Env) {
 			first = false;
 		}
 	}
-	println!["minus: {}", sum];
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
@@ -521,7 +550,8 @@ macro_rules! construct_builtins {
 ///
 /// ```
 /// extern crate teko;
-/// let env: teko::data_structures::Env = teko::interpret::initialize_environment_with_standard_library();
+/// let env: teko::data_structures::Env =
+/// 	teko::interpret::initialize_environment_with_standard_library();
 /// ```
 pub fn initialize_environment_with_standard_library() -> Env {
 	Env {
@@ -532,6 +562,7 @@ pub fn initialize_environment_with_standard_library() -> Env {
 			Function : "-" => minus,
 			Function : "*" => multiply,
 			Function : "/" => divide,
+			Function : ">=" => geq,
 			Function : "not" => not,
 			Function : "error" => error,
 			Function : "head" => head,
@@ -583,8 +614,8 @@ pub fn interpret(program: Program) -> Env {
 /// Evaluates a program with a given environment.
 ///
 /// The `program` is considered completely evaluated when it is empty. The result of the program
-/// is stored in `env.result`. This function is mainly used to evaluate a program in some environment
-/// context.
+/// is stored in `env.result`. This function is mainly used to evaluate a program in some
+/// environment context.
 ///
 /// ```
 /// extern crate teko;
@@ -592,7 +623,7 @@ pub fn interpret(program: Program) -> Env {
 /// use num_traits::cast::ToPrimitive;
 /// fn main() {
 /// 	let program = teko::parse::parse_string("(+ 1 2 4) (+ 1 2)").ok().unwrap();
-///		let env = teko::interpret::initialize_environment_with_standard_library();
+/// 		let env = teko::interpret::initialize_environment_with_standard_library();
 /// 	let env = teko::interpret::eval(program, env);
 /// 	match env.result.1 {
 /// 		teko::data_structures::Coredata::Integer(ref value) => {
@@ -608,9 +639,8 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 	program.reverse(); // TODO: Do this in the parser instead, doesn't fit in here.
 	let mut coun = 0;
 	while let Some(top) = program.pop() {
-		coun += 1;
-		println!["PROGRAM LENGTH: {}, {}", program.len(), coun];
 		println!["{}", top];
+		coun += 1;
 		match &*top {
 			&Sourcedata(_, Coredata::Pair(ref head, ref tail)) => {
 				program.push(Rc::new(Sourcedata(tail.0.clone(),
@@ -621,7 +651,6 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				// Do nothing
 			}
 			&Sourcedata(_, Coredata::Internal(Commands::Parameterize)) => {
-				println!["Parameterize"];
 				let succeeded = if let Some(ref mut last) = env.params.last_mut() {
 					last.push(env.result.clone());
 					false
@@ -652,14 +681,14 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						transfer(&top, &mut program, &mut env);
 					}
 					&Sourcedata(_, Coredata::Macro(Macro::Library(ref bound, ref code))) => {
+						program.push(Rc::new(Sourcedata(None,
+						                                Coredata::Internal(Commands::Evaluate))));
+						let command = optimize_tail_call(&mut program, &mut env, &vec![bound.clone()]);
 						if env.store.contains_key(bound) {
 							env.store.get_mut(bound).unwrap().push(arguments.clone());
 						} else {
 							env.store.insert(bound.clone(), vec![arguments.clone()]);
 						}
-						program.push(Rc::new(Sourcedata(None,
-						                                Coredata::Internal(Commands::Evaluate))));
-						let command = optimize_tail_call(&mut program, &vec![bound.clone()]);
 						let deparam = Coredata::Internal(Commands::Deparameterize(command));
 						let next = Rc::new(Sourcedata(None, deparam));
 						program.push(next);
@@ -700,6 +729,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 								                          &mut env);
 							} else {
 								let mut counter = 0;
+								let cmd =
+									Commands::Deparameterize(optimize_tail_call(&mut program,
+									                                            &mut env,
+									                                            parameters));
 								for parameter in parameters.iter() {
 									if env.store.contains_key(parameter) {
 										env.store
@@ -712,9 +745,6 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 									}
 									counter += 1;
 								}
-								let cmd =
-									Commands::Deparameterize(optimize_tail_call(&mut program,
-									                                            parameters));
 								let next = Rc::new(Sourcedata(None, Coredata::Internal(cmd)));
 								program.push(next);
 								program.extend(transfer.iter().cloned());
@@ -779,7 +809,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			}
 		}
 	}
-	println!["{}", env.result];
+	println!["{}", coun];
 	env
 }
 

@@ -17,7 +17,8 @@
 //! ```text
 //! (" Hello world!)
 //! ```
-//! No functional-like language is complete without the definition of the tail-recursive factorial function.
+//! No functional-like language is complete without the definition of the tail-recursive factorial
+//! function.
 //!
 //! ```text
 //! (define factorial (fn (n accum)
