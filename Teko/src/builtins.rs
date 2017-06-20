@@ -22,38 +22,18 @@
 use std::rc::Rc;
 use std::collections::HashMap;
 use num::bigint::ToBigInt;
-use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro,
-                      Function};
+use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro, Function};
 use utilities::*;
 
 // //////////////////////////////////////////////////////////
 // Standard Library Table
 // //////////////////////////////////////////////////////////
 
-/// Macro to construct the library table
-macro_rules! construct_builtins {
-	({$($c:expr => $x:expr),*,} $($t:ident: $e:expr => $i:ident),*,) => {
-		{
-			let mut functions_and_macros : HashMap<String, Program> = [
-				$(
-					($e.into(), vec![Rc::new(Sourcedata(None, Coredata::$t($t::Builtin($i))))])
-				),*
-			].iter().cloned().collect();
-			let constants : HashMap<String, Program> = [
-				$(
-					($c.into(), vec![Rc::new(Sourcedata(None, $x))])
-				),*
-			].iter().cloned().collect();
-			functions_and_macros.extend(constants);
-			functions_and_macros
-		}
-	};
-}
-
 /// Create the builtin library table.
 ///
 /// The table contains mappings from strings to arbitrary data, functions, and macros.
-/// At the start of interpreting a program this table gets loaded into memory.
+/// At the start of interpreting a program this table gets loaded into memory (by `fn interpret`,
+/// not `fn eval`).
 /// So if you want to create a function "f" you add an entry `Function : "f" => some_name`,
 /// and call it using `(f)` in Teko. You'll also need to declare the function `some_name`
 /// that actually implements your functionality.
@@ -495,4 +475,3 @@ fn write(_: &mut Program, env: &mut Env) {
 		println!["EU: {}", i];
 	}
 }
-

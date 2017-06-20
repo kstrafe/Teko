@@ -22,105 +22,9 @@ use super::VEC_CAPACITY;
 
 use num::bigint::BigInt;
 
-use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro,
-                      Function};
-use utilities::*;
-
-/// Takes the union of two sets.
-fn compute_union(a: &Vec<String>, b: &Vec<String>) -> Vec<String> {
-	let mut c = a.clone();
-	for i in a {
-		if !b.contains(i) {
-			c.push(i.clone());
-		}
-	}
-	c
-}
-
-/// Takes the intersection of two sets.
-fn compute_intersection(a: &Vec<String>, b: &Vec<String>) -> Vec<String> {
-	let mut intersection = Vec::with_capacity(VEC_CAPACITY);
-	for i in a {
-		if b.contains(i) {
-			intersection.push(i.clone());
-		}
-	}
-	intersection
-}
-
-/// Optimizes tail calls by seeing if the current `params` can be merged with the top of the stack.
-///
-/// If the top of the stack contains `Commands::Deparameterize`, then the variables to be popped
-/// are merged into that [top] object. This is all that's needed to optimize tail calls.
-fn optimize_tail_call(program: &mut Program, env: &mut Env, params: &Vec<String>) -> Vec<String> {
-	if let Some(top) = program.pop() {
-		match top.1 {
-			Coredata::Internal(Commands::Deparameterize(ref content)) => {
-				for i in compute_intersection(content, params) {
-					if let Some(ref mut entry) = env.store.get_mut(&i) {
-						if let Some(_) = entry.pop() {
-							// OK
-						} else {
-							panic!["Store inconsistency; entry empty"];
-						}
-					} else {
-						panic!["Store inconsistency; entry nonexistent"];
-					}
-				}
-				compute_union(content, params)
-			}
-			_ => {
-				program.push(top.clone()); // Put top back on the program stack
-				params.clone()
-			}
-		}
-	} else {
-		params.clone()
-	}
-}
-
 use builtins::*;
-
-/// Initializes the environment with the standard library
-///
-/// ```
-/// extern crate teko;
-/// let env: teko::data_structures::Env =
-/// 	teko::interpret::initialize_environment_with_standard_library();
-/// ```
-pub fn initialize_environment_with_standard_library() -> Env {
-	Env {
-		store: create_builtin_library_table(),
-		params: Vec::with_capacity(VEC_CAPACITY),
-		result: Rc::new(Sourcedata(None, Coredata::Null)),
-	}
-}
-
-/// Sets up a standard environment and evaluate the program.
-///
-/// Used to evaluate a program with the standard library and all builtins.
-///
-/// ```
-/// extern crate teko;
-/// extern crate num_traits;
-/// use num_traits::cast::ToPrimitive;
-/// fn main() {
-/// 	let program = teko::parse::parse_string("(+ 1 2 4) (+ 1 2)").ok().unwrap();
-/// 	let env = teko::interpret::interpret(program);
-/// 	match env.result.1 {
-/// 		teko::data_structures::Coredata::Integer(ref value) => {
-/// 			assert_eq![value.to_i32().unwrap(), 3];
-/// 		}
-/// 		_ => {
-/// 			panic!["Expected Integer but got a different data type"];
-/// 		}
-/// 	}
-/// }
-/// ```
-pub fn interpret(program: Program) -> Env {
-	let env = initialize_environment_with_standard_library();
-	eval(program, env)
-}
+use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro, Function};
+use utilities::*;
 
 /// Evaluates a program with a given environment.
 ///
@@ -321,6 +225,47 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 		}
 	}
 	env
+}
+
+/// Initializes the environment with the standard library.
+///
+/// ```
+/// extern crate teko;
+/// let env: teko::data_structures::Env =
+/// 	teko::interpret::initialize_environment_with_standard_library();
+/// ```
+pub fn initialize_environment_with_standard_library() -> Env {
+	Env {
+		store: create_builtin_library_table(),
+		params: Vec::with_capacity(VEC_CAPACITY),
+		result: Rc::new(Sourcedata(None, Coredata::Null)),
+	}
+}
+
+/// Sets up a standard environment and evaluate the program.
+///
+/// Used to evaluate a program with the standard library and all builtins.
+///
+/// ```
+/// extern crate teko;
+/// extern crate num_traits;
+/// use num_traits::cast::ToPrimitive;
+/// fn main() {
+/// 	let program = teko::parse::parse_string("(+ 1 2 4) (+ 1 2)").ok().unwrap();
+/// 	let env = teko::interpret::interpret(program);
+/// 	match env.result.1 {
+/// 		teko::data_structures::Coredata::Integer(ref value) => {
+/// 			assert_eq![value.to_i32().unwrap(), 3];
+/// 		}
+/// 		_ => {
+/// 			panic!["Expected Integer but got a different data type"];
+/// 		}
+/// 	}
+/// }
+/// ```
+pub fn interpret(program: Program) -> Env {
+	let env = initialize_environment_with_standard_library();
+	eval(program, env)
 }
 
 #[cfg(test)]

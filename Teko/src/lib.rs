@@ -86,10 +86,15 @@
 // ✓ Use booleans for If
 // ✓ Easily add constants (pi, e, true, false)
 // ✓ Sort the builtins.rs file by function names
+//   Sort imports and uses where possible
+//   Improve unwinding (do we need to pop params?)
 // //////////////////////////////////////////////////////////
 
 #![feature(slice_patterns)]
 extern crate num;
+
+#[macro_use]
+mod macros;
 
 pub mod builtins;
 pub mod data_structures;

@@ -212,3 +212,59 @@ pub fn unwind(program: &mut Program, env: &mut Env) {
 		}
 	}
 }
+
+/// Takes the union of two sets.
+pub fn compute_union(a: &Vec<String>, b: &Vec<String>) -> Vec<String> {
+	let mut c = a.clone();
+	for i in a {
+		if !b.contains(i) {
+			c.push(i.clone());
+		}
+	}
+	c
+}
+
+/// Takes the intersection of two sets.
+pub fn compute_intersection(a: &Vec<String>, b: &Vec<String>) -> Vec<String> {
+	let mut intersection = Vec::with_capacity(VEC_CAPACITY);
+	for i in a {
+		if b.contains(i) {
+			intersection.push(i.clone());
+		}
+	}
+	intersection
+}
+
+/// Optimizes tail calls by seeing if the current `params` can be merged with the top of the stack.
+///
+/// If the top of the stack contains `Commands::Deparameterize`, then the variables to be popped
+/// are merged into that [top] object. This is all that's needed to optimize tail calls.
+pub fn optimize_tail_call(program: &mut Program,
+                          env: &mut Env,
+                          params: &Vec<String>)
+                          -> Vec<String> {
+	if let Some(top) = program.pop() {
+		match top.1 {
+			Coredata::Internal(Commands::Deparameterize(ref content)) => {
+				for i in compute_intersection(content, params) {
+					if let Some(ref mut entry) = env.store.get_mut(&i) {
+						if let Some(_) = entry.pop() {
+							// OK
+						} else {
+							panic!["Store inconsistency; entry empty"];
+						}
+					} else {
+						panic!["Store inconsistency; entry nonexistent"];
+					}
+				}
+				compute_union(content, params)
+			}
+			_ => {
+				program.push(top.clone()); // Put top back on the program stack
+				params.clone()
+			}
+		}
+	} else {
+		params.clone()
+	}
+}
