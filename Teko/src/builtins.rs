@@ -67,6 +67,7 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Function : "eval" => eval_expose,
 		Function : "write" => write,
 		Macro : "'" => quote,
+		Macro : "symbol" => symbol,
 		Macro : "\"" => string,
 		Macro : "if" => if_conditional,
 		Macro : "set!" => set,
@@ -558,6 +559,11 @@ fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 		}
 	}
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
+	None
+}
+
+fn symbol(_: &mut Program, env: &mut Env) -> Option<String> {
+	env.result = env.result.head();
 	None
 }
 
