@@ -77,6 +77,8 @@
 // ✓ Easily add constants (pi, e, true, false)
 // ✓ Sort the builtins.rs file by function names
 // ✓ Improve error unwinding (do we need to pop params?), add formal errors
+// ✓ transfer -> Option<String> for consistent error handling
+//   Actually make error handling consistent + stacktrace
 //   ` quasiquote
 //   Implement a proper fmt::Display for Sourcedata
 //   Test different TCO strategies (HashSet, sorted Vec,..)

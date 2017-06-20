@@ -187,7 +187,7 @@ pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &Vec<String>) {
 /// Unwinds the stack until first wind is encountered.
 ///
 /// Preserves stack consistency (pops parameters when necessary).
-pub fn unwind(program: &mut Program, env: &mut Env) {
+pub fn unwind(program: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(param) = env.params.last() {
 		if let Some(last) = param.last() {
 			env.result = last.clone();
@@ -207,6 +207,7 @@ pub fn unwind(program: &mut Program, env: &mut Env) {
 			_ => {}
 		}
 	}
+	None
 }
 
 /// Takes the union of two sets.

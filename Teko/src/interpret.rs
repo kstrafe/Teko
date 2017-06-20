@@ -57,7 +57,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			&Sourcedata(ref source, Coredata::Internal(Commands::Call(ref statement))) => {
 				match &**statement {
 					&Sourcedata(_, Coredata::Function(Function::Builtin(ref transfer))) => {
-						transfer(&mut program, &mut env);
+						let error = transfer(&mut program, &mut env);
 						if let Some(_) = env.params.pop() {
 							// Do nothing
 						} else {
@@ -65,6 +65,12 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 							                           stack not poppable",
 							                          &mut program,
 							                          &mut env);
+						}
+						if let Some(error) = error {
+							if let &Some(ref source) = source {
+								unwind_with_error_message(&format!["{} => {}", error, source][..], &mut program,
+									&mut env);
+							}
 						}
 					}
 					&Sourcedata(_,

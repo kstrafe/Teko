@@ -22,4 +22,8 @@
 (define b (fn () (trace) (identity (c))))
 (define q (fn (a) (trace) (+ a 3 (b))))
 (define z (fn (a) (trace) (identity (q 1))))
+
 (z 5)
+
+(define level-deeper (fn (b c a) (whatever-man b c a)))
+(define whatever-man (fn (a b c) (level-deeper b c a)))
