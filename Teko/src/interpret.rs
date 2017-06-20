@@ -51,10 +51,10 @@ use utilities::*;
 /// }
 /// ```
 pub fn eval(mut program: Program, mut env: Env) -> Env {
-	program.reverse(); // TODO: Do this in the parser instead, doesn't fit in here.
 	while let Some(top) = program.pop() {
 		match &*top {
-			&Sourcedata(_, Coredata::Internal(Commands::Call(ref statement))) => {
+			// Source refers to the head of the pair from which the call originated
+			&Sourcedata(ref source, Coredata::Internal(Commands::Call(ref statement))) => {
 				match &**statement {
 					&Sourcedata(_, Coredata::Function(Function::Builtin(ref transfer))) => {
 						transfer(&mut program, &mut env);
@@ -94,7 +94,8 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 									}
 									counter += 1;
 								}
-								let next = Rc::new(Sourcedata(None, Coredata::Internal(cmd)));
+								let next = Rc::new(Sourcedata(source.clone(),
+								                              Coredata::Internal(cmd)));
 								program.push(next);
 								program.extend(transfer.iter().cloned());
 							}
@@ -139,15 +140,17 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					                          &mut env);
 				}
 			}
+			// Source here is the HEAD of a pair, so (a b) has source of a, and (((a)) b) has source of ((a))
 			&Sourcedata(ref source, Coredata::Internal(Commands::Prepare(ref arguments))) => {
 				match &*env.result.clone() {
 					&Sourcedata(_, Coredata::Function(..)) => {
 						env.params.push(vec![]);
-						program.push(Rc::new(Sourcedata(env.result.0.clone(),
+						program.push(Rc::new(Sourcedata(source.clone(),
 						                                Coredata::Internal(Commands::Call(env.result
 							                                .clone())))));
 						for argument in collect_pair_into_vec(arguments).iter() {
-							program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Parameterize))));
+							program.push(Rc::new(Sourcedata(None,
+							                                Coredata::Internal(Commands::Parameterize))));
 							program.push(argument.clone());
 						}
 					}
@@ -166,7 +169,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 							env.store.insert(bound.clone(), vec![arguments.clone()]);
 						}
 						let deparam = Coredata::Internal(Commands::Deparameterize(command));
-						let next = Rc::new(Sourcedata(None, deparam));
+						let next = Rc::new(Sourcedata(source.clone(), deparam));
 						program.push(next);
 						program.extend(code.iter().cloned());
 					}
@@ -182,6 +185,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			&Sourcedata(_, Coredata::Internal(Commands::Wind)) => {
 				// Do nothing
 			}
+			// Maybe use pair start as source?
 			&Sourcedata(_, Coredata::Pair(ref head, ref tail)) => {
 				program.push(Rc::new(Sourcedata(head.0.clone(),
 					                         Coredata::Internal(Commands::Prepare(tail.clone())))));

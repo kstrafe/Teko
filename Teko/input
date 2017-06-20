@@ -3,10 +3,23 @@
                  (' Yellow))))
 
 (define x (fn (a) (sleep 50)
+                  (trace)
                   (write (pair (@variable-count) (@program-count)))
-                  (x (+ a 10))
-                  1))
+                  (if false
+                    (x (+ a 10))
+                    1)))
 
-(define x ())
+(x 1)
 
-(exit (' a) 3)
+(define y (fn () (trace) (fn () (trace) (fn () (trace) 10))))
+
+(define z (mo _ (trace) (head (' y))))
+
+(write (" doing y))
+(+ 30 (* ((((z)))) 3))
+
+(define c (fn () (trace) 1))
+(define b (fn () (trace) (identity (c))))
+(define q (fn (a) (trace) (+ a 3 (b))))
+(define z (fn (a) (trace) (identity (q 1))))
+(z 5)

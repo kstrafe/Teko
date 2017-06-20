@@ -72,6 +72,7 @@ pub fn finish_parsing_characters(mut state: ParseState) -> Result<Program, Parse
 	} else if state.error.is_some() {
 		Err(state)
 	} else {
+		state.stack.reverse();
 		Ok(state.stack)
 	}
 }

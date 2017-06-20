@@ -50,12 +50,14 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Function : "*" => multiply,
 		Function : "/" => divide,
 		Function : ">=" => geq,
+		Function : "trace" => trace,
 		Function : "abort" => abort,
 		Function : "exit" => exit,
 		Function : "not" => not,
 		Function : "error" => error,
 		Function : "error?" => is_error,
 		Function : "head" => head,
+		Function : "identity" => identity,
 		Function : "tail" => tail,
 		Function : "pair" => pair,
 		Function : "sleep" => sleep,
@@ -81,36 +83,6 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 
 fn abort(_: &mut Program, _: &mut Env) {
 	::std::process::abort();
-}
-
-fn exit(program: &mut Program, env: &mut Env) {
-	use num::ToPrimitive;
-
-	let error = if let Some(args) = env.params.last() {
-		if args.len() <= 1 {
-			if let Some(arg) = args.last() {
-				match arg.1 {
-					Coredata::Integer(ref value) => {
-						if let Some(value) = value.to_i32() {
-							::std::process::exit(value);
-						} else {
-							panic!["Unable to determine exit code"];
-						}
-					}
-					_ => Some("exit: argument not integer".into()),
-				}
-			} else {
-				::std::process::exit(0);
-			}
-		} else {
-			Some(format!["exit: arity error, expecting 0 or 1 arguments, got {}", args.len()])
-		}
-	} else {
-		Some("parameter stack not present for a call".into())
-	};
-	if let Some(error) = error {
-		unwind_with_error_message(&error, program, env);
-	}
 }
 
 /// Count the stack size. Useful for checking if Tail Call Optimization works.
@@ -271,6 +243,36 @@ fn eval_expose(program: &mut Program, env: &mut Env) {
 	}
 }
 
+fn exit(program: &mut Program, env: &mut Env) {
+	use num::ToPrimitive;
+
+	let error = if let Some(args) = env.params.last() {
+		if args.len() <= 1 {
+			if let Some(arg) = args.last() {
+				match arg.1 {
+					Coredata::Integer(ref value) => {
+						if let Some(value) = value.to_i32() {
+							::std::process::exit(value);
+						} else {
+							panic!["Unable to determine exit code"];
+						}
+					}
+					_ => Some("exit: argument not integer".into()),
+				}
+			} else {
+				::std::process::exit(0);
+			}
+		} else {
+			Some(format!["exit: arity error, expecting 0 or 1 arguments, got {}", args.len()])
+		}
+	} else {
+		Some("parameter stack not present for a call".into())
+	};
+	if let Some(error) = error {
+		unwind_with_error_message(&error, program, env);
+	}
+}
+
 fn function(_: &mut Program, env: &mut Env) {
 	let args = env.result.clone();
 	let params = collect_pair_of_symbols_into_vec_string(&args.head());
@@ -325,6 +327,24 @@ fn head(program: &mut Program, env: &mut Env) {
 
 	if let Some(error) = error {
 		unwind_with_error_message(&error, program, env);
+	}
+}
+
+/// The identity function, returns its argument.
+///
+/// No builtin function does tail call optimization, so this
+/// function can be used to avoid tail call optimization.
+/// It's useful when trace doesn't show the full stack due to TCO.
+fn identity(_: &mut Program, env: &mut Env) {
+	if let Some(args) = env.params.last() {
+		if args.len() != 1 {
+			panic!["identity: arity mismatch"];
+		}
+		if let Some(arg) = args.last() {
+			env.result = arg.clone();
+		}
+	} else {
+		panic!["identity: no params stack"];
 	}
 }
 
@@ -523,6 +543,21 @@ fn tail(_: &mut Program, env: &mut Env) {
 		panic!("should have only a single arg");
 	} else {
 		env.result = args.first().unwrap().tail().clone();
+	}
+}
+
+/// Print a stack trace.
+///
+/// The stack trace will not print tail call optimized calls, so there may
+/// be some calls missing here. Since the requirement is for the program
+/// to be unbounded in the amount of tail calls, there's no way to definitively
+/// store all calls.
+fn trace(program: &mut Program, _: &mut Env) {
+	for i in program.iter().rev() {
+		if let &Sourcedata(Some(ref source), Coredata::Internal(Commands::Deparameterize(..))) =
+		       &**i {
+			println!["{}", source];
+		}
 	}
 }
 
