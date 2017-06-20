@@ -1,1 +1,12 @@
-(write (wind (if (not (error? ((head)))) 1 2)))
+(write (wind (if (>= 6 4 4)
+                 (unwind (error 12))
+                 (' Yellow))))
+
+(define x (fn (a) (sleep 50)
+                  (write (pair (@variable-count) (@program-count)))
+                  (x (+ a 10))
+                  1))
+
+(define x ())
+
+(exit (' a) 3)

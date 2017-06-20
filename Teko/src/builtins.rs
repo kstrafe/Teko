@@ -50,6 +50,8 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Function : "*" => multiply,
 		Function : "/" => divide,
 		Function : ">=" => geq,
+		Function : "abort" => abort,
+		Function : "exit" => exit,
 		Function : "not" => not,
 		Function : "error" => error,
 		Function : "error?" => is_error,
@@ -58,6 +60,8 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Function : "pair" => pair,
 		Function : "sleep" => sleep,
 		Function : "unwind" => unwind,
+		Function : "@variable-count" => at_variable_count,
+		Function : "@program-count" => at_program_count,
 		Function : "eval" => eval_expose,
 		Function : "write" => write,
 		Macro : "'" => quote,
@@ -75,15 +79,70 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 // Standard Library Entries
 // //////////////////////////////////////////////////////////
 
+fn abort(_: &mut Program, _: &mut Env) {
+	::std::process::abort();
+}
+
+fn exit(program: &mut Program, env: &mut Env) {
+	use num::ToPrimitive;
+
+	let error = if let Some(args) = env.params.last() {
+		if args.len() <= 1 {
+			if let Some(arg) = args.last() {
+				match arg.1 {
+					Coredata::Integer(ref value) => {
+						if let Some(value) = value.to_i32() {
+							::std::process::exit(value);
+						} else {
+							panic!["Unable to determine exit code"];
+						}
+					}
+					_ => Some("exit: argument not integer".into()),
+				}
+			} else {
+				::std::process::exit(0);
+			}
+		} else {
+			Some(format!["exit: arity error, expecting 0 or 1 arguments, got {}", args.len()])
+		}
+	} else {
+		Some("parameter stack not present for a call".into())
+	};
+	if let Some(error) = error {
+		unwind_with_error_message(&error, program, env);
+	}
+}
+
+/// Count the stack size. Useful for checking if Tail Call Optimization works.
+fn at_program_count(program: &mut Program, env: &mut Env) {
+	let mut count = program.len();
+	env.result = Rc::new(Sourcedata(None, Coredata::Integer(count.into())));
+}
+
+/// Count the amount of active variables in the program.
+fn at_variable_count(program: &mut Program, env: &mut Env) {
+	let mut count = 0;
+	for i in &env.params {
+		count += i.len();
+	}
+	for (_, values) in &env.store {
+		count += values.len();
+	}
+	env.result = Rc::new(Sourcedata(None, Coredata::Integer(count.into())));
+}
+
 fn define_internal(_: &mut Program, env: &mut Env) {
-	let args = env.params.last().expect("Must be defined by previous macro");
-	match args[0].1 {
-		Coredata::String(ref string) => {
-			env.store.insert(string.clone(), vec![args[1].clone()]);
+	if let Some(args) = env.params.last() {
+		match args[0].1 {
+			Coredata::String(ref string) => {
+				env.store.insert(string.clone(), vec![args[1].clone()]);
+			}
+			_ => {
+				panic!["define_internal error: params doesn't contain a string"];
+			}
 		}
-		_ => {
-			unimplemented!();
-		}
+	} else {
+		panic!["define_internal error: params is empty"];
 	}
 }
 
@@ -96,6 +155,9 @@ fn define(program: &mut Program, env: &mut Env) {
 		match arguments.tail().1 {
 			Coredata::Pair(ref heado, _) => {
 				program.push(heado.clone());
+			}
+			Coredata::Null => {
+				unwind_with_error_message("", program, env);
 			}
 			_ => {
 				panic!{"it cant be"};
@@ -165,31 +227,26 @@ fn divide(_: &mut Program, env: &mut Env) {
 }
 
 fn error(program: &mut Program, env: &mut Env) {
-	if let Some(args) = env.params.last() {
+	let error = if let Some(args) = env.params.last() {
 		if args.len() >= 2 {
-			env.result =
-				Rc::new(Sourcedata(None,
-				                   Coredata::Error(Rc::new(Sourcedata(None,
-				                                                      Coredata::String("Arity \
-				                                                                        mismatch; \
-				                                                                        Too \
-				                                                                        many \
-				                                                                        arguments \
-				                                                                        to error"
-					                                                      .into()))))));
-			program.push(make_unwind());
+			Some("Arity mismatch; Too many arguments to error")
 		} else {
 			if let Some(arg) = args.first() {
 				env.result = Rc::new(Sourcedata(None, Coredata::Error(arg.clone())));
+				None
 			} else {
 				env.result =
 					Rc::new(Sourcedata(None,
 					                   Coredata::Error(Rc::new(Sourcedata(None, Coredata::Null)))));
+				None
 			}
 		}
 	} else {
-		panic!["The parameter list does not contain a list; this is an internal error that \
-		        should not happen"];
+		Some("The parameter list does not contain a list; this is an internal error that should \
+		      not happen")
+	};
+	if let Some(error) = error {
+		unwind_with_error_message(error, program, env);
 	}
 }
 
@@ -210,7 +267,7 @@ fn eval_expose(program: &mut Program, env: &mut Env) {
 		Some("eval: parameter stack empty")
 	};
 	if let Some(error) = error {
-		make_unwind_with_error_message(error, program, env);
+		unwind_with_error_message(error, program, env);
 	}
 }
 
@@ -267,7 +324,7 @@ fn head(program: &mut Program, env: &mut Env) {
 	};
 
 	if let Some(error) = error {
-		make_unwind_with_error_message(&error, program, env);
+		unwind_with_error_message(&error, program, env);
 	}
 }
 
@@ -323,17 +380,23 @@ fn multiply(_: &mut Program, env: &mut Env) {
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 }
 
-
 fn not(program: &mut Program, env: &mut Env) {
-	let args = env.params.last().expect("Should exist by virtue of functions");
-	if args.len() != 1 {
-		program.push(make_unwind());
-	} else {
-		if let Coredata::Boolean(Boolean::False) = args.first().unwrap().1 {
-			env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
+	let error = if let Some(args) = env.params.last() {
+		if args.len() != 1 {
+			Some("not: arity mismatch")
 		} else {
-			env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
+			if let Coredata::Boolean(Boolean::False) = args.first().unwrap().1 {
+				env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
+			} else {
+				env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
+			}
+			None
 		}
+	} else {
+		Some("not: parameter stack corrupted")
+	};
+	if let Some(error) = error {
+		unwind_with_error_message(error, program, env);
 	}
 }
 
@@ -472,6 +535,6 @@ fn wind(program: &mut Program, env: &mut Env) {
 
 fn write(_: &mut Program, env: &mut Env) {
 	for i in env.params.last().unwrap() {
-		println!["EU: {}", i];
+		println!["write: {}", i];
 	}
 }

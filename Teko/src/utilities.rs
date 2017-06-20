@@ -5,6 +5,9 @@ use data_structures::{Function, Commands, Coredata, Env, Statement, ParseState, 
                       Sourcedata};
 use super::VEC_CAPACITY;
 
+/// Implement the writer of sourcedata.
+///
+/// All Sourcedata can be written in a form such that it can be read again.
 impl fmt::Display for Sourcedata {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		use data_structures::Coredata::*;
@@ -32,7 +35,7 @@ impl fmt::Display for Sourcedata {
 			}
 			Macro(..) => write![f, "(mo {})", line!()],
 			Null => write![f, "()"],
-			Pair(ref arg, ref arg2) => write![f, "({} {})", arg, arg2],
+			Pair(ref arg, ref arg2) => write![f, "({} {}", arg, arg2],
 			Rational(ref arg) => write![f, "{}", arg],
 			String(ref arg) => write![f, "(\" {})", arg],
 			Symbol(ref arg) => write![f, "{}", arg],
@@ -136,27 +139,17 @@ pub fn collect_pair_of_symbols_into_vec_string(data: &Rc<Sourcedata>) -> Vec<Str
 	ret
 }
 
-/// Prepare the stack for unwinding.
-///
-/// Note that preparing the stack means to push an the unwind call onto the stack.
-/// This function doesn't unwind directly.
-pub fn make_unwind() -> Statement {
-	let sub = Rc::new(Sourcedata(None, Coredata::Function(Function::Builtin(unwind))));
-	Rc::new(Sourcedata(None, Coredata::Internal(Commands::Call(sub))))
-}
-
 /// Prepare the stack for unwinding, with the result being an error message.
 ///
 /// Note that preparing the stack means to push an the unwind call onto the stack.
 /// This function doesn't unwind directly.
-pub fn make_unwind_with_error_message(string: &str, program: &mut Program, env: &mut Env) {
+pub fn unwind_with_error_message(string: &str, program: &mut Program, env: &mut Env) {
 	let sub = Rc::new(Sourcedata(None, Coredata::String(string.into())));
-	let old = env.params.pop();
 	env.params.push(vec![Rc::new(Sourcedata(None, Coredata::Error(sub)))]);
-	if let Some(old) = old {
-		env.params.push(old);
+	unwind(program, env);
+	if let None = env.params.pop() {
+		panic!["Stack corruption"];
 	}
-	program.push(make_unwind());
 }
 
 // TODO change from panic to unwind, but can we be safe about such a serious error by
@@ -195,8 +188,11 @@ pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &Vec<String>) {
 ///
 /// Preserves stack consistency (pops parameters when necessary).
 pub fn unwind(program: &mut Program, env: &mut Env) {
-	env.result = env.params.last().unwrap().last().unwrap().clone();
-	println!("Unwinding with: {}", env.result);
+	if let Some(param) = env.params.last() {
+		if let Some(last) = param.last() {
+			env.result = last.clone();
+		}
+	}
 	while let Some(top) = program.pop() {
 		match top.1 {
 			Coredata::Internal(Commands::Deparameterize(ref arguments)) => {

@@ -64,32 +64,33 @@
 // ✓ Tail call optimization
 // ✓ If branching
 // ✓ Integer parsing
-//   Rational parsing + promotion
-//   Complex parsing + promotion
-//   <, >, =, <=, >=, != number comparison
-//   Boolean not, and, or
 // ✓ head/tail/pair
 // ✓ wind/unwind
 // ✓ ' quote
-//   ` quasiquote
 // ✓ " strings
 // ✓ Add the error creation function
 // ✓ Make Source data optional
 // ✓ Macroize the initial environment (to clean up code)
-//   Test different TCO strategies (HashSet, sorted Vec,..)
-//   Implement powers for numbers
-//   Replace all panics with unwinds
 // ✓ Replace panics with unwinds in 'fn eval'
-//   Formalize error messages and feedback (similar to rust errors, they are nice)
 // ✓ Change transfer functions, do we need top?
-//   Implement a proper fmt::Display for Sourcedata
 // ✓ Use booleans for If
 // ✓ Easily add constants (pi, e, true, false)
 // ✓ Sort the builtins.rs file by function names
+// ✓ Improve error unwinding (do we need to pop params?), add formal errors
+//   ` quasiquote
+//   Implement a proper fmt::Display for Sourcedata
+//   Test different TCO strategies (HashSet, sorted Vec,..)
+//   Implement powers for numbers
+//   Replace all panics with unwinds
 //   Sort imports and uses where possible
-//   Improve unwinding (do we need to pop params?)
+//   Rational parsing + promotion
+//   Complex parsing + promotion
+//   <, >, =, <=, >=, != number comparison
+//   Boolean not, and, or
+//
 // //////////////////////////////////////////////////////////
 
+#![feature(process_abort)]
 #![feature(slice_patterns)]
 extern crate num;
 

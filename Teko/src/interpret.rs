@@ -53,7 +53,6 @@ use utilities::*;
 pub fn eval(mut program: Program, mut env: Env) -> Env {
 	program.reverse(); // TODO: Do this in the parser instead, doesn't fit in here.
 	while let Some(top) = program.pop() {
-		println!["{}", top];
 		match &*top {
 			&Sourcedata(_, Coredata::Internal(Commands::Call(ref statement))) => {
 				match &**statement {
@@ -62,10 +61,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						if let Some(_) = env.params.pop() {
 							// Do nothing
 						} else {
-							make_unwind_with_error_message("during builtin function call: \
-							                                parameter stack not poppable",
-							                               &mut program,
-							                               &mut env);
+							unwind_with_error_message("during builtin function call: parameter \
+							                           stack not poppable",
+							                          &mut program,
+							                          &mut env);
 						}
 					}
 					&Sourcedata(_,
@@ -73,10 +72,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					                                                 ref transfer))) => {
 						if let Some(arguments) = env.params.pop() {
 							if arguments.len() != parameters.len() {
-								make_unwind_with_error_message("during library function call: \
-								                                arity mismatch",
-								                               &mut program,
-								                               &mut env);
+								unwind_with_error_message("during library function call: arity \
+								                           mismatch",
+								                          &mut program,
+								                          &mut env);
 							} else {
 								let mut counter = 0;
 								let cmd =
@@ -100,17 +99,16 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 								program.extend(transfer.iter().cloned());
 							}
 						} else {
-							make_unwind_with_error_message("during library function call: \
-							                                parameter stack empty",
-							                               &mut program,
-							                               &mut env);
+							unwind_with_error_message("during library function call: parameter \
+							                           stack empty",
+							                          &mut program,
+							                          &mut env);
 						}
 					}
 					_ => {
-						make_unwind_with_error_message("calling: Element not recognized as \
-						                                callable",
-						                               &mut program,
-						                               &mut env);
+						unwind_with_error_message("calling: Element not recognized as callable",
+						                          &mut program,
+						                          &mut env);
 					}
 				}
 			}
@@ -135,13 +133,13 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					true
 				};
 				if succeeded {
-					make_unwind_with_error_message("Error during parameterization: the parameter \
-					                                stack is nonexistent",
-					                               &mut program,
-					                               &mut env);
+					unwind_with_error_message("Error during parameterization: the parameter \
+					                           stack is nonexistent",
+					                          &mut program,
+					                          &mut env);
 				}
 			}
-			&Sourcedata(_, Coredata::Internal(Commands::Prepare(ref arguments))) => {
+			&Sourcedata(ref source, Coredata::Internal(Commands::Prepare(ref arguments))) => {
 				match &*env.result.clone() {
 					&Sourcedata(_, Coredata::Function(..)) => {
 						env.params.push(vec![]);
@@ -173,10 +171,11 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						program.extend(code.iter().cloned());
 					}
 					_ => {
-						make_unwind_with_error_message("Error during prepare routine: element \
-						                                not callable",
-						                               &mut program,
-						                               &mut env);
+						unwind_with_error_message(&format!["Error during prepare routine: \
+						                                    element not callable => {:?}",
+						                                   source],
+						                          &mut program,
+						                          &mut env);
 					}
 				}
 			}
@@ -184,7 +183,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				// Do nothing
 			}
 			&Sourcedata(_, Coredata::Pair(ref head, ref tail)) => {
-				program.push(Rc::new(Sourcedata(tail.0.clone(),
+				program.push(Rc::new(Sourcedata(head.0.clone(),
 					                         Coredata::Internal(Commands::Prepare(tail.clone())))));
 				program.push(head.clone());
 			}
@@ -198,24 +197,22 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 							None
 						} else {
 							if let &Some(ref source) = source {
-								Some(format!["{} => variable `{}' does exist but its stack is \
-								              empty",
-								             source,
-								             string])
+								Some(format!["`{}' does exist but its stack is empty => {}",
+								             string,
+								             source])
 							} else {
-								Some(format!["_ variable `{}' does exist but its stack is empty",
-								             string])
+								Some(format!["`{}' does exist but its stack is empty", string])
 							}
 						}
 					} else {
 						if let &Some(ref source) = source {
-							Some(format!["{} => variable `{}' does not exist", source, string])
+							Some(format!["`{}' does not exist => {}", string, source])
 						} else {
-							Some(format!["variable `{}' does not exist", string])
+							Some(format!["`{}' does not exist", string])
 						}
 					};
 					if let Some(error) = error {
-						make_unwind_with_error_message(&error, &mut program, &mut env);
+						unwind_with_error_message(&error, &mut program, &mut env);
 					}
 				}
 			}
@@ -224,6 +221,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			}
 		}
 	}
+	println!("{}", env.result);
 	env
 }
 
