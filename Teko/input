@@ -1,29 +1,11 @@
-(write (wind (if (>= 6 4 4)
-                 (unwind (error 12))
-                 (' Yellow))))
+(define zawa (fn (a) (+ a 1)))
+(define zaka (fn (a) (zawa a)))
+(define kek (mo - (symbol zaka)))
 
-(define x (fn (a) (sleep 50)
-                  (trace)
-                  (write (pair (@variable-count) (@program-count)))
-                  (if false
-                    (x (+ a 10))
-                    1)))
-
-(x 1)
-
-(define y (fn () (trace) (fn () (trace) (fn () (trace) 10))))
-
-(define z (mo _ (trace) (head (' y))))
-
-(write (" doing y))
-(+ 30 (* ((((z)))) 3))
-
-(define c (fn () (trace) 1))
-(define b (fn () (trace) (identity (c))))
-(define q (fn (a) (trace) (+ a 3 (b))))
-(define z (fn (a) (trace) (identity (q 1))))
-
-(z 5)
-
-(define level-deeper (fn (b c a) (whatever-man b c a)))
-(define whatever-man (fn (a b c) (level-deeper b c a)))
+(write (" before))
+(define count (fn (a)
+                  (if (>= a 100000)
+                      a
+                      (count (+ 1000 a)))))
+(count 0)
+(write (" after))

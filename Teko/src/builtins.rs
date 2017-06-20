@@ -466,6 +466,7 @@ fn plus(_: &mut Program, env: &mut Env) -> Option<String> {
 				unimplemented![];
 			}
 			_ => {
+				return Some("+: type error".into());
 				unimplemented![];
 			}
 		}
@@ -478,7 +479,9 @@ fn plus(_: &mut Program, env: &mut Env) -> Option<String> {
 ///
 /// A builtin macro always stores the tail of the invocation inside `env.result`, so this macro is
 /// empty; it doesn't need to do anything.
-fn quote(_: &mut Program, _: &mut Env) -> Option<String> { None }
+fn quote(_: &mut Program, _: &mut Env) -> Option<String> {
+	None
+}
 
 fn set(_: &mut Program, _: &mut Env) -> Option<String> {
 	unimplemented!();
@@ -583,7 +586,7 @@ fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
 /// be some calls missing here. Since the requirement is for the program
 /// to be unbounded in the amount of tail calls, there's no way to definitively
 /// store all calls.
-fn trace(program: &mut Program, _: &mut Env) -> Option<String> {
+pub fn trace(program: &mut Program, _: &mut Env) -> Option<String> {
 	for i in program.iter().rev() {
 		if let &Sourcedata(Some(ref source), Coredata::Internal(Commands::Deparameterize(..))) =
 		       &**i {

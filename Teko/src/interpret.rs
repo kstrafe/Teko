@@ -68,8 +68,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						}
 						if let Some(error) = error {
 							if let &Some(ref source) = source {
-								unwind_with_error_message(&format!["{} => {}", error, source][..], &mut program,
-									&mut env);
+								trace(&mut program, &mut env);
+								unwind_with_error_message(&format!["{} <= {}", error, source][..],
+								                          &mut program,
+								                          &mut env);
 							}
 						}
 					}
@@ -140,6 +142,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					true
 				};
 				if succeeded {
+					// Is there any point in unwinding if the param stack is not consistent?
+					// What CAN we do and what can't we do? Suppose a builtin doesn't work
+					// as intended, should the entire program crash? Should the interpreter just
+					// halt? Maybe, or we can unwind, but can we reset the parameter stack?
 					unwind_with_error_message("Error during parameterization: the parameter \
 					                           stack is nonexistent",
 					                          &mut program,
@@ -163,6 +169,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					&Sourcedata(_, Coredata::Macro(Macro::Builtin(ref transfer))) => {
 						env.result = arguments.clone();
 						transfer(&mut program, &mut env);
+						// TODO What do we do if it returns Some? Unwind!
 					}
 					&Sourcedata(_, Coredata::Macro(Macro::Library(ref bound, ref code))) => {
 						program.push(Rc::new(Sourcedata(None,
