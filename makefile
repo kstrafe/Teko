@@ -1,8 +1,3 @@
 .PHONY:
 all:
-	./ll1.rkt
-.PHONY:
-nasm:
-	nasm -f elf64 boot.asm -o boot.elf
-	nasm boot_sector.asm -f bin -o boot_sector.bin
-	qemu-system-x86_64 -drive format=raw,file=boot_sector.bin
+	cargo test test_interpreter --color=always -- --nocapture 2>&1

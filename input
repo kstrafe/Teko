@@ -1,1 +1,11 @@
-(define a 93)
+(define zawa (fn (a) (+ a 1)))
+(define zaka (fn (a) (zawa a)))
+(define kek (mo - (symbol zaka)))
+
+(write (" before))
+(define count (fn (a)
+                  (if (>= a 100000)
+                      a
+                      (count (+ 1000 a)))))
+(count 0)
+(write (" after))

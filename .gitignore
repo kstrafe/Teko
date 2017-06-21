@@ -1,0 +1,6 @@
+/*
+*.bk
+!.gitignore
+!src/
+!input
+!makefile
