@@ -51,6 +51,11 @@ use utilities::*;
 /// }
 /// ```
 pub fn eval(mut program: Program, mut env: Env) -> Env {
+	macro_rules! ppush {
+		($source:expr, $data:expr) => {
+			program.push(Rc::new(Sourcedata($source.clone(), $data)))
+		};
+	}
 	while let Some(top) = program.pop() {
 		match &*top {
 			// Source refers to the head of the pair from which the call originated
@@ -58,44 +63,27 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				match &**statement {
 					&Sourcedata(_, Coredata::Function(Function::Builtin(ref transfer))) => {
 						let error = transfer(&mut program, &mut env);
-						if let Some(_) = env.params.pop() {
-							// Do nothing
-						} else {
-							unwind_with_error_message(
-								"during builtin function call: parameter \
-							                           stack not poppable",
-								&mut program,
-								&mut env,
-							);
-						}
-						if let Some(error) = error {
-							if let &Some(ref source) = source {
-								trace(&mut program, &mut env);
-								unwind_with_error_message(
-									&format!["{} <= {}", error, source][..],
-									&mut program,
-									&mut env,
-								);
-							}
-						}
+						env.params.pop();
+						err(source, &error, &mut program, &mut env);
 					}
 					&Sourcedata(_,
 					            Coredata::Function(Function::Library(ref parameters,
 					                                                 ref transfer))) => {
 						if let Some(arguments) = env.params.pop() {
 							if arguments.len() != parameters.len() {
-								unwind_with_error_message(
-									"during library function call: arity \
-								                           mismatch",
-									&mut program,
-									&mut env,
-								);
+								err(source,
+								    &Some(format!["[E0]: expected {} but got {} arguments",
+								                  parameters.len(),
+								                  arguments.len()]),
+								    &mut program,
+								    &mut env);
 							} else {
 								let mut counter = 0;
 								let cmd =
-									Commands::Deparameterize(
-										optimize_tail_call(&mut program, &mut env, parameters),
-									);
+									Commands::Deparameterize(optimize_tail_call(&mut program,
+									                                            &mut env,
+									                                            parameters));
+								ppush![source, Coredata::Internal(cmd)];
 								for parameter in parameters.iter() {
 									if env.store.contains_key(parameter) {
 										env.store
@@ -103,33 +91,17 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 											.unwrap()
 											.push(arguments[counter].clone());
 									} else {
-										env.store.insert(
-											parameter.clone(),
-											vec![arguments[counter].clone()],
-										);
+										env.store.insert(parameter.clone(),
+										                 vec![arguments[counter].clone()]);
 									}
 									counter += 1;
 								}
-								let next =
-									Rc::new(Sourcedata(source.clone(), Coredata::Internal(cmd)));
-								program.push(next);
 								program.extend(transfer.iter().cloned());
 							}
-						} else {
-							unwind_with_error_message(
-								"during library function call: parameter \
-							                           stack empty",
-								&mut program,
-								&mut env,
-							);
 						}
 					}
 					_ => {
-						unwind_with_error_message(
-							"calling: Element not recognized as callable",
-							&mut program,
-							&mut env,
-						);
+						err(source, &Some("[E1]: element not callable".into()), &mut program, &mut env);
 					}
 				}
 			}
@@ -147,24 +119,13 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				}
 			}
 			&Sourcedata(_, Coredata::Internal(Commands::Parameterize)) => {
-				let succeeded = if let Some(ref mut last) = env.params.last_mut() {
+				let condition = if let Some(ref mut last) = env.params.last_mut() {
 					last.push(env.result.clone());
-					false
+					None
 				} else {
-					true
+					Some("[E2]: parameter stack nonexistent".into())
 				};
-				if succeeded {
-					// Is there any point in unwinding if the param stack is not consistent?
-					// What CAN we do and what can't we do? Suppose a builtin doesn't work
-					// as intended, should the entire program crash? Should the interpreter just
-					// halt? Maybe, or we can unwind, but can we reset the parameter stack?
-					unwind_with_error_message(
-						"Error during parameterization: the parameter \
-					                           stack is nonexistent",
-						&mut program,
-						&mut env,
-					);
-				}
+				err(&None, &condition, &mut program, &mut env);
 			}
 			// Source here is the HEAD of a pair, so (a b) has source of a, and (((a)) b) has source
 			// of ((a))
@@ -172,23 +133,19 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				match &*env.result.clone() {
 					&Sourcedata(_, Coredata::Function(..)) => {
 						env.params.push(vec![]);
-						program.push(Rc::new(Sourcedata(source.clone(),
-						                                Coredata::Internal(Commands::Call(env.result
-							                                .clone())))));
+						ppush![source, Coredata::Internal(Commands::Call(env.result.clone()))];
 						for argument in collect_pair_into_vec(arguments).iter() {
-							program.push(Rc::new(Sourcedata(None,
-							                                Coredata::Internal(Commands::Parameterize))));
+							ppush![None, Coredata::Internal(Commands::Parameterize)];
 							program.push(argument.clone());
 						}
 					}
 					&Sourcedata(_, Coredata::Macro(Macro::Builtin(ref transfer))) => {
 						env.result = arguments.clone();
-						transfer(&mut program, &mut env);
-						// TODO What do we do if it returns Some? Unwind!
+						let error = transfer(&mut program, &mut env);
+						err(source, &error, &mut program, &mut env);
 					}
 					&Sourcedata(_, Coredata::Macro(Macro::Library(ref bound, ref code))) => {
-						program
-							.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Evaluate))));
+						ppush![None, Coredata::Internal(Commands::Evaluate)];
 						let command =
 							optimize_tail_call(&mut program, &mut env, &vec![bound.clone()]);
 						if env.store.contains_key(bound) {
@@ -196,32 +153,17 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						} else {
 							env.store.insert(bound.clone(), vec![arguments.clone()]);
 						}
-						let deparam = Coredata::Internal(Commands::Deparameterize(command));
-						let next = Rc::new(Sourcedata(source.clone(), deparam));
-						program.push(next);
+						ppush![source, Coredata::Internal(Commands::Deparameterize(command))];
 						program.extend(code.iter().cloned());
 					}
 					_ => {
-						unwind_with_error_message(
-							&format!["Error during prepare routine: \
-						                                    element not callable => {:?}",
-							         source],
-							&mut program,
-							&mut env,
-						);
+						err(source, &Some("[E3]: element not callable".into()), &mut program, &mut env);
 					}
 				}
 			}
-			&Sourcedata(_, Coredata::Internal(Commands::Wind)) => {
-				// Do nothing
-			}
-			// Maybe use pair start as source?
+			&Sourcedata(_, Coredata::Internal(Commands::Wind)) => {}
 			&Sourcedata(_, Coredata::Pair(ref head, ref tail)) => {
-				program
-					.push(Rc::new(Sourcedata(
-						head.0.clone(),
-						Coredata::Internal(Commands::Prepare(tail.clone())),
-					)));
+				ppush![head.0, Coredata::Internal(Commands::Prepare(tail.clone()))];
 				program.push(head.clone());
 			}
 			&Sourcedata(ref source, Coredata::Symbol(ref string)) => {
@@ -233,24 +175,12 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 							env.result = value.clone();
 							None
 						} else {
-							if let &Some(ref source) = source {
-								Some(format!["`{}' does exist but its stack is empty => {}",
-								        string,
-								        source])
-							} else {
-								Some(format!["`{}' does exist but its stack is empty", string])
-							}
+							Some(format!["[E4]: `{}' does exist but its stack is empty", string])
 						}
 					} else {
-						if let &Some(ref source) = source {
-							Some(format!["`{}' does not exist => {}", string, source])
-						} else {
-							Some(format!["`{}' does not exist", string])
-						}
+						Some(format!["[E5]: `{}' does not exist", string])
 					};
-					if let Some(error) = error {
-						unwind_with_error_message(&error, &mut program, &mut env);
-					}
+					err(source, &error, &mut program, &mut env);
 				}
 			}
 			_ => {

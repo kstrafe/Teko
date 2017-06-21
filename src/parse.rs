@@ -130,10 +130,8 @@ fn whitespace(state: &mut ParseState) {
 fn left_parenthesis(state: &mut ParseState) {
 	move_token_to_stack_if_nonempty(state);
 	copy_current_read_position_to_unmatched_opening_parentheses(state);
-	state.stack.push(Rc::new(Sourcedata(
-		Some(state.current_read_position.clone()),
-		Coredata::Internal(Commands::Empty),
-	)));
+	state.stack.push(Rc::new(Sourcedata(Some(state.current_read_position.clone()),
+	                                    Coredata::Internal(Commands::Empty))));
 }
 
 fn right_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
@@ -170,10 +168,8 @@ fn otherwise(character: char, state: &mut ParseState) {
 
 fn move_token_to_stack_if_nonempty(state: &mut ParseState) {
 	if !state.token.is_empty() {
-		state.stack.push(Rc::new(Sourcedata(
-			Some(state.start_of_current_lexeme.clone()),
-			Coredata::Symbol(state.token.clone()),
-		)));
+		state.stack.push(Rc::new(Sourcedata(Some(state.start_of_current_lexeme.clone()),
+		                                    Coredata::Symbol(state.token.clone()))));
 		clear_token(state);
 	}
 }
@@ -188,8 +184,7 @@ fn set_error(state: &mut ParseState, message: &str) -> ParseState {
 }
 
 fn copy_current_read_position_to_unmatched_opening_parentheses(state: &mut ParseState) {
-	state
-		.unmatched_opening_parentheses
+	state.unmatched_opening_parentheses
 		.push(state.current_read_position.clone());
 }
 

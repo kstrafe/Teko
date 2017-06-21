@@ -172,7 +172,11 @@ pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &Vec<String>) {
 			panic!["Store entry does not exist"];
 		}
 		let is_empty = if let Some(ref entry) = env.store.get(arg) {
-			if entry.is_empty() { true } else { false }
+			if entry.is_empty() {
+				true
+			} else {
+				false
+			}
 		} else {
 			panic!["Store entry does not exist"];
 		};
@@ -220,14 +224,30 @@ pub fn compute_union(a: &Vec<String>, b: &Vec<String>) -> Vec<String> {
 }
 
 /// Takes the intersection of two sets.
-pub fn compute_intersection(a: &Vec<String>, b: &Vec<String>) -> Vec<String> {
-	let mut intersection = Vec::with_capacity(VEC_CAPACITY);
+pub fn compute_intersection<'a>(a: &'a Vec<String>, b: &'a Vec<String>) -> Vec<&'a String> {
+	let mut intersection: Vec<&'a String> = Vec::with_capacity(VEC_CAPACITY);
 	for i in a {
 		if b.contains(i) {
-			intersection.push(i.clone());
+			intersection.push(i);
 		}
 	}
 	intersection
+}
+
+pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Program, env: &mut Env) {
+	let unwind = if let &Some(ref error) = error {
+		if let &Some(ref source) = source {
+			// trace(&mut program, &mut env);
+			Some(format!["{} <= {}", error, source])
+		} else {
+			Some(format!["{} <= _", error])
+		}
+	} else {
+		None
+	};
+	if let Some(error) = unwind {
+		unwind_with_error_message(&error[..], program, env);
+	}
 }
 
 /// Optimizes tail calls by seeing if the current `params` can be merged with the top of the stack.
@@ -242,7 +262,7 @@ pub fn optimize_tail_call(program: &mut Program,
 		match top.1 {
 			Coredata::Internal(Commands::Deparameterize(ref content)) => {
 				for i in compute_intersection(content, params) {
-					if let Some(ref mut entry) = env.store.get_mut(&i) {
+					if let Some(ref mut entry) = env.store.get_mut(i) {
 						if let Some(_) = entry.pop() {
 							// OK
 						} else {

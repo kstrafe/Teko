@@ -1,9 +1,11 @@
+(define x (fn () 1))
+(x 3 5 6)
 (define zawa (fn (a) (+ a 1)))
 (define zaka (fn (a) (zawa a)))
 (define kek (mo - (symbol zaka)))
 
 (write (" before))
-(define max 10000000)
+(define max 100000000)
 (define v 1)
 (define count (fn (a)
                   (if (>= a max)
