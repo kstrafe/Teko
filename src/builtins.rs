@@ -21,7 +21,7 @@
 
 use std::rc::Rc;
 use std::collections::HashMap;
-use num::bigint::ToBigInt;
+use num::bigint::{BigInt, Sign, ToBigInt};
 use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro, Function};
 use utilities::*;
 
@@ -155,8 +155,12 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 }
 
 fn divide(_: &mut Program, env: &mut Env) -> Option<String> {
-	let arguments = env.params.last().expect("The state machine should ensure this exists");
-	let mut sum = 1.to_bigint().expect("Constant zero should always be parsed correctly");
+	let arguments = env.params
+		.last()
+		.expect("The state machine should ensure this exists");
+	let mut sum = 1
+		.to_bigint()
+		.expect("Constant zero should always be parsed correctly");
 	if arguments.len() == 1 {
 		for argument in arguments.iter() {
 			match &**argument {
@@ -215,14 +219,18 @@ fn error(program: &mut Program, env: &mut Env) -> Option<String> {
 				None
 			} else {
 				env.result =
-					Rc::new(Sourcedata(None,
-					                   Coredata::Error(Rc::new(Sourcedata(None, Coredata::Null)))));
+					Rc::new(Sourcedata(
+						None,
+						Coredata::Error(Rc::new(Sourcedata(None, Coredata::Null))),
+					));
 				None
 			}
 		}
 	} else {
-		Some("The parameter list does not contain a list; this is an internal error that should \
-		      not happen")
+		Some(
+			"The parameter list does not contain a list; this is an internal error that should \
+		      not happen",
+		)
 	};
 	if let Some(error) = error {
 		unwind_with_error_message(error, program, env);
@@ -272,7 +280,8 @@ fn exit(program: &mut Program, env: &mut Env) -> Option<String> {
 				::std::process::exit(0);
 			}
 		} else {
-			Some(format!["exit: arity error, expecting 0 or 1 arguments, got {}", args.len()])
+			Some(format!["exit: arity error, expecting 0 or 1 arguments, got {}",
+			             args.len()])
 		}
 	} else {
 		Some("parameter stack not present for a call".into())
@@ -292,7 +301,9 @@ fn function(_: &mut Program, env: &mut Env) -> Option<String> {
 }
 
 fn geq(_: &mut Program, env: &mut Env) -> Option<String> {
-	let arguments = env.params.last().expect("The state machine should ensure this exists");
+	let arguments = env.params
+		.last()
+		.expect("The state machine should ensure this exists");
 	let mut last = None;
 	let mut result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
 	for argument in arguments.iter() {
@@ -328,7 +339,8 @@ fn geq(_: &mut Program, env: &mut Env) -> Option<String> {
 fn head(program: &mut Program, env: &mut Env) -> Option<String> {
 	let error = if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			Some(format!["head: arity mismatch, expected 1 argument but got {}", args.len()])
+			Some(format!["head: arity mismatch, expected 1 argument but got {}",
+			             args.len()])
 		} else {
 			env.result = args.first().unwrap().head().clone();
 			None
@@ -364,11 +376,13 @@ fn identity(_: &mut Program, env: &mut Env) -> Option<String> {
 
 fn if_conditional(program: &mut Program, env: &mut Env) -> Option<String> {
 	let arguments = env.result.clone();
-	program.push(Rc::new(Sourcedata(None,
-	                                Coredata::Internal(Commands::If(arguments.tail().head(),
-	                                                                arguments.tail()
-		                                                                .tail()
-		                                                                .head())))));
+	program.push(Rc::new(Sourcedata(
+		None,
+		Coredata::Internal(Commands::If(
+			arguments.tail().head(),
+			arguments.tail().tail().head(),
+		)),
+	)));
 	program.push(arguments.head());
 	None
 }
@@ -396,8 +410,12 @@ fn make_macro(_: &mut Program, env: &mut Env) -> Option<String> {
 }
 
 fn multiply(_: &mut Program, env: &mut Env) -> Option<String> {
-	let arguments = env.params.last().expect("The state machine should ensure this exists");
-	let mut sum = 1.to_bigint().expect("Constant zero should always be parsed correctly");
+	let arguments = env.params
+		.last()
+		.expect("The state machine should ensure this exists");
+	let mut sum = 1
+		.to_bigint()
+		.expect("Constant zero should always be parsed correctly");
 	for argument in arguments.iter() {
 		match &**argument {
 			&Sourcedata(_, Coredata::Complex(_)) => {
@@ -440,20 +458,30 @@ fn not(program: &mut Program, env: &mut Env) -> Option<String> {
 }
 
 fn pair(_: &mut Program, env: &mut Env) -> Option<String> {
-	let args = env.params.last().expect("Should exist by virtue of functions");
+	let args = env.params
+		.last()
+		.expect("Should exist by virtue of functions");
 	if args.len() != 2 {
 		panic!("should have two args");
 	} else {
-		env.result = Rc::new(Sourcedata(None,
-		                                Coredata::Pair(args.first().unwrap().clone(),
-		                                               args.get(1).unwrap().clone())));
+		env.result = Rc::new(Sourcedata(
+			None,
+			Coredata::Pair(
+				args.first().unwrap().clone(),
+				args.get(1).unwrap().clone(),
+			),
+		));
 	}
 	None
 }
 
 fn plus(_: &mut Program, env: &mut Env) -> Option<String> {
-	let arguments = env.params.last().expect("The state machine should ensure this exists");
-	let mut sum = 0.to_bigint().expect("Constant zero should always be parsed correctly");
+	let arguments = env.params
+		.last()
+		.expect("The state machine should ensure this exists");
+	let mut sum = 0
+		.to_bigint()
+		.expect("Constant zero should always be parsed correctly");
 	for argument in arguments.iter() {
 		match &**argument {
 			&Sourcedata(_, Coredata::Complex(_)) => {
@@ -518,8 +546,12 @@ fn string(_: &mut Program, env: &mut Env) -> Option<String> {
 }
 
 fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
-	let arguments = env.params.last().expect("The state machine should ensure this exists");
-	let mut sum = 0.to_bigint().expect("Constant zero should always be parsed correctly");
+	let arguments = env.params
+		.last()
+		.expect("The state machine should ensure this exists");
+	let mut sum = 0
+		.to_bigint()
+		.expect("Constant zero should always be parsed correctly");
 	if arguments.len() == 1 {
 		for argument in arguments.iter() {
 			match &**argument {
@@ -571,7 +603,9 @@ fn symbol(_: &mut Program, env: &mut Env) -> Option<String> {
 }
 
 fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
-	let args = env.params.last().expect("Should exist by virtue of functions");
+	let args = env.params
+		.last()
+		.expect("Should exist by virtue of functions");
 	if args.len() != 1 {
 		panic!("should have only a single arg");
 	} else {
@@ -589,7 +623,7 @@ fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
 pub fn trace(program: &mut Program, _: &mut Env) -> Option<String> {
 	for i in program.iter().rev() {
 		if let &Sourcedata(Some(ref source), Coredata::Internal(Commands::Deparameterize(..))) =
-		       &**i {
+			&**i {
 			println!["{}", source];
 		}
 	}

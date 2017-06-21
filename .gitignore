@@ -1,6 +1,7 @@
 /*
 *.bk
 !.gitignore
+!FlameGraph/
 !src/
 !input
 !makefile

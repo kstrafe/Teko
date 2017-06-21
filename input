@@ -3,9 +3,11 @@
 (define kek (mo - (symbol zaka)))
 
 (write (" before))
+(define max 10000000)
+(define v 1)
 (define count (fn (a)
-                  (if (>= a 100000)
+                  (if (>= a max)
                       a
-                      (count (+ 1000 a)))))
+                      (count (+ v a)))))
 (count 0)
-(write (" after))
+(write (" after max))

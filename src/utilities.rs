@@ -39,6 +39,7 @@ impl fmt::Display for Sourcedata {
 			Rational(ref arg) => write![f, "{}", arg],
 			String(ref arg) => write![f, "(\" {})", arg],
 			Symbol(ref arg) => write![f, "{}", arg],
+			User(..) => write![f, "{}", "user-defined"],
 		}
 	}
 }
@@ -145,7 +146,8 @@ pub fn collect_pair_of_symbols_into_vec_string(data: &Rc<Sourcedata>) -> Vec<Str
 /// This function doesn't unwind directly.
 pub fn unwind_with_error_message(string: &str, program: &mut Program, env: &mut Env) {
 	let sub = Rc::new(Sourcedata(None, Coredata::String(string.into())));
-	env.params.push(vec![Rc::new(Sourcedata(None, Coredata::Error(sub)))]);
+	env.params
+		.push(vec![Rc::new(Sourcedata(None, Coredata::Error(sub)))]);
 	unwind(program, env);
 	if let None = env.params.pop() {
 		panic!["Stack corruption"];
@@ -170,11 +172,7 @@ pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &Vec<String>) {
 			panic!["Store entry does not exist"];
 		}
 		let is_empty = if let Some(ref entry) = env.store.get(arg) {
-			if entry.is_empty() {
-				true
-			} else {
-				false
-			}
+			if entry.is_empty() { true } else { false }
 		} else {
 			panic!["Store entry does not exist"];
 		};

@@ -61,17 +61,21 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						if let Some(_) = env.params.pop() {
 							// Do nothing
 						} else {
-							unwind_with_error_message("during builtin function call: parameter \
+							unwind_with_error_message(
+								"during builtin function call: parameter \
 							                           stack not poppable",
-							                          &mut program,
-							                          &mut env);
+								&mut program,
+								&mut env,
+							);
 						}
 						if let Some(error) = error {
 							if let &Some(ref source) = source {
 								trace(&mut program, &mut env);
-								unwind_with_error_message(&format!["{} <= {}", error, source][..],
-								                          &mut program,
-								                          &mut env);
+								unwind_with_error_message(
+									&format!["{} <= {}", error, source][..],
+									&mut program,
+									&mut env,
+								);
 							}
 						}
 					}
@@ -80,16 +84,18 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					                                                 ref transfer))) => {
 						if let Some(arguments) = env.params.pop() {
 							if arguments.len() != parameters.len() {
-								unwind_with_error_message("during library function call: arity \
+								unwind_with_error_message(
+									"during library function call: arity \
 								                           mismatch",
-								                          &mut program,
-								                          &mut env);
+									&mut program,
+									&mut env,
+								);
 							} else {
 								let mut counter = 0;
 								let cmd =
-									Commands::Deparameterize(optimize_tail_call(&mut program,
-									                                            &mut env,
-									                                            parameters));
+									Commands::Deparameterize(
+										optimize_tail_call(&mut program, &mut env, parameters),
+									);
 								for parameter in parameters.iter() {
 									if env.store.contains_key(parameter) {
 										env.store
@@ -97,27 +103,33 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 											.unwrap()
 											.push(arguments[counter].clone());
 									} else {
-										env.store.insert(parameter.clone(),
-										                 vec![arguments[counter].clone()]);
+										env.store.insert(
+											parameter.clone(),
+											vec![arguments[counter].clone()],
+										);
 									}
 									counter += 1;
 								}
-								let next = Rc::new(Sourcedata(source.clone(),
-								                              Coredata::Internal(cmd)));
+								let next =
+									Rc::new(Sourcedata(source.clone(), Coredata::Internal(cmd)));
 								program.push(next);
 								program.extend(transfer.iter().cloned());
 							}
 						} else {
-							unwind_with_error_message("during library function call: parameter \
+							unwind_with_error_message(
+								"during library function call: parameter \
 							                           stack empty",
-							                          &mut program,
-							                          &mut env);
+								&mut program,
+								&mut env,
+							);
 						}
 					}
 					_ => {
-						unwind_with_error_message("calling: Element not recognized as callable",
-						                          &mut program,
-						                          &mut env);
+						unwind_with_error_message(
+							"calling: Element not recognized as callable",
+							&mut program,
+							&mut env,
+						);
 					}
 				}
 			}
@@ -146,13 +158,16 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					// What CAN we do and what can't we do? Suppose a builtin doesn't work
 					// as intended, should the entire program crash? Should the interpreter just
 					// halt? Maybe, or we can unwind, but can we reset the parameter stack?
-					unwind_with_error_message("Error during parameterization: the parameter \
+					unwind_with_error_message(
+						"Error during parameterization: the parameter \
 					                           stack is nonexistent",
-					                          &mut program,
-					                          &mut env);
+						&mut program,
+						&mut env,
+					);
 				}
 			}
-			// Source here is the HEAD of a pair, so (a b) has source of a, and (((a)) b) has source of ((a))
+			// Source here is the HEAD of a pair, so (a b) has source of a, and (((a)) b) has source
+			// of ((a))
 			&Sourcedata(ref source, Coredata::Internal(Commands::Prepare(ref arguments))) => {
 				match &*env.result.clone() {
 					&Sourcedata(_, Coredata::Function(..)) => {
@@ -172,8 +187,8 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						// TODO What do we do if it returns Some? Unwind!
 					}
 					&Sourcedata(_, Coredata::Macro(Macro::Library(ref bound, ref code))) => {
-						program.push(Rc::new(Sourcedata(None,
-						                                Coredata::Internal(Commands::Evaluate))));
+						program
+							.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Evaluate))));
 						let command =
 							optimize_tail_call(&mut program, &mut env, &vec![bound.clone()]);
 						if env.store.contains_key(bound) {
@@ -187,11 +202,13 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						program.extend(code.iter().cloned());
 					}
 					_ => {
-						unwind_with_error_message(&format!["Error during prepare routine: \
+						unwind_with_error_message(
+							&format!["Error during prepare routine: \
 						                                    element not callable => {:?}",
-						                                   source],
-						                          &mut program,
-						                          &mut env);
+							         source],
+							&mut program,
+							&mut env,
+						);
 					}
 				}
 			}
@@ -200,8 +217,11 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			}
 			// Maybe use pair start as source?
 			&Sourcedata(_, Coredata::Pair(ref head, ref tail)) => {
-				program.push(Rc::new(Sourcedata(head.0.clone(),
-					                         Coredata::Internal(Commands::Prepare(tail.clone())))));
+				program
+					.push(Rc::new(Sourcedata(
+						head.0.clone(),
+						Coredata::Internal(Commands::Prepare(tail.clone())),
+					)));
 				program.push(head.clone());
 			}
 			&Sourcedata(ref source, Coredata::Symbol(ref string)) => {
@@ -215,8 +235,8 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						} else {
 							if let &Some(ref source) = source {
 								Some(format!["`{}' does exist but its stack is empty => {}",
-								             string,
-								             source])
+								        string,
+								        source])
 							} else {
 								Some(format!["`{}' does exist but its stack is empty", string])
 							}
