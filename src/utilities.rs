@@ -1,8 +1,7 @@
 //! Contains utilities used by the implementation
 use std::rc::Rc;
 use std::fmt;
-use data_structures::{Function, Commands, Coredata, Env, Statement, ParseState, Source, Program,
-                      Sourcedata};
+use data_structures::{Commands, Coredata, Env, ParseState, Program, Source, Sourcedata};
 use super::VEC_CAPACITY;
 
 /// Implement the writer of sourcedata.

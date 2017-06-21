@@ -26,6 +26,39 @@ use builtins::*;
 use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro, Function};
 use utilities::*;
 
+const ERROR: &'static [(&'static str, &'static str)] =
+	&[("expected N but got M arguments",
+	   "When a function is declared it has a specified number of fixed parameters.
+
+	(define f \
+	    (fn (a b c) ()))
+	              ^^^^^^^
+	              | The parameter list
+
+The above \
+	    function `f' has 3 parameters. When calling said function, you need to specify exactly 3 \
+	    arguments, no more
+and no less:
+
+	(f 1 2 3)
+
+You will get this error whenever you attempt \
+	    to call a function with a different number of arguments compared to
+the number of \
+	    parameters:
+
+	(f 1 2 3 4)
+
+or
+
+	(f)"),
+	("element not callable", "during Call"),
+	("parameter stack nonexistent", ""),
+	("element not callable", "during Prepare"),
+	("`X' does exist but its stack is empty", ""),
+	("`X' does not exist", ""),
+];
+
 /// Evaluates a program with a given environment.
 ///
 /// The `program` is considered completely evaluated when it is empty. The result of the program
@@ -101,7 +134,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						}
 					}
 					_ => {
-						err(source, &Some("[E1]: element not callable".into()), &mut program, &mut env);
+						err(source,
+						    &Some("[E1]: element not callable".into()),
+						    &mut program,
+						    &mut env);
 					}
 				}
 			}
@@ -157,7 +193,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						program.extend(code.iter().cloned());
 					}
 					_ => {
-						err(source, &Some("[E3]: element not callable".into()), &mut program, &mut env);
+						err(source,
+						    &Some("[E3]: element not callable".into()),
+						    &mut program,
+						    &mut env);
 					}
 				}
 			}

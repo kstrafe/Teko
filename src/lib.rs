@@ -89,6 +89,12 @@
 //   Complex parsing + promotion
 //   <, >, =, <=, >=, != number comparison
 //   Boolean not, and, or
+//   Create a builtin error registry
+//   Make Userdata easily editable
+//   Create FFI for C
+//   Functional map/set/trie/fingertree
+//   Multithreading
+//   Channels
 //
 // //////////////////////////////////////////////////////////
 
@@ -105,4 +111,4 @@ pub mod interpret;
 pub mod parse;
 pub mod utilities;
 
-const VEC_CAPACITY: usize = 10;
+const VEC_CAPACITY: usize = 1000;

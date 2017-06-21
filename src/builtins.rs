@@ -21,7 +21,7 @@
 
 use std::rc::Rc;
 use std::collections::HashMap;
-use num::bigint::{BigInt, Sign, ToBigInt};
+use num::bigint::ToBigInt;
 use num::zero;
 use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro, Function};
 use utilities::*;
@@ -85,18 +85,17 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 
 fn abort(_: &mut Program, _: &mut Env) -> Option<String> {
 	::std::process::abort();
-	None
 }
 
 /// Count the stack size. Useful for checking if Tail Call Optimization works.
 fn at_program_count(program: &mut Program, env: &mut Env) -> Option<String> {
-	let mut count = program.len();
+	let count = program.len();
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(count.into())));
 	None
 }
 
 /// Count the amount of active variables in the program.
-fn at_variable_count(program: &mut Program, env: &mut Env) -> Option<String> {
+fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<String> {
 	let mut count = 0;
 	for i in &env.params {
 		count += i.len();
@@ -480,7 +479,6 @@ fn plus(_: &mut Program, env: &mut Env) -> Option<String> {
 			}
 			_ => {
 				return Some("+: type error".into());
-				unimplemented![];
 			}
 		}
 	}
@@ -498,7 +496,6 @@ fn quote(_: &mut Program, _: &mut Env) -> Option<String> {
 
 fn set(_: &mut Program, _: &mut Env) -> Option<String> {
 	unimplemented!();
-	None
 }
 
 fn sleep(_: &mut Program, env: &mut Env) -> Option<String> {
