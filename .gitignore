@@ -3,5 +3,7 @@
 !.gitignore
 !FlameGraph/
 !src/
+!find_test_executable.sh
 !input
 !makefile
+!RAIONALE.md
