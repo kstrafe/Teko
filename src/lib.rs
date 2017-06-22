@@ -98,7 +98,6 @@
 //
 // //////////////////////////////////////////////////////////
 
-#![feature(process_abort)]
 #![feature(slice_patterns)]
 extern crate num;
 
