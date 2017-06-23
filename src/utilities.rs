@@ -15,7 +15,6 @@ impl fmt::Display for Sourcedata {
 		match self.1 {
 			Boolean(Boolean::True) => write![f, "true"],
 			Boolean(Boolean::False) => write![f, "false"],
-			Complex(ref arg) => write![f, "{}", arg],
 			Error(ref arg) => write![f, "(error {})", arg],
 			Function(..) => write![f, "{}", line!()],
 			Integer(ref arg) => write![f, "{}", arg],
@@ -35,7 +34,6 @@ impl fmt::Display for Sourcedata {
 			Macro(..) => write![f, "(mo {})", line!()],
 			Null => write![f, "()"],
 			Pair(ref arg, ref arg2) => write![f, "({} {}", arg, arg2],
-			Rational(ref arg) => write![f, "{}", arg],
 			String(ref arg) => write![f, "(\" {})", arg],
 			Symbol(ref arg) => write![f, "{}", arg],
 			User(..) => write![f, "{}", "user-defined"],

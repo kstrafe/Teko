@@ -56,7 +56,7 @@
 //! result from `factorial` is left inside the environment instead.
 
 // //////////////////////////////////////////////////////////
-// ✓ Implementor's checklist:
+// ✓ Implementor's checklist: (✓ = Implemented | ✗ = rejected | empty = unimplemented
 //
 // ✓ Core expansion, parameterizations, and preparation
 // ✓ Builtin Function calls
@@ -78,23 +78,24 @@
 // ✓ Sort the builtins.rs file by function names
 // ✓ Improve error unwinding (do we need to pop params?), add formal errors
 // ✓ transfer -> Option<String> for consistent error handling
-//   Actually make error handling consistent + stacktrace
-//   ` quasiquote
-//   Implement a proper fmt::Display for Sourcedata
-//   Test different TCO strategies (HashSet, sorted Vec,..)
-//   Implement powers for numbers
+// ✗ ` quasiquote                            - Can be built from primitives
+// ✗ Test different TCO strategies (HashSet, sorted Vec,..)  - Not important
+// ✗ Implement powers for numbers                            - Implemented using primitives
+// ✗ Rational parsing + promotion            - Not minimal
+// ✗ Complex parsing + promotion             - Not minimal
+// ✓ <, >, =, <=, >=, != number comparison   - Only < and == builtin, others derived
+// ✓ Boolean not, and, or
+// ✗ Create a builtin error registry         - Not minimal, keep errors short
+// ✓ quote ✓ symbol?  ✓ same?  ✓ pair?  ✓ head ✓ tail ✓ pair ✓ if ✓ fn ✓ mo
+// ✗ Create FFI for C                        - Not minimal
+// ✗ Functional map/set/trie/fingertree      - Not very minimal
+// ✗ Multithreading                          - Not part of the idealized language
+// ✗ Channels                                - As above
+// ✗ Make Userdata easily editable           - Is only a reference impl, no need
 //   Replace all panics with unwinds
 //   Sort imports and uses where possible
-//   Rational parsing + promotion
-//   Complex parsing + promotion
-//   <, >, =, <=, >=, != number comparison
-//   Boolean not, and, or
-//   Create a builtin error registry
-//   Make Userdata easily editable
-//   Create FFI for C
-//   Functional map/set/trie/fingertree
-//   Multithreading
-//   Channels
+//   Implement a proper fmt::Display for Sourcedata
+//   Actually make error handling consistent + stacktrace
 //
 // //////////////////////////////////////////////////////////
 

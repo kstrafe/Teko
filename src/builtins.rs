@@ -21,8 +21,7 @@
 
 use std::rc::Rc;
 use std::collections::HashMap;
-use num::bigint::ToBigInt;
-use num::zero;
+use num::{zero, one};
 use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro, Function};
 use utilities::*;
 
@@ -50,25 +49,28 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Function : "-" => subtract,
 		Function : "*" => multiply,
 		Function : "/" => divide,
-		Function : ">=" => geq,
-		Function : "trace" => trace,
-		Function : "abort" => abort,
+		Function : "=" => eq,
+		Function : "<" => lt,
+		Function : "and" => and,
+		Function : "or" => or,
+		Function : "@trace" => trace,
 		Function : "exit" => exit,
 		Function : "not" => not,
 		Function : "error" => error,
+		Function : "same?" => is_symbol_eq,
 		Function : "error?" => is_error,
+		Function : "symbol?" => is_symbol,
 		Function : "head" => head,
-		Function : "identity" => identity,
 		Function : "tail" => tail,
 		Function : "pair" => pair,
-		Function : "sleep" => sleep,
+		Function : "pair?" => is_pair,
+		Function : "@sleep" => sleep,
 		Function : "unwind" => unwind,
 		Function : "@variable-count" => at_variable_count,
 		Function : "@program-count" => at_program_count,
 		Function : "eval" => eval_expose,
 		Function : "write" => write,
-		Macro : "'" => quote,
-		Macro : "symbol" => symbol,
+		Macro : "quote" => quote,
 		Macro : "\"" => string,
 		Macro : "if" => if_conditional,
 		Macro : "set!" => set,
@@ -83,10 +85,20 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 // Standard Library Entries
 // //////////////////////////////////////////////////////////
 
-fn abort(_: &mut Program, _: &mut Env) -> Option<String> {
-	::std::process::abort();
+fn and(_: &mut Program, env: &mut Env) -> Option<String> {
+	if let Some(args) = env.params.last() {
+		for arg in args {
+			if let Coredata::Boolean(Boolean::False) = arg.1 {
+				env.result = arg.clone();
+				return None;
+			} else {
+				continue;
+			}
+		}
+	};
+	env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
+	None
 }
-
 /// Count the stack size. Useful for checking if Tail Call Optimization works.
 fn at_program_count(program: &mut Program, env: &mut Env) -> Option<String> {
 	let count = program.len();
@@ -158,19 +170,12 @@ fn divide(_: &mut Program, env: &mut Env) -> Option<String> {
 	let arguments = env.params
 		.last()
 		.expect("The state machine should ensure this exists");
-	let mut sum = 1.to_bigint()
-		.expect("Constant zero should always be parsed correctly");
+	let mut sum = one();
 	if arguments.len() == 1 {
 		for argument in arguments.iter() {
 			match &**argument {
-				&Sourcedata(_, Coredata::Complex(_)) => {
-					unimplemented![];
-				}
-				&Sourcedata(_, Coredata::Integer(ref integer)) => {
-					sum = sum / integer;
-				}
-				&Sourcedata(_, Coredata::Rational(_)) => {
-					unimplemented![];
+				&Sourcedata(_, Coredata::Integer(ref value)) => {
+					sum = sum / value;
 				}
 				_ => {
 					unimplemented![];
@@ -181,18 +186,12 @@ fn divide(_: &mut Program, env: &mut Env) -> Option<String> {
 		let mut first = true;
 		for argument in arguments.iter() {
 			match &**argument {
-				&Sourcedata(_, Coredata::Complex(_)) => {
-					unimplemented![];
-				}
-				&Sourcedata(_, Coredata::Integer(ref integer)) => {
+				&Sourcedata(_, Coredata::Integer(ref value)) => {
 					if first {
-						sum = integer.clone();
+						sum = value.clone();
 					} else {
-						sum = sum / integer;
+						sum = sum / value;
 					}
-				}
-				&Sourcedata(_, Coredata::Rational(_)) => {
-					unimplemented![];
 				}
 				_ => {
 					unimplemented![];
@@ -205,6 +204,36 @@ fn divide(_: &mut Program, env: &mut Env) -> Option<String> {
 		unimplemented!();
 	}
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
+	None
+}
+
+fn eq(_: &mut Program, env: &mut Env) -> Option<String> {
+	let arguments = env.params
+		.last()
+		.expect("The state machine should ensure this exists");
+	let mut last = None;
+	let mut result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
+	for argument in arguments.iter() {
+		match &**argument {
+			&Sourcedata(_, Coredata::Integer(ref integer)) => {
+				if let Some(previous) = last {
+					if previous == integer {
+						// Do nothing
+					} else {
+						result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
+						break;
+					}
+					last = Some(integer);
+				} else {
+					last = Some(integer);
+				}
+			}
+			_ => {
+				unimplemented![];
+			}
+		}
+	}
+	env.result = result;
 	None
 }
 
@@ -294,42 +323,6 @@ fn function(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
-fn geq(_: &mut Program, env: &mut Env) -> Option<String> {
-	let arguments = env.params
-		.last()
-		.expect("The state machine should ensure this exists");
-	let mut last = None;
-	let mut result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
-	for argument in arguments.iter() {
-		match &**argument {
-			&Sourcedata(_, Coredata::Complex(_)) => {
-				unimplemented![];
-			}
-			&Sourcedata(_, Coredata::Integer(ref integer)) => {
-				if let Some(previous) = last {
-					if previous >= integer {
-						// Do nothing
-					} else {
-						result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
-						break;
-					}
-					last = Some(integer);
-				} else {
-					last = Some(integer);
-				}
-			}
-			&Sourcedata(_, Coredata::Rational(_)) => {
-				unimplemented![];
-			}
-			_ => {
-				unimplemented![];
-			}
-		}
-	}
-	env.result = result;
-	None
-}
-
 fn head(program: &mut Program, env: &mut Env) -> Option<String> {
 	let error = if let Some(args) = env.params.last() {
 		if args.len() != 1 {
@@ -344,25 +337,6 @@ fn head(program: &mut Program, env: &mut Env) -> Option<String> {
 
 	if let Some(error) = error {
 		unwind_with_error_message(&error, program, env);
-	}
-	None
-}
-
-/// The identity function, returns its argument.
-///
-/// No builtin function does tail call optimization, so this
-/// function can be used to avoid tail call optimization.
-/// It's useful when trace doesn't show the full stack due to TCO.
-fn identity(_: &mut Program, env: &mut Env) -> Option<String> {
-	if let Some(args) = env.params.last() {
-		if args.len() != 1 {
-			panic!["identity: arity mismatch"];
-		}
-		if let Some(arg) = args.last() {
-			env.result = arg.clone();
-		}
-	} else {
-		panic!["identity: no params stack"];
 	}
 	None
 }
@@ -387,6 +361,68 @@ fn is_error(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
+fn is_pair(_: &mut Program, env: &mut Env) -> Option<String> {
+	if let Coredata::Pair(..) = env.params.last().unwrap().first().unwrap().1 {
+		env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
+	} else {
+		env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
+	}
+	None
+}
+
+fn is_symbol_eq(_: &mut Program, env: &mut Env) -> Option<String> {
+	if let Coredata::Symbol(ref a) = env.params.last().unwrap().first().unwrap().1 {
+		if let Coredata::Symbol(ref b) = env.params.last().unwrap()[1].1 {
+			if a == b {
+				env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
+				return None;
+			}
+		}
+	}
+	env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
+	None
+}
+
+fn is_symbol(_: &mut Program, env: &mut Env) -> Option<String> {
+	if let Coredata::Symbol(_) = env.params.last().unwrap().first().unwrap().1 {
+		env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
+	} else {
+		env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
+	}
+	None
+}
+
+/// The less-than function, traditionally named
+fn lt(_: &mut Program, env: &mut Env) -> Option<String> {
+	let arguments = env.params
+		.last()
+		.expect("The state machine should ensure this exists");
+	let mut last = None;
+	let mut result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
+	for argument in arguments.iter() {
+		match &**argument {
+			&Sourcedata(_, Coredata::Integer(ref integer)) => {
+				if let Some(previous) = last {
+					if previous < integer {
+						// Do nothing
+					} else {
+						result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
+						break;
+					}
+					last = Some(integer);
+				} else {
+					last = Some(integer);
+				}
+			}
+			_ => {
+				unimplemented![];
+			}
+		}
+	}
+	env.result = result;
+	None
+}
+
 fn make_macro(_: &mut Program, env: &mut Env) -> Option<String> {
 	let args = env.result.clone();
 	let params = match args.head().1 {
@@ -404,18 +440,11 @@ fn multiply(_: &mut Program, env: &mut Env) -> Option<String> {
 	let arguments = env.params
 		.last()
 		.expect("The state machine should ensure this exists");
-	let mut sum = 1.to_bigint()
-		.expect("Constant zero should always be parsed correctly");
+	let mut sum = one();
 	for argument in arguments.iter() {
 		match &**argument {
-			&Sourcedata(_, Coredata::Complex(_)) => {
-				unimplemented![];
-			}
-			&Sourcedata(_, Coredata::Integer(ref integer)) => {
-				sum = sum * integer;
-			}
-			&Sourcedata(_, Coredata::Rational(_)) => {
-				unimplemented![];
+			&Sourcedata(_, Coredata::Integer(ref value)) => {
+				sum = sum * value;
 			}
 			_ => {
 				unimplemented![];
@@ -447,6 +476,21 @@ fn not(program: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
+fn or(_: &mut Program, env: &mut Env) -> Option<String> {
+	if let Some(args) = env.params.last() {
+		for arg in args {
+			if let Coredata::Boolean(Boolean::False) = arg.1 {
+				continue;
+			} else {
+				env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
+				return None;
+			}
+		}
+	};
+	env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
+	None
+}
+
 fn pair(_: &mut Program, env: &mut Env) -> Option<String> {
 	let args = env.params
 		.last()
@@ -468,14 +512,8 @@ fn plus(_: &mut Program, env: &mut Env) -> Option<String> {
 	let mut sum = zero(); // BigInt::from_slice(Sign::NoSign, &[0]);
 	for argument in arguments.iter() {
 		match &**argument {
-			&Sourcedata(_, Coredata::Complex(_)) => {
-				unimplemented![];
-			}
-			&Sourcedata(_, Coredata::Integer(ref integer)) => {
-				sum = sum + integer;
-			}
-			&Sourcedata(_, Coredata::Rational(_)) => {
-				unimplemented![];
+			&Sourcedata(_, Coredata::Integer(ref value)) => {
+				sum = sum + value;
 			}
 			_ => {
 				return Some("+: type error".into());
@@ -531,19 +569,12 @@ fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 	let arguments = env.params
 		.last()
 		.expect("The state machine should ensure this exists");
-	let mut sum = 0.to_bigint()
-		.expect("Constant zero should always be parsed correctly");
+	let mut sum = zero();
 	if arguments.len() == 1 {
 		for argument in arguments.iter() {
 			match &**argument {
-				&Sourcedata(_, Coredata::Complex(_)) => {
-					unimplemented![];
-				}
-				&Sourcedata(_, Coredata::Integer(ref integer)) => {
-					sum = sum - integer;
-				}
-				&Sourcedata(_, Coredata::Rational(_)) => {
-					unimplemented![];
+				&Sourcedata(_, Coredata::Integer(ref value)) => {
+					sum = sum - value;
 				}
 				_ => {
 					unimplemented![];
@@ -554,18 +585,12 @@ fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 		let mut first = true;
 		for argument in arguments.iter() {
 			match &**argument {
-				&Sourcedata(_, Coredata::Complex(_)) => {
-					unimplemented![];
-				}
-				&Sourcedata(_, Coredata::Integer(ref integer)) => {
+				&Sourcedata(_, Coredata::Integer(ref value)) => {
 					if first {
-						sum = integer.clone();
+						sum = value.clone();
 					} else {
-						sum = sum - integer;
+						sum = sum - value;
 					}
-				}
-				&Sourcedata(_, Coredata::Rational(_)) => {
-					unimplemented![];
 				}
 				_ => {
 					unimplemented![];
@@ -575,11 +600,6 @@ fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 		}
 	}
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
-	None
-}
-
-fn symbol(_: &mut Program, env: &mut Env) -> Option<String> {
-	env.result = env.result.head();
 	None
 }
 

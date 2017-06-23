@@ -1,10 +1,9 @@
 //! Data structures used by the Teko library
 
-use std::rc::Rc;
 use std::collections::HashMap;
-use num::bigint::BigInt;
-use num::rational::BigRational;
-use num::Complex;
+use std::rc::Rc;
+
+use num::BigInt;
 
 /// Evaluation commands used internally by the interpreter
 ///
@@ -58,8 +57,6 @@ pub enum Userdata {
 pub enum Coredata {
 	/// Denote true and false
 	Boolean(Boolean),
-	/// Complex numbers
-	Complex(Complex<BigRational>),
 	/// Error type
 	Error(Statement),
 	/// Function type
@@ -74,8 +71,6 @@ pub enum Coredata {
 	Null,
 	/// A pair of data items
 	Pair(Rc<Sourcedata>, Rc<Sourcedata>),
-	/// Rational numbers
-	Rational(BigRational),
 	/// String type
 	String(String),
 	/// Symbol type
