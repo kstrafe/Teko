@@ -1,7 +1,7 @@
 //! Contains utilities used by the implementation
 use std::rc::Rc;
 use std::fmt;
-use data_structures::{Commands, Coredata, Env, ParseState, Program, Source, Sourcedata};
+use data_structures::{Commands, Coredata, Env, ParseState, Program, Source, Sourcedata, Macro};
 use super::VEC_CAPACITY;
 
 /// Implement the writer of sourcedata.
@@ -11,33 +11,130 @@ impl fmt::Display for Sourcedata {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		use data_structures::Coredata::*;
 		use data_structures::Commands::*;
-		use data_structures::Boolean;
-		match self.1 {
-			Boolean(Boolean::True) => write![f, "true"],
-			Boolean(Boolean::False) => write![f, "false"],
-			Error(ref arg) => write![f, "(error {})", arg],
-			Function(..) => write![f, "{}", line!()],
-			Integer(ref arg) => write![f, "{}", arg],
-			Internal(ref arg) => {
-				write![f, "{}-", line!()]?;
-				match *arg {
-					Call(..) => write![f, "{}", line!()],
-					Prepare(..) => write![f, "{}", line!()],
-					Parameterize => write![f, "{}", line!()],
-					Deparameterize(..) => write![f, "{}", line!()],
-					If(..) => write![f, "{}", line!()],
-					Wind => write![f, "{}", line!()],
-					Evaluate => write![f, "{}", line!()],
-					Empty => write![f, "{}", line!()],
+		use data_structures::{Boolean, Function, Macro};
+		let mut first = true;
+		let null = &Sourcedata(None, Coredata::Null);
+		let mut queue = Vec::with_capacity(VEC_CAPACITY);
+		let mut spacer = false;
+		queue.push(self);
+		while let Some(elem) = queue.pop() {
+			match elem.1 {
+				Boolean(Boolean::True) => {
+					if spacer { write![f, " "]?; }
+					write![f, "true"]?;
+					spacer = true;
+				}
+				Boolean(Boolean::False) => {
+					if spacer { write![f, " "]?; }
+					write![f, "false"]?;
+					spacer = true;
+				}
+				Error(ref arg) => {
+					if spacer { write![f, " "]?; }
+					write![f, "(error"]?;
+					if let Coredata::Pair(..) = arg.1 {
+						write![f, " ("]?;
+						queue.push(arg);
+						spacer = false;
+					} else if let Coredata::Null = arg.1 {
+						write![f, ")"]?;
+						spacer = true;
+					} else {
+						queue.push(null);
+						queue.push(arg);
+						spacer = true;
+					}
+				}
+				Function(Function::Builtin(.., ref name)) => {
+					if spacer { write![f, " "]?; }
+					write![f, "{}", name]?;
+					spacer = true;
+				}
+				Function(Function::Library(ref params, ref code)) => {
+					if spacer { write![f, " "]?; }
+					write![f, "(fn ("]?;
+					let mut first = true;
+					for i in params.iter() {
+						if first {
+							write![f, "{}", i]?;
+						} else {
+							write![f, " {}", i]?;
+						}
+						first = false;
+					}
+					write![f, ")"]?;
+					for i in code.iter().rev() {
+						write![f, " {}", i]?;
+					}
+					write![f, ")"]?;
+					spacer = true;
+				}
+				Integer(ref arg) => {
+					if spacer { write![f, " "]?; }
+					write![f, "{}", arg]?;
+					spacer = true;
+				}
+				Internal(ref arg) => {
+					if spacer { write![f, " "]?; }
+					match *arg {
+						Call(..)        => write![f, "@call"]?,
+						Prepare(..)        => write![f, "@prepare"]?,
+						Parameterize       => write![f, "@parameterize"]?,
+						Deparameterize(..) => write![f, "@deparameterize"]?,
+						If(..)             => write![f, "@if"]?,
+						Wind               => write![f, "@wind"]?,
+						Evaluate           => write![f, "@evaluate"]?,
+						Empty              => write![f, "@empty"]?,
+					}
+					spacer = true;
+				}
+				Macro(Macro::Builtin(.., ref name)) => {
+					if spacer { write![f, " "]?; }
+					write![f, "{}", name]?;
+					spacer = true;
+				}
+				Macro(Macro::Library(ref param, ref code)) => {
+					if spacer { write![f, " "]?; }
+					write![f, "(mo {}", param]?;
+					for i in code.iter().rev() {
+						write![f, " {}", i]?;
+					}
+					write![f, ")"]?;
+					spacer = true;
+				}
+				Null => { if first { write![f, "()"]?; } else { write![f, ")"]?; } }
+				Pair(ref head, ref tail) => {
+					if spacer { write![f, " "]?; }
+					if first {
+						write![f, "("]?;
+					}
+					queue.push(tail);
+					if let Coredata::Pair(..) = head.1 {
+						write![f, "("]?;
+						queue.push(head);
+						spacer = false;
+					} else if let Coredata::Null = head.1 {
+						write![f, "()"]?;
+						spacer = true;
+					} else {
+						queue.push(head);
+						spacer = false;
+					}
+				}
+				String(ref arg) => {
+					if spacer { write![f, " "]?; }
+					write![f, "(\" {})", arg]?;
+					spacer = true;
+				}
+				Symbol(ref arg) => {
+					if spacer { write![f, " "]?; }
+					write![f, "{}", arg]?;
+					spacer = true;
 				}
 			}
-			Macro(..) => write![f, "(mo {})", line!()],
-			Null => write![f, "()"],
-			Pair(ref arg, ref arg2) => write![f, "({} {}", arg, arg2],
-			String(ref arg) => write![f, "(\" {})", arg],
-			Symbol(ref arg) => write![f, "{}", arg],
-			User(..) => write![f, "{}", "user-defined"],
+			first = false;
 		}
+		Ok(())
 	}
 }
 

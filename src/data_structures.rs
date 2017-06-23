@@ -34,10 +34,11 @@ pub enum Boolean {
 	True,
 	False,
 }
+
 /// Function types that can be called by the interpreter
 pub enum Function {
 	/// A function written in the implementation language
-	Builtin(Transfer),
+	Builtin(Transfer, String),
 	/// Parameter names with a sequence of statements that are inserted into the program when called
 	Library(Vec<String>, Program),
 }
@@ -45,12 +46,9 @@ pub enum Function {
 /// Macro types that can be called by the interpreter
 pub enum Macro {
 	/// A function written in the implementation language
-	Builtin(Transfer),
+	Builtin(Transfer, String),
 	/// Parameter name with a sequence of statements that are inserted into the program when called
 	Library(String, Program),
-}
-
-pub enum Userdata {
 }
 
 /// Core data types of the Teko machine
@@ -75,9 +73,6 @@ pub enum Coredata {
 	String(String),
 	/// Symbol type
 	Symbol(String),
-	/// Types defined by the user, for use by other
-	/// builtins
-	User(Userdata),
 }
 
 /// Environment used by the implementation

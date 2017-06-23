@@ -45,39 +45,46 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 			"false" => Coredata::Boolean(Boolean::False),
 		}
 		// The rest of the table defines functions and macros
+		// Numerics
 		Function : "+" => plus,
 		Function : "-" => subtract,
 		Function : "*" => multiply,
 		Function : "/" => divide,
 		Function : "=" => eq,
 		Function : "<" => lt,
+		// Boolean logic
 		Function : "and" => and,
 		Function : "or" => or,
-		Function : "@trace" => trace,
-		Function : "exit" => exit,
 		Function : "not" => not,
+		// Error handling
 		Function : "error" => error,
-		Function : "same?" => is_symbol_eq,
 		Function : "error?" => is_error,
+		Macro    : "wind" => wind,
+		Function : "unwind" => unwind,
+		// Lisp primitives
+		Macro    : "if" => if_conditional,
+		Macro    : "quote" => quote,
+		Function : "same?" => is_symbol_eq,
 		Function : "symbol?" => is_symbol,
 		Function : "head" => head,
 		Function : "tail" => tail,
 		Function : "pair" => pair,
 		Function : "pair?" => is_pair,
-		Function : "@sleep" => sleep,
-		Function : "unwind" => unwind,
-		Function : "@variable-count" => at_variable_count,
-		Function : "@program-count" => at_program_count,
+		Macro    : "fn" => function,
+		Macro    : "mo" => make_macro,
+		// Some useful features
+		Macro    : "define" => define,
+		Macro    : "set!" => set,
 		Function : "eval" => eval_expose,
 		Function : "write" => write,
-		Macro : "quote" => quote,
-		Macro : "\"" => string,
-		Macro : "if" => if_conditional,
-		Macro : "set!" => set,
-		Macro : "wind" => wind,
-		Macro : "define" => define,
-		Macro : "fn" => function,
-		Macro : "mo" => make_macro,
+		Function : "print" => print,
+		Macro    : "\"" => string,
+		Function : "exit" => exit,
+		// Useful builtins
+		Function : "@program-count" => at_program_count,
+		Function : "@sleep" => sleep,
+		Function : "@trace" => trace,
+		Function : "@variable-count" => at_variable_count,
 	}
 }
 
@@ -138,7 +145,7 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<String> {
 fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 	{
 		let arguments = env.result.clone();
-		let sub = Rc::new(Sourcedata(None, Coredata::Function(Function::Builtin(define_internal))));
+		let sub = Rc::new(Sourcedata(None, Coredata::Function(Function::Builtin(define_internal, "".into()))));
 		program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Call(sub)))));
 		program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Parameterize))));
 		match arguments.tail().1 {
@@ -524,6 +531,11 @@ fn plus(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
+fn print(_: &mut Program, env: &mut Env) -> Option<String> {
+	print!["{}", env.params.last().unwrap()[0]];
+	None
+}
+
 /// Quote elements
 ///
 /// A builtin macro always stores the tail of the invocation inside `env.result`, so this macro is
@@ -532,7 +544,7 @@ fn quote(_: &mut Program, _: &mut Env) -> Option<String> {
 	None
 }
 
-fn set(_: &mut Program, _: &mut Env) -> Option<String> {
+fn set(_: &mut Program, env: &mut Env) -> Option<String> {
 	unimplemented!();
 }
 
@@ -621,13 +633,17 @@ fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
 /// be some calls missing here. Since the requirement is for the program
 /// to be unbounded in the amount of tail calls, there's no way to definitively
 /// store all calls.
-pub fn trace(program: &mut Program, _: &mut Env) -> Option<String> {
-	for i in program.iter().rev() {
+pub fn trace(program: &mut Program, env: &mut Env) -> Option<String> {
+	let mut string = String::from("");
+	for i in program.iter() {
 		if let &Sourcedata(Some(ref source), Coredata::Internal(Commands::Deparameterize(..))) =
 		       &**i {
-			println!["{}", source];
+			string.push_str(&format!["{} <= {}\n", source, i]);
+		} else {
+			string.push_str(&format!["_ <= {}\n", i]);
 		}
 	}
+	env.result = Rc::new(Sourcedata(None, Coredata::String(string)));
 	None
 }
 

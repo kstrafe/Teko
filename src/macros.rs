@@ -4,7 +4,7 @@ macro_rules! construct_builtins {
 		{
 			let mut functions_and_macros : HashMap<String, Program> = [
 				$(
-					($e.into(), vec![Rc::new(Sourcedata(None, Coredata::$t($t::Builtin($i))))])
+					($e.into(), vec![Rc::new(Sourcedata(None, Coredata::$t($t::Builtin($i, $e.into()))))])
 				),*
 			].iter().cloned().collect();
 			let constants : HashMap<String, Program> = [

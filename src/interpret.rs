@@ -61,7 +61,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			// Source refers to the head of the pair from which the call originated
 			&Sourcedata(ref source, Coredata::Internal(Commands::Call(ref statement))) => {
 				match &**statement {
-					&Sourcedata(_, Coredata::Function(Function::Builtin(ref transfer))) => {
+					&Sourcedata(_, Coredata::Function(Function::Builtin(ref transfer, ..))) => {
 						let error = transfer(&mut program, &mut env);
 						env.params.pop();
 						err(source, &error, &mut program, &mut env);
@@ -142,7 +142,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 							program.push(argument.clone());
 						}
 					}
-					&Sourcedata(_, Coredata::Macro(Macro::Builtin(ref transfer))) => {
+					&Sourcedata(_, Coredata::Macro(Macro::Builtin(ref transfer, ..))) => {
 						env.result = arguments.clone();
 						let error = transfer(&mut program, &mut env);
 						err(source, &error, &mut program, &mut env);
