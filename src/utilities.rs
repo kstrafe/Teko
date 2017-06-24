@@ -422,7 +422,7 @@ pub fn collect_pair_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
 }
 
 /// Maps a linked list of symbols into a vector of strings.
-pub fn collect_pair_of_symbols_into_vec_string(data: &Rc<Sourcedata>) -> Vec<String> {
+pub fn collect_pair_of_symbols_into_vec_string(data: &Rc<Sourcedata>) -> Option<Vec<String>> {
 	let data = collect_pair_into_vec(data);
 	let mut ret = vec![];
 	for i in data {
@@ -431,12 +431,12 @@ pub fn collect_pair_of_symbols_into_vec_string(data: &Rc<Sourcedata>) -> Vec<Str
 				ret.push(string.clone());
 			}
 			_ => {
-				panic!["Not a symbol"];
+				return None;
 			}
 		}
 	}
 	ret.reverse();
-	ret
+	Some(ret)
 }
 
 /// Takes the intersection of two sets.

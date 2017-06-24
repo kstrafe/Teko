@@ -437,7 +437,11 @@ fn exit(_: &mut Program, env: &mut Env) -> Option<String> {
 fn function(_: &mut Program, env: &mut Env) -> Option<String> {
 	let args = env.result.clone();
 	let params = if let Some(ref args) = args.head() {
-		collect_pair_of_symbols_into_vec_string(args)
+		if let Some(params) = collect_pair_of_symbols_into_vec_string(args) {
+			params
+		} else {
+			return Some("parameter list contains non-symbols".into());
+		}
 	} else {
 		return Some("arity mismatch, expecting 2 but got 0".into());
 	};
@@ -975,9 +979,12 @@ fn msleep(_: &mut Program, env: &mut Env) -> Option<String> {
 /// TODO: Allow subexpressions; implement string interpolation and non-printable
 /// character insertion.
 fn string(_: &mut Program, env: &mut Env) -> Option<String> {
-	let vec = collect_pair_of_symbols_into_vec_string(&env.result);
-	env.result = Rc::new(Sourcedata(None, Coredata::String(vec.join(" "))));
-	None
+	if let Some(vec) = collect_pair_of_symbols_into_vec_string(&env.result) {
+		env.result = Rc::new(Sourcedata(None, Coredata::String(vec.join(" "))));
+		None
+	} else {
+		Some("non symbol contained in string".into())
+	}
 }
 
 /// Integer subtraction.
