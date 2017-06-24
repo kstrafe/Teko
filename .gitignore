@@ -3,6 +3,7 @@
 !.gitignore
 !FlameGraph/
 !src/
+!tests/
 !find_test_executable.sh
 !input
 !makefile

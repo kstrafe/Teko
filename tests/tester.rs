@@ -23,13 +23,17 @@ fn main() {
 // //////////////////////////////////////////////////////////
 
 fn file2result(filename: &str) -> Rc<teko::data_structures::Sourcedata> {
-	let program = parse_file(&(String::from("tests/") + filename)).ok().unwrap();
+	let program = parse_file(&(String::from("tests/") + filename))
+		.ok()
+		.unwrap();
 	let env = interpret(program);
 	env.result.clone()
 }
 
 fn integer(filename: &str, number: &str) {
 	let result = file2result(filename);
-	assert_eq![result.1, Coredata::Integer(BigInt::parse_bytes(number.as_bytes(), 10).unwrap())];
+	assert_eq![
+		result.1,
+		Coredata::Integer(BigInt::parse_bytes(number.as_bytes(), 10).unwrap())
+	];
 }
-

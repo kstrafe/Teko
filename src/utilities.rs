@@ -3,7 +3,8 @@
 use std::{cmp, fmt};
 use std::rc::Rc;
 
-use data_structures::{Commands, Coredata, Env, Function, Macro, ParseState, Program, Source, Sourcedata};
+use data_structures::{Commands, Coredata, Env, Function, Macro, ParseState, Program, Source,
+                      Sourcedata};
 use super::VEC_CAPACITY;
 
 // //////////////////////////////////////////////////////////

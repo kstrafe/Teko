@@ -157,7 +157,11 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<String> {
 					if let Some(rhs) = args.get(1) {
 						if env.store.contains_key(string) {
 							if let Some(ref source) = *source {
-								return Some(format!["can not define `{}', already exists, {}", string, source]);
+								return Some(format![
+									"can not define `{}', already exists, {}",
+									string,
+									source
+								]);
 							} else {
 								return Some(format!["can not define `{}', already exists", string]);
 							}
@@ -225,7 +229,9 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 		if let Some(head) = args.head() {
 			match *head {
 				Sourcedata(ref source, Coredata::Symbol(ref string)) => {
-					program.push(Rc::new(Sourcedata(source.clone(), Coredata::String(string.clone()))));
+					program.push(Rc::new(
+						Sourcedata(source.clone(), Coredata::String(string.clone())),
+					));
 				}
 				_ => {
 					return Some(format!["expected Pair but got {}", head]);
@@ -826,7 +832,11 @@ fn set_internal(_: &mut Program, env: &mut Env) -> Option<String> {
 					if let Some(rhs) = args.get(1) {
 						if !env.store.contains_key(string) {
 							if let Some(ref source) = *source {
-								return Some(format!["can not set! `{}', does not exist, {}", string, source]);
+								return Some(format![
+									"can not set! `{}', does not exist, {}",
+									string,
+									source
+								]);
 							} else {
 								return Some(format!["can not set! `{}', does not exist", string]);
 							}
@@ -862,10 +872,7 @@ fn set(program: &mut Program, env: &mut Env) -> Option<String> {
 		let args = env.result.clone();
 		let sub = Rc::new(Sourcedata(
 			None,
-			Coredata::Function(Function::Builtin(
-				set_internal,
-				"@set-internal".into(),
-			)),
+			Coredata::Function(Function::Builtin(set_internal, "@set-internal".into())),
 		));
 		if let Some(ref tail) = args.tail() {
 			match tail.1 {
@@ -894,7 +901,9 @@ fn set(program: &mut Program, env: &mut Env) -> Option<String> {
 		if let Some(head) = args.head() {
 			match *head {
 				Sourcedata(ref source, Coredata::Symbol(ref string)) => {
-					program.push(Rc::new(Sourcedata(source.clone(), Coredata::String(string.clone()))));
+					program.push(Rc::new(
+						Sourcedata(source.clone(), Coredata::String(string.clone())),
+					));
 				}
 				_ => {
 					return Some(format!["expected Pair but got {}", head]);
