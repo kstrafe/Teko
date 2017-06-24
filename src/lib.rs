@@ -36,9 +36,9 @@
 //! fn main() {
 //! 	let program = teko::parse::parse_string("
 //! 	(define factorial (fn (n accum)
-//! 	                      (if (>= n 1)
-//! 	                         (factorial (- n 1) (* n accum))
-//! 	                         accum)))
+//! 	                      (if (= n 1)
+//! 	                          accum
+//! 	                          (factorial (- n 1) (* n accum)))))
 //! 	(write (factorial 5 1))").ok().unwrap();
 //! 	let env = teko::interpret::interpret(program);
 //! 	match env.result.1 {
@@ -92,15 +92,18 @@
 // ✗ Multithreading                          - Not part of the idealized language
 // ✗ Channels                                - As above
 // ✗ Make Userdata easily editable           - Is only a reference impl, no need
-//   Replace all panics with unwinds
+// ✓ Replace all panics with unwinds
 //   Sort imports and uses where possible
 // ✓ Implement a proper fmt::Display for Sourcedata
-//   Actually make error handling consistent + stacktrace
-//   Clippify everything
+// ✓ Actually make error handling consistent + stacktrace
+// ✓ Clippify everything
 //   Write tests
 //   Document everything
 //
 // //////////////////////////////////////////////////////////
+
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
 
 #![feature(slice_patterns)]
 extern crate num;

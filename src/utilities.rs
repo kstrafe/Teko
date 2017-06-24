@@ -181,14 +181,14 @@ impl fmt::Display for Source {
 
 impl Sourcedata {
 	pub fn head(&self) -> Option<Rc<Sourcedata>> {
-		if let &Sourcedata(_, Coredata::Pair(ref head, _)) = self {
+		if let Sourcedata(_, Coredata::Pair(ref head, _)) = *self {
 			Some(head.clone())
 		} else {
 			None
 		}
 	}
 	pub fn tail(&self) -> Option<Rc<Sourcedata>> {
-		if let &Sourcedata(_, Coredata::Pair(_, ref tail)) = self {
+		if let Sourcedata(_, Coredata::Pair(_, ref tail)) = *self {
 			Some(tail.clone())
 		} else {
 			None
@@ -230,7 +230,7 @@ pub fn collect_pair_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
 	let mut to_return = vec![];
 	let mut current = data.clone();
 	loop {
-		current = if let &Sourcedata(_, Coredata::Pair(ref head, ref tail)) = &*current {
+		current = if let Sourcedata(_, Coredata::Pair(ref head, ref tail)) = *current {
 			to_return.push(head.clone());
 			tail.clone()
 		} else {
@@ -245,13 +245,13 @@ pub fn collect_pair_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
 pub fn collect_pair_of_symbols_into_vec_string(data: &Rc<Sourcedata>) -> Vec<String> {
 	let data = collect_pair_into_vec(data);
 	let mut ret = vec![];
-	for i in data.iter() {
-		match &**i {
-			&Sourcedata(_, Coredata::Symbol(ref string)) => {
+	for i in data {
+		match *i {
+			Sourcedata(_, Coredata::Symbol(ref string)) => {
 				ret.push(string.clone());
 			}
 			_ => {
-				panic!{"Not a symbol"};
+				panic!["Not a symbol"];
 			}
 		}
 	}
@@ -268,7 +268,7 @@ pub fn unwind_with_error_message(string: &str, program: &mut Program, env: &mut 
 	env.params
 		.push(vec![Rc::new(Sourcedata(None, Coredata::Error(sub)))]);
 	unwind(program, env);
-	if let None = env.params.pop() {
+	if env.params.pop().is_none() {
 		panic!["Stack corruption"];
 	}
 }
@@ -279,10 +279,10 @@ pub fn unwind_with_error_message(string: &str, program: &mut Program, env: &mut 
 ///
 /// If the parameters do not exist then there's an internal programmer error and
 /// this function will panic.
-pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &Vec<String>) {
+pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &[String]) {
 	for arg in args {
 		if let Some(ref mut entry) = env.store.get_mut(arg) {
-			if let Some(_) = entry.pop() {
+			if entry.pop().is_some() {
 				// OK
 			} else {
 				panic!["Store entry was already empty"];
@@ -290,12 +290,8 @@ pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &Vec<String>) {
 		} else {
 			panic!["Store entry does not exist"];
 		}
-		let is_empty = if let Some(ref entry) = env.store.get(arg) {
-			if entry.is_empty() {
-				true
-			} else {
-				false
-			}
+		let is_empty = if let Some(entry) = env.store.get(arg) {
+			entry.is_empty()
 		} else {
 			panic!["Store entry does not exist"];
 		};
@@ -332,8 +328,8 @@ pub fn unwind(program: &mut Program, env: &mut Env) -> Option<String> {
 }
 
 /// Takes the union of two sets.
-pub fn compute_union(a: &Vec<String>, b: &Vec<String>) -> Vec<String> {
-	let mut c = a.clone();
+pub fn compute_union(a: &[String], b: &[String]) -> Vec<String> {
+	let mut c = a.to_vec();
 	for i in a {
 		if !b.contains(i) {
 			c.push(i.clone());
@@ -343,7 +339,7 @@ pub fn compute_union(a: &Vec<String>, b: &Vec<String>) -> Vec<String> {
 }
 
 /// Takes the intersection of two sets.
-pub fn compute_intersection<'a>(a: &'a Vec<String>, b: &'a Vec<String>) -> Vec<&'a String> {
+pub fn compute_intersection<'a>(a: &'a [String], b: &'a [String]) -> Vec<&'a String> {
 	let mut intersection: Vec<&'a String> = Vec::with_capacity(VEC_CAPACITY);
 	for i in a {
 		if b.contains(i) {
@@ -359,9 +355,9 @@ pub fn compute_intersection<'a>(a: &'a Vec<String>, b: &'a Vec<String>) -> Vec<&
 /// happens `env.result` will contain an error with a string containing the stack
 /// trace an addition to the error provided.
 pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Program, env: &mut Env) {
-	let unwind = if let &Some(ref error) = error {
+	let unwind = if let Some(ref error) = *error {
 		let trace = internal_trace(program, env);
-		if let &Some(ref source) = source {
+		if let Some(ref source) = *source {
 			Some(format!["{}\n{} <= {}", trace, source, error])
 		} else {
 			Some(format!["{}\n{}", trace, error])
@@ -380,7 +376,7 @@ pub fn internal_trace(program: &mut Program, _: &mut Env) -> String {
 	let mut first = true;
 	for i in program.iter() {
 		if !first { string.push_str("\n"); }
-		if let &Sourcedata(Some(ref source), ..) = &**i {
+		if let Sourcedata(Some(ref source), ..) = **i {
 			let source_string = format!["{}", source];
 			empty_length = source_string.len();
 			string.push_str(&format!["{} <= {}", source_string, i]);
@@ -398,14 +394,14 @@ pub fn internal_trace(program: &mut Program, _: &mut Env) -> String {
 /// are merged into that [top] object. This is all that's needed to optimize tail calls.
 pub fn optimize_tail_call(program: &mut Program,
                           env: &mut Env,
-                          params: &Vec<String>)
+                          params: &[String])
                           -> Vec<String> {
 	if let Some(top) = program.pop() {
 		match top.1 {
 			Coredata::Internal(Commands::Deparameterize(ref content)) => {
 				for i in compute_intersection(content, params) {
 					if let Some(ref mut entry) = env.store.get_mut(i) {
-						if let Some(_) = entry.pop() {
+						if entry.pop().is_some() {
 							// OK
 						} else {
 							panic!["Store inconsistency; entry empty"];
@@ -418,10 +414,10 @@ pub fn optimize_tail_call(program: &mut Program,
 			}
 			_ => {
 				program.push(top.clone()); // Put top back on the program stack
-				params.clone()
+				params.to_vec()
 			}
 		}
 	} else {
-		params.clone()
+		params.to_vec()
 	}
 }

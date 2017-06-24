@@ -57,16 +57,16 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 		};
 	}
 	while let Some(top) = program.pop() {
-		match &*top {
+		match *top {
 			// Source refers to the head of the pair from which the call originated
-			&Sourcedata(ref source, Coredata::Internal(Commands::Call(ref statement))) => {
-				match &**statement {
-					&Sourcedata(_, Coredata::Function(Function::Builtin(ref transfer, ..))) => {
+			Sourcedata(ref source, Coredata::Internal(Commands::Call(ref statement))) => {
+				match **statement {
+					Sourcedata(_, Coredata::Function(Function::Builtin(ref transfer, ..))) => {
 						let error = transfer(&mut program, &mut env);
 						env.params.pop();
 						err(source, &error, &mut program, &mut env);
 					}
-					&Sourcedata(_,
+					Sourcedata(_,
 					            Coredata::Function(Function::Library(ref parameters,
 					                                                 ref transfer))) => {
 						if let Some(arguments) = env.params.pop() {
@@ -78,13 +78,12 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 								    &mut program,
 								    &mut env);
 							} else {
-								let mut counter = 0;
 								let cmd =
 									Commands::Deparameterize(optimize_tail_call(&mut program,
 									                                            &mut env,
 									                                            parameters));
 								ppush![source, Coredata::Internal(cmd)];
-								for parameter in parameters.iter() {
+								for (counter, parameter) in parameters.iter().enumerate() {
 									if env.store.contains_key(parameter) {
 										env.store
 											.get_mut(parameter)
@@ -94,7 +93,6 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 										env.store.insert(parameter.clone(),
 										                 vec![arguments[counter].clone()]);
 									}
-									counter += 1;
 								}
 								program.extend(transfer.iter().cloned());
 							}
@@ -108,20 +106,20 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					}
 				}
 			}
-			&Sourcedata(_, Coredata::Internal(Commands::Deparameterize(ref arguments))) => {
+			Sourcedata(_, Coredata::Internal(Commands::Deparameterize(ref arguments))) => {
 				pop_parameters(&mut program, &mut env, arguments);
 			}
-			&Sourcedata(_, Coredata::Internal(Commands::Evaluate)) => {
+			Sourcedata(_, Coredata::Internal(Commands::Evaluate)) => {
 				program.push(env.result.clone());
 			}
-			&Sourcedata(_, Coredata::Internal(Commands::If(ref first, ref second))) => {
+			Sourcedata(_, Coredata::Internal(Commands::If(ref first, ref second))) => {
 				if let Coredata::Boolean(Boolean::False) = env.result.1 {
 					program.push(second.clone());
 				} else {
 					program.push(first.clone());
 				}
 			}
-			&Sourcedata(_, Coredata::Internal(Commands::Parameterize)) => {
+			Sourcedata(_, Coredata::Internal(Commands::Parameterize)) => {
 				let condition = if let Some(ref mut last) = env.params.last_mut() {
 					last.push(env.result.clone());
 					None
@@ -132,25 +130,25 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			}
 			// Source here is the HEAD of a pair, so (a b) has source of a, and (((a)) b) has source
 			// of ((a))
-			&Sourcedata(ref source, Coredata::Internal(Commands::Prepare(ref arguments))) => {
-				match &*env.result.clone() {
-					&Sourcedata(_, Coredata::Function(..)) => {
+			Sourcedata(ref source, Coredata::Internal(Commands::Prepare(ref arguments))) => {
+				match *env.result.clone() {
+					Sourcedata(_, Coredata::Function(..)) => {
 						env.params.push(vec![]);
 						ppush![source, Coredata::Internal(Commands::Call(env.result.clone()))];
-						for argument in collect_pair_into_vec(arguments).iter() {
+						for argument in collect_pair_into_vec(arguments) {
 							ppush![None, Coredata::Internal(Commands::Parameterize)];
 							program.push(argument.clone());
 						}
 					}
-					&Sourcedata(_, Coredata::Macro(Macro::Builtin(ref transfer, ..))) => {
+					Sourcedata(_, Coredata::Macro(Macro::Builtin(ref transfer, ..))) => {
 						env.result = arguments.clone();
 						let error = transfer(&mut program, &mut env);
 						err(source, &error, &mut program, &mut env);
 					}
-					&Sourcedata(_, Coredata::Macro(Macro::Library(ref bound, ref code))) => {
+					Sourcedata(_, Coredata::Macro(Macro::Library(ref bound, ref code))) => {
 						ppush![None, Coredata::Internal(Commands::Evaluate)];
 						let command =
-							optimize_tail_call(&mut program, &mut env, &vec![bound.clone()]);
+							optimize_tail_call(&mut program, &mut env, &[bound.clone()]);
 						if env.store.contains_key(bound) {
 							env.store.get_mut(bound).unwrap().push(arguments.clone());
 						} else {
@@ -167,12 +165,12 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					}
 				}
 			}
-			&Sourcedata(_, Coredata::Internal(Commands::Wind)) => {}
-			&Sourcedata(_, Coredata::Pair(ref head, ref tail)) => {
+			Sourcedata(_, Coredata::Internal(Commands::Wind)) => {}
+			Sourcedata(_, Coredata::Pair(ref head, ref tail)) => {
 				ppush![head.0, Coredata::Internal(Commands::Prepare(tail.clone()))];
 				program.push(head.clone());
 			}
-			&Sourcedata(ref source, Coredata::Symbol(ref string)) => {
+			Sourcedata(ref source, Coredata::Symbol(ref string)) => {
 				if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
 					env.result = Rc::new(Sourcedata(source.clone(), Coredata::Integer(number)));
 				} else {

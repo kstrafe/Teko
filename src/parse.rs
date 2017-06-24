@@ -140,8 +140,8 @@ fn right_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
 	let mut active = Rc::new(Sourcedata(Some(state.current_read_position.clone()), Coredata::Null));
 	let mut source = None;
 	while let Some(top) = state.stack.pop() {
-		match &*top {
-			&Sourcedata(ref pair_source, Coredata::Internal(Commands::Empty)) => {
+		match *top {
+			Sourcedata(ref pair_source, Coredata::Internal(Commands::Empty)) => {
 				source = pair_source.clone();
 				break;
 			}

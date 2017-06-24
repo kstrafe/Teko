@@ -1,7 +1,11 @@
+ta=cat
 flame=FlameGraph/
 .PHONY:
 test:
-	(cargo test test_interpreter --color=always -- --nocapture 2>&1 | tac >> pipe) &
+	(cargo test test_interpreter --color=always -- --nocapture 2>&1 | ${ta} >> pipe) &
+.PHONY:
+2:
+	(cargo build --color=always --features clippy 2>&1 | ${ta} >> pipe) &
 .PHONY:
 profile-debug:
 	mkdir -p tmp/

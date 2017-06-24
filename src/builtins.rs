@@ -124,7 +124,7 @@ fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<String> {
 	for i in &env.params {
 		count += i.len();
 	}
-	for (_, values) in &env.store {
+	for values in env.store.values() {
 		count += values.len();
 	}
 	env.result = Rc::new(Sourcedata(None, Coredata::Integer(count.into())));
@@ -134,15 +134,15 @@ fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<String> {
 fn define_internal(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if let Some(symbol) = args.first() {
-			match &**symbol {
-				&Sourcedata(_, Coredata::String(ref string)) => {
+			match **symbol {
+				Sourcedata(_, Coredata::String(ref string)) => {
 					if let Some(rhs) = args.get(1) {
 						env.store.insert(string.clone(), vec![rhs.clone()]);
 					} else {
 						return Some("arity mismatch, expecting 2 but got 1".into());
 					}
 				}
-				&Sourcedata(Some(ref source), ..) => {
+				Sourcedata(Some(ref source), ..) => {
 					return Some(format!["expected String but got {}, {}", data_name(symbol), source]);
 				}
 				_ => {
@@ -202,11 +202,11 @@ fn divide(_: &mut Program, env: &mut Env) -> Option<String> {
 		let mut sum = one();
 		if args.len() == 1 {
 			for arg in args.iter() {
-				match &**arg {
-					&Sourcedata(_, Coredata::Integer(ref value)) => {
+				match **arg {
+					Sourcedata(_, Coredata::Integer(ref value)) => {
 						sum = sum / value;
 					}
-					&Sourcedata(Some(ref source), ..) => {
+					Sourcedata(Some(ref source), ..) => {
 						return Some(format!["expected Integer but got {}, {}", data_name(arg), source]);
 					}
 					_ => {
@@ -217,15 +217,15 @@ fn divide(_: &mut Program, env: &mut Env) -> Option<String> {
 		} else if args.len() > 1 {
 			let mut first = true;
 			for arg in args.iter() {
-				match &**arg {
-					&Sourcedata(_, Coredata::Integer(ref value)) => {
+				match **arg {
+					Sourcedata(_, Coredata::Integer(ref value)) => {
 						if first {
 							sum = value.clone();
 						} else {
 							sum = sum / value;
 						}
 					}
-					&Sourcedata(Some(ref source), ..) => {
+					Sourcedata(Some(ref source), ..) => {
 						return Some(format!["expected Integer but got {}, {}", data_name(arg), source]);
 					}
 					_ => {
@@ -249,8 +249,8 @@ fn eq(_: &mut Program, env: &mut Env) -> Option<String> {
 		let mut last = None;
 		let mut result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
 		for arg in args.iter() {
-			match &**arg {
-				&Sourcedata(_, Coredata::Integer(ref integer)) => {
+			match **arg {
+				Sourcedata(_, Coredata::Integer(ref integer)) => {
 					if let Some(previous) = last {
 						if previous == integer {
 							// Do nothing
@@ -263,7 +263,7 @@ fn eq(_: &mut Program, env: &mut Env) -> Option<String> {
 						last = Some(integer);
 					}
 				}
-				&Sourcedata(Some(ref source), ..) => {
+				Sourcedata(Some(ref source), ..) => {
 					return Some(format!["expected Integer but got {}, {}", data_name(arg), source]);
 				}
 				_ => {
@@ -282,16 +282,14 @@ fn error(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() >= 2 {
 			Some("arity mismatch, expecting <2 but got >=2".into())
+		} else if let Some(arg) = args.first() {
+			env.result = Rc::new(Sourcedata(None, Coredata::Error(arg.clone())));
+			None
 		} else {
-			if let Some(arg) = args.first() {
-				env.result = Rc::new(Sourcedata(None, Coredata::Error(arg.clone())));
-				None
-			} else {
-				env.result =
-					Rc::new(Sourcedata(None,
-					                   Coredata::Error(Rc::new(Sourcedata(None, Coredata::Null)))));
-				None
-			}
+			env.result =
+				Rc::new(Sourcedata(None,
+													 Coredata::Error(Rc::new(Sourcedata(None, Coredata::Null)))));
+			None
 		}
 	} else {
 		Some("no argument stack".into())
@@ -303,13 +301,11 @@ fn eval_expose(program: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
 			Some(format!["arity mismatch, expecting 1 but got {}", args.len()])
+		} else if let Some(arg) = args.first() {
+			program.push(arg.clone());
+			None
 		} else {
-			if let Some(arg) = args.first() {
-				program.push(arg.clone());
-				None
-			} else {
-				Some("arity mismatch, expecting 1 but got 0".into())
-			}
+			Some("arity mismatch, expecting 1 but got 0".into())
 		}
 	} else {
 		Some("no argument stack".into())
@@ -322,15 +318,15 @@ fn exit(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() <= 1 {
 			if let Some(arg) = args.last() {
-				match &**arg {
-					&Sourcedata(_, Coredata::Integer(ref value)) => {
+				match **arg {
+					Sourcedata(_, Coredata::Integer(ref value)) => {
 						if let Some(value) = value.to_i32() {
 							::std::process::exit(value);
 						} else {
 							return Some("unable to convert number to value".into());
 						}
 					}
-					&Sourcedata(Some(ref source), ..) => {
+					Sourcedata(Some(ref source), ..) => {
 						return Some(format!["expected Integer but got {}, {}", data_name(arg), source]);
 					}
 					_ => {
@@ -350,12 +346,12 @@ fn exit(_: &mut Program, env: &mut Env) -> Option<String> {
 
 fn function(_: &mut Program, env: &mut Env) -> Option<String> {
 	let args = env.result.clone();
-	let params = if let &Some(ref args) = &args.head() {
+	let params = if let Some(ref args) = args.head() {
 		collect_pair_of_symbols_into_vec_string(args)
 	} else {
 		return Some("arity mismatch, expecting 2 but got 0".into());
 	};
-	let code = if let &Some(ref code) = &args.tail() {
+	let code = if let Some(ref code) = args.tail() {
 		collect_pair_into_vec(code)
 	} else {
 		return Some("arity mismatch, expecting 2 but got 0".into());
@@ -368,25 +364,20 @@ fn head(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
 			Some(format!["arity mismatch, expected 1 arg but got {}", args.len()])
-		} else {
-			if let Some(arg) = args.first() {
-				if let Some(head) = arg.head() {
-					env.result = head.clone();
-					return None;
-				} else {
-					if let &Sourcedata(Some(ref source), ..) = &**arg {
-						return Some(format!["expected Pair but got {}, {}", data_name(arg), source]);
-					}
-					else {
-						return Some(format!["expected Pair but got {}", data_name(arg)]);
-					}
-				}
+		} else if let Some(arg) = args.first() {
+			if let Some(head) = arg.head() {
+				env.result = head.clone();
+				return None;
+			} else if let Sourcedata(Some(ref source), ..) = **arg {
+				return Some(format!["expected Pair but got {}, {}", data_name(arg), source]);
 			} else {
-				unreachable!();
+				return Some(format!["expected Pair but got {}", data_name(arg)]);
 			}
+		} else {
+			unreachable!();
 		}
 	} else {
-		Some(format!["no argument stack"])
+		Some("no argument stack".into())
 	}
 }
 
@@ -460,19 +451,15 @@ fn is_symbol_eq(_: &mut Program, env: &mut Env) -> Option<String> {
 							env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
 							return None;
 						}
+					} else if let Some(ref source) = arg2.0 {
+						return Some(format!["expected Symbol but got {}, {}", data_name(arg2), source]);
 					} else {
-						if let Some(ref source) = arg2.0 {
-							return Some(format!["expected Symbol but got {}, {}", data_name(arg2), source]);
-						} else {
-							return Some(format!["expected Symbol but got {}", data_name(arg2)]);
-						}
+						return Some(format!["expected Symbol but got {}", data_name(arg2)]);
 					}
+				} else if let Some(ref source) = arg1.0 {
+					return Some(format!["expected Symbol but got {}, {}", data_name(arg1), source]);
 				} else {
-					if let Some(ref source) = arg1.0 {
-						return Some(format!["expected Symbol but got {}, {}", data_name(arg1), source]);
-					} else {
-						return Some(format!["expected Symbol but got {}", data_name(arg1)]);
-					}
+					return Some(format!["expected Symbol but got {}", data_name(arg1)]);
 				}
 			} else {
 				return Some("arity mismatch, expecting 2 but got 1".into());
@@ -508,8 +495,8 @@ fn lt(_: &mut Program, env: &mut Env) -> Option<String> {
 		let mut last = None;
 		let mut result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
 		for arg in args.iter() {
-			match &**arg {
-				&Sourcedata(_, Coredata::Integer(ref integer)) => {
+			match **arg {
+				Sourcedata(_, Coredata::Integer(ref integer)) => {
 					if let Some(previous) = last {
 						if previous < integer {
 							// Do nothing
@@ -522,7 +509,7 @@ fn lt(_: &mut Program, env: &mut Env) -> Option<String> {
 						last = Some(integer);
 					}
 				}
-				&Sourcedata(Some(ref source), ..) => {
+				Sourcedata(Some(ref source), ..) => {
 					return Some(format!["expected Integer but got {}, {}", data_name(arg), source]);
 				}
 				_ => {
@@ -541,9 +528,9 @@ fn make_macro(_: &mut Program, env: &mut Env) -> Option<String> {
 	let arg = env.result.clone();
 	if let Some(head) = arg.head() {
 		if let Some(tail) = arg.tail() {
-			let params = match &*head {
-				&Sourcedata(_, Coredata::Symbol(ref string)) => string.clone(),
-				&Sourcedata(Some(ref source), ..) => {
+			let params = match *head {
+				Sourcedata(_, Coredata::Symbol(ref string)) => string.clone(),
+				Sourcedata(Some(ref source), ..) => {
 					return Some(format!["expected Symbol but got {}, {}", data_name(&*head), source]);
 				}
 				_ => {
@@ -562,11 +549,11 @@ fn multiply(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		let mut sum = one();
 		for arg in args.iter() {
-			match &**arg {
-				&Sourcedata(_, Coredata::Integer(ref value)) => {
+			match **arg {
+				Sourcedata(_, Coredata::Integer(ref value)) => {
 					sum = sum * value;
 				}
-				&Sourcedata(Some(ref source), ..) => {
+				Sourcedata(Some(ref source), ..) => {
 					return Some(format!["expected Integer but got {}, {}", data_name(&*arg), source]);
 				}
 				_ => {
@@ -585,17 +572,15 @@ fn not(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
 			Some(format!["arity mismatch, expected 1, got {}", args.len()])
-		} else {
-			if let Some(arg) = args.first() {
-				if let Coredata::Boolean(Boolean::False) = arg.1 {
-					env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
-				} else {
-					env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
-				}
-				None
+		} else if let Some(arg) = args.first() {
+			if let Coredata::Boolean(Boolean::False) = arg.1 {
+				env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
 			} else {
-				unreachable!();
+				env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
 			}
+			None
+		} else {
+			unreachable!();
 		}
 	} else {
 		Some("no argument stack".into())
@@ -626,12 +611,10 @@ fn pair(_: &mut Program, env: &mut Env) -> Option<String> {
 				if let Some(arg2) = args.get(1) {
 					if let Coredata::Pair(..) = arg2.1 {
 					} else if let Coredata::Null = arg2.1 {
+					} else if let Sourcedata(Some(ref source), ..) = **arg2 {
+						return Some(format!["expected Pair or Null but got {}, {}", data_name(arg2), source]);
 					} else {
-						if let &Sourcedata(Some(ref source), ..) = &**arg2 {
-							return Some(format!["expected Pair or Null but got {}, {}", data_name(arg2), source]);
-						} else {
-							return Some(format!["expected Pair or Null but got {}", data_name(arg2)]);
-						}
+						return Some(format!["expected Pair or Null but got {}", data_name(arg2)]);
 					}
 					env.result = Rc::new(Sourcedata(None, Coredata::Pair(arg1.clone(), arg2.clone())));
 				} else {
@@ -651,14 +634,14 @@ fn plus(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		let mut sum = zero();
 		for arg in args.iter() {
-			match &**arg {
-				&Sourcedata(_, Coredata::Integer(ref value)) => {
+			match **arg {
+				Sourcedata(_, Coredata::Integer(ref value)) => {
 					sum = sum + value;
 				}
-				&Sourcedata(Some(ref source), ..) => {
+				Sourcedata(Some(ref source), ..) => {
 					return Some(format!["expected Integer but got {}, {}", data_name(&**arg), source]);
 				}
-				&Sourcedata(None, ..) => {
+				Sourcedata(None, ..) => {
 					return Some(format!["expected Integer but got {}", data_name(&**arg)]);
 				}
 			}
@@ -702,19 +685,19 @@ fn sleep(_: &mut Program, env: &mut Env) -> Option<String> {
 			return Some(format!["arity mismatch, expecting 1 but got {}", args.len()]);
 		}
 		if let Some(arg) = args.first() {
-			match &**arg {
-				&Sourcedata(_, Coredata::Integer(ref value)) => {
+			match **arg {
+				Sourcedata(_, Coredata::Integer(ref value)) => {
 					if let Some(value) = value.to_u64() {
 						thread::sleep(time::Duration::from_millis(value));
 					} else {
 						return Some("unable to convert number to value".into());
 					}
 				}
-				&Sourcedata(Some(ref source), ..) => {
-					return Some(format!["expected Integer but got {}, {}", data_name(&**arg), source]);
+				Sourcedata(Some(ref source), ..) => {
+					return Some(format!["expected Integer but got {}, {}", data_name(arg), source]);
 				}
-				&Sourcedata(None, ..) => {
-					return Some(format!["expected Integer but got {}", data_name(&**arg)]);
+				ref arg @ Sourcedata(None, ..) => {
+					return Some(format!["expected Integer but got {}", data_name(arg)]);
 				}
 			}
 			None
@@ -742,11 +725,11 @@ fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 		let mut sum = zero();
 		if args.len() == 1 {
 			for arg in args.iter() {
-				match &**arg {
-					&Sourcedata(_, Coredata::Integer(ref value)) => {
+				match **arg {
+					Sourcedata(_, Coredata::Integer(ref value)) => {
 						sum = sum - value;
 					}
-					&Sourcedata(Some(ref source), ..) => {
+					Sourcedata(Some(ref source), ..) => {
 						return Some(format!["expected Integer but got {}, {}", data_name(arg), source]);
 					}
 					_ => {
@@ -757,15 +740,15 @@ fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 		} else if args.len() > 1 {
 			let mut first = true;
 			for arg in args.iter() {
-				match &**arg {
-					&Sourcedata(_, Coredata::Integer(ref value)) => {
+				match **arg {
+					Sourcedata(_, Coredata::Integer(ref value)) => {
 						if first {
 							sum = value.clone();
 						} else {
 							sum = sum - value;
 						}
 					}
-					&Sourcedata(Some(ref source), ..) => {
+					Sourcedata(Some(ref source), ..) => {
 						return Some(format!["expected Integer but got {}, {}", data_name(arg), source]);
 					}
 					_ => {
@@ -786,25 +769,20 @@ fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 
 /// Take the tail of a pair.
 fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
-	if let Some(ref args) = env.params.last() {
+	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
 			return Some(format!["arity mismatch, expecting 1 but got {}", args.len()]);
-		} else {
-			if let Some(arg) = args.first() {
-				if let Some(tail) = arg.tail() {
-					env.result = tail;
-					return None;
-				} else {
-					if let &Sourcedata(Some(ref source), ..) = &**arg {
-						return Some(format!["expected Pair but got {}, {}", data_name(arg), source]);
-					}
-					else {
-						return Some(format!["expected Pair but got {}", data_name(arg)]);
-					}
-				}
+		} else if let Some(arg) = args.first() {
+			if let Some(tail) = arg.tail() {
+				env.result = tail;
+				return None;
+			} else if let Sourcedata(Some(ref source), ..) = **arg {
+				return Some(format!["expected Pair but got {}, {}", data_name(arg), source]);
 			} else {
-				unreachable!();
+				return Some(format!["expected Pair but got {}", data_name(arg)]);
 			}
+		} else {
+			unreachable!();
 		}
 	} else {
 		Some("no argument stack".into())
@@ -840,8 +818,12 @@ fn wind(program: &mut Program, env: &mut Env) -> Option<String> {
 /// object, the representation will always stay intact regardless of how
 /// many reads and writes you apply to it.
 fn write(_: &mut Program, env: &mut Env) -> Option<String> {
-	for i in env.params.last().unwrap() {
-		println!["{}", i];
+	if let Some(args) = env.params.last() {
+		for arg in args {
+			println!["{}", arg];
+		}
+		None
+	} else {
+		Some("no argument stack".into())
 	}
-	None
 }
