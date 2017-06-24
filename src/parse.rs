@@ -88,6 +88,11 @@ pub fn is_ready_to_finish(state: &ParseState) -> bool {
 		!state.stack.is_empty()
 }
 
+/// Check if the parser is empty.
+pub fn is_empty(state: &ParseState) -> bool {
+	state.stack.is_empty()
+}
+
 /// Parses character-by-character to allow parsing from arbitrary character sources.
 ///
 /// Mainly used to implement utility functions that feed characters.
