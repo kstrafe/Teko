@@ -94,7 +94,7 @@
 // ✗ Make Userdata easily editable           - Is only a reference impl, no need
 //   Replace all panics with unwinds
 //   Sort imports and uses where possible
-//   Implement a proper fmt::Display for Sourcedata
+// ✓ Implement a proper fmt::Display for Sourcedata
 //   Actually make error handling consistent + stacktrace
 //
 // //////////////////////////////////////////////////////////

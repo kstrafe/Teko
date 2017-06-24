@@ -453,8 +453,11 @@ fn multiply(_: &mut Program, env: &mut Env) -> Option<String> {
 			&Sourcedata(_, Coredata::Integer(ref value)) => {
 				sum = sum * value;
 			}
+			&Sourcedata(Some(ref source), ..) => {
+				return Some(format!["{} <= multiply: argument not integer", source]);
+			}
 			_ => {
-				unimplemented![];
+				return Some(format!["__ <= multiply: argument not integer"]);
 			}
 		}
 	}
@@ -463,9 +466,9 @@ fn multiply(_: &mut Program, env: &mut Env) -> Option<String> {
 }
 
 fn not(program: &mut Program, env: &mut Env) -> Option<String> {
-	let error = if let Some(args) = env.params.last() {
+	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			Some("not: arity mismatch")
+			Some(format!["arity mismatch, expected 1, got {}", args.len()])
 		} else {
 			if let Coredata::Boolean(Boolean::False) = args.first().unwrap().1 {
 				env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
@@ -475,12 +478,8 @@ fn not(program: &mut Program, env: &mut Env) -> Option<String> {
 			None
 		}
 	} else {
-		Some("not: parameter stack corrupted")
-	};
-	if let Some(error) = error {
-		unwind_with_error_message(error, program, env);
+		Some("parameter stack empty".into())
 	}
-	None
 }
 
 fn or(_: &mut Program, env: &mut Env) -> Option<String> {
@@ -615,6 +614,7 @@ fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
+/// Take the tail of a pair.
 fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
 	let args = env.params
 		.last()
@@ -627,7 +627,7 @@ fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
-/// Print a stack trace.
+/// Return a stack trace.
 ///
 /// The stack trace will not print tail call optimized calls, so there may
 /// be some calls missing here. Since the requirement is for the program
@@ -635,18 +635,24 @@ fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
 /// store all calls.
 pub fn trace(program: &mut Program, env: &mut Env) -> Option<String> {
 	let mut string = String::from("");
+	let mut empty_length = 1;
+	let mut first = true;
 	for i in program.iter() {
-		if let &Sourcedata(Some(ref source), Coredata::Internal(Commands::Deparameterize(..))) =
-		       &**i {
-			string.push_str(&format!["{} <= {}\n", source, i]);
+		if !first { string.push_str("\n"); }
+		if let &Sourcedata(Some(ref source), ..) = &**i {
+			let source_string = format!["{}", source];
+			empty_length = source_string.len();
+			string.push_str(&format!["{} <= {}", source_string, i]);
 		} else {
-			string.push_str(&format!["_ <= {}\n", i]);
+			string.push_str(&format!["{} <= {}", (0..empty_length).map(|_| "_").collect::<String>(), i]);
 		}
+		first = false;
 	}
 	env.result = Rc::new(Sourcedata(None, Coredata::String(string)));
 	None
 }
 
+/// Set up a "catch-all" that catches all errors
 fn wind(program: &mut Program, env: &mut Env) -> Option<String> {
 	let args = env.result.clone();
 	let code = collect_pair_into_vec(&args);
@@ -655,9 +661,16 @@ fn wind(program: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
+/// Write to standard output.
+///
+/// Writing is a transitive operation together with read. This means that
+/// writing an object, and then reading the result will give back the same
+/// object, although it may be necessary to explicitly eval parts of the
+/// object, the representation will always stay intact regardless of how
+/// many reads and writes you apply to it.
 fn write(_: &mut Program, env: &mut Env) -> Option<String> {
 	for i in env.params.last().unwrap() {
-		println!["write: {}", i];
+		println!["{}", i];
 	}
 	None
 }

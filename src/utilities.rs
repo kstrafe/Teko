@@ -77,14 +77,20 @@ impl fmt::Display for Sourcedata {
 				Internal(ref arg) => {
 					if spacer { write![f, " "]?; }
 					match *arg {
-						Call(..)        => write![f, "@call"]?,
-						Prepare(..)        => write![f, "@prepare"]?,
-						Parameterize       => write![f, "@parameterize"]?,
-						Deparameterize(..) => write![f, "@deparameterize"]?,
-						If(..)             => write![f, "@if"]?,
-						Wind               => write![f, "@wind"]?,
-						Evaluate           => write![f, "@evaluate"]?,
-						Empty              => write![f, "@empty"]?,
+						Call(ref callee)           => write![f, "(@call {})", callee]?,
+						Prepare(ref callee)        => write![f, "(@prepare {})", callee]?,
+						Parameterize               => write![f, "(@parameterize)"]?,
+						Deparameterize(ref params) => {
+							write![f, "(@deparameterize"]?;
+							for i in params.iter().rev() {
+								write![f, " {}", i]?;
+							}
+							write![f, ")"]?;
+						}
+						If(ref former, ref latter) => write![f, "(@if {} {})", former, latter]?,
+						Wind                       => write![f, "(@wind)"]?,
+						Evaluate                   => write![f, "(@evaluate)"]?,
+						Empty                      => write![f, "(@empty)"]?,
 					}
 					spacer = true;
 				}
@@ -330,11 +336,12 @@ pub fn compute_intersection<'a>(a: &'a Vec<String>, b: &'a Vec<String>) -> Vec<&
 
 pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Program, env: &mut Env) {
 	let unwind = if let &Some(ref error) = error {
+		use builtins::trace;
+		trace(program, env);
 		if let &Some(ref source) = source {
-			// trace(&mut program, &mut env);
-			Some(format!["{} <= {}", error, source])
+			Some(format!["{} <= {}\n{}", source, error, env.result])
 		} else {
-			Some(format!["{} <= _", error])
+			Some(format!["{}\n{}", error, env.result])
 		}
 	} else {
 		None
