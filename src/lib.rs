@@ -93,7 +93,7 @@
 // ✗ Channels                                - As above
 // ✗ Make Userdata easily editable           - Is only a reference impl, no need
 // ✓ Replace all panics with unwinds
-//   Sort imports and uses where possible
+// ✓ Sort imports and uses where possible
 // ✓ Implement a proper fmt::Display for Sourcedata
 // ✓ Actually make error handling consistent + stacktrace
 // ✓ Clippify everything
@@ -117,4 +117,5 @@ pub mod interpret;
 pub mod parse;
 pub mod utilities;
 
-const VEC_CAPACITY: usize = 1000;
+// Preallocate buffers for each Vec
+const VEC_CAPACITY: usize = 100;

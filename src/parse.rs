@@ -77,9 +77,9 @@ pub fn finish_parsing_characters(mut state: ParseState) -> Result<Program, Parse
 	}
 }
 
-/// Mutate the `state` by a single input character
-///
 /// Parses character-by-character to allow parsing from arbitrary character sources.
+///
+/// Mainly used to implement utility functions that feed characters.
 ///
 /// ```
 /// extern crate teko;
@@ -130,14 +130,19 @@ fn whitespace(state: &mut ParseState) {
 fn left_parenthesis(state: &mut ParseState) {
 	move_token_to_stack_if_nonempty(state);
 	copy_current_read_position_to_unmatched_opening_parentheses(state);
-	state.stack.push(Rc::new(Sourcedata(Some(state.current_read_position.clone()),
-	                                    Coredata::Internal(Commands::Empty))));
+	state.stack.push(Rc::new(Sourcedata(
+		Some(state.current_read_position.clone()),
+		Coredata::Internal(Commands::Empty),
+	)));
 }
 
 fn right_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
 	move_token_to_stack_if_nonempty(state);
 	pop_previous_opening_parenthesis(state)?;
-	let mut active = Rc::new(Sourcedata(Some(state.current_read_position.clone()), Coredata::Null));
+	let mut active = Rc::new(Sourcedata(
+		Some(state.current_read_position.clone()),
+		Coredata::Null,
+	));
 	let mut source = None;
 	while let Some(top) = state.stack.pop() {
 		match *top {
@@ -146,7 +151,10 @@ fn right_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
 				break;
 			}
 			_ => {
-				active = Rc::new(Sourcedata(top.0.clone(), Coredata::Pair(top.clone(), active)));
+				active = Rc::new(Sourcedata(
+					top.0.clone(),
+					Coredata::Pair(top.clone(), active),
+				));
 			}
 		}
 	}
@@ -168,8 +176,10 @@ fn otherwise(character: char, state: &mut ParseState) {
 
 fn move_token_to_stack_if_nonempty(state: &mut ParseState) {
 	if !state.token.is_empty() {
-		state.stack.push(Rc::new(Sourcedata(Some(state.start_of_current_lexeme.clone()),
-		                                    Coredata::Symbol(state.token.clone()))));
+		state.stack.push(Rc::new(Sourcedata(
+			Some(state.start_of_current_lexeme.clone()),
+			Coredata::Symbol(state.token.clone()),
+		)));
 		clear_token(state);
 	}
 }
@@ -184,7 +194,8 @@ fn set_error(state: &mut ParseState, message: &str) -> ParseState {
 }
 
 fn copy_current_read_position_to_unmatched_opening_parentheses(state: &mut ParseState) {
-	state.unmatched_opening_parentheses
+	state
+		.unmatched_opening_parentheses
 		.push(state.current_read_position.clone());
 }
 
@@ -215,10 +226,38 @@ mod tests {
 	fn assert_expressions_ok() {
 		assert_oks![
 			parse_string,
-			"", " ", "  ", "[", "]", "{", "}", ".", ",", "'", "\"",
-			"", " ", "  ", "[", "]>", "<{", "}|", ".^", ",-", "'Æ", "\"o\"\"",
-			"()", " ()", "() ", " () ", " ( ) ",
-			"test", "(test)", " (test)", "(test) ", " (test) ",
+			"",
+			" ",
+			"  ",
+			"[",
+			"]",
+			"{",
+			"}",
+			".",
+			",",
+			"'",
+			"\"",
+			"",
+			" ",
+			"  ",
+			"[",
+			"]>",
+			"<{",
+			"}|",
+			".^",
+			",-",
+			"'Æ",
+			"\"o\"\"",
+			"()",
+			" ()",
+			"() ",
+			" () ",
+			" ( ) ",
+			"test",
+			"(test)",
+			" (test)",
+			"(test) ",
+			" (test) ",
 			"(test1 (test2))",
 			"(test1 (test2 test3 test4) test5) test6",
 		];
@@ -226,6 +265,15 @@ mod tests {
 
 	#[test]
 	fn assert_expressions_err() {
-		assert_errs![parse_string, "(", ")", "(test", "test)", "(test1 (test2)"];
+		assert_errs![
+			parse_string,
+			"(",
+			")",
+			"(test",
+			"test)",
+			"(test1 (test2)",
+			"(((((((()))))))",
+			"(((((()))))))"
+		];
 	}
 }

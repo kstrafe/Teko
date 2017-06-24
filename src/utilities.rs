@@ -9,16 +9,16 @@ use super::VEC_CAPACITY;
 pub fn data_name(data: &Sourcedata) -> String {
 	use data_structures::Coredata::*;
 	match data.1 {
-		Boolean(..)  => "Boolean",
-		Error(..)    => "Error",
+		Boolean(..) => "Boolean",
+		Error(..) => "Error",
 		Function(..) => "Function",
-		Integer(..)  => "Integer",
+		Integer(..) => "Integer",
 		Internal(..) => "Internal",
-		Macro(..)    => "Macro",
-		Null         => "Null",
-		Pair(..)     => "Pair",
-		String(..)   => "String",
-		Symbol(..)   => "Symbol",
+		Macro(..) => "Macro",
+		Null => "Null",
+		Pair(..) => "Pair",
+		String(..) => "String",
+		Symbol(..) => "Symbol",
 	}.into()
 }
 
@@ -38,17 +38,23 @@ impl fmt::Display for Sourcedata {
 		while let Some(elem) = queue.pop() {
 			match elem.1 {
 				Boolean(Boolean::True) => {
-					if spacer { write![f, " "]?; }
+					if spacer {
+						write![f, " "]?;
+					}
 					write![f, "true"]?;
 					spacer = true;
 				}
 				Boolean(Boolean::False) => {
-					if spacer { write![f, " "]?; }
+					if spacer {
+						write![f, " "]?;
+					}
 					write![f, "false"]?;
 					spacer = true;
 				}
 				Error(ref arg) => {
-					if spacer { write![f, " "]?; }
+					if spacer {
+						write![f, " "]?;
+					}
 					write![f, "(error"]?;
 					if let Coredata::Pair(..) = arg.1 {
 						write![f, " ("]?;
@@ -64,12 +70,16 @@ impl fmt::Display for Sourcedata {
 					}
 				}
 				Function(Function::Builtin(.., ref name)) => {
-					if spacer { write![f, " "]?; }
+					if spacer {
+						write![f, " "]?;
+					}
 					write![f, "{}", name]?;
 					spacer = true;
 				}
 				Function(Function::Library(ref params, ref code)) => {
-					if spacer { write![f, " "]?; }
+					if spacer {
+						write![f, " "]?;
+					}
 					write![f, "(fn ("]?;
 					let mut first = true;
 					for i in params.iter() {
@@ -88,16 +98,20 @@ impl fmt::Display for Sourcedata {
 					spacer = true;
 				}
 				Integer(ref arg) => {
-					if spacer { write![f, " "]?; }
+					if spacer {
+						write![f, " "]?;
+					}
 					write![f, "{}", arg]?;
 					spacer = true;
 				}
 				Internal(ref arg) => {
-					if spacer { write![f, " "]?; }
+					if spacer {
+						write![f, " "]?;
+					}
 					match *arg {
-						Call(ref callee)           => write![f, "(@call {})", callee]?,
-						Prepare(ref callee)        => write![f, "(@prepare {})", callee]?,
-						Parameterize               => write![f, "(@parameterize)"]?,
+						Call(ref callee) => write![f, "(@call {})", callee]?,
+						Prepare(ref callee) => write![f, "(@prepare {})", callee]?,
+						Parameterize => write![f, "(@parameterize)"]?,
 						Deparameterize(ref params) => {
 							write![f, "(@deparameterize"]?;
 							for i in params.iter().rev() {
@@ -106,19 +120,23 @@ impl fmt::Display for Sourcedata {
 							write![f, ")"]?;
 						}
 						If(ref former, ref latter) => write![f, "(@if {} {})", former, latter]?,
-						Wind                       => write![f, "(@wind)"]?,
-						Evaluate                   => write![f, "(@evaluate)"]?,
-						Empty                      => write![f, "(@empty)"]?,
+						Wind => write![f, "(@wind)"]?,
+						Evaluate => write![f, "(@evaluate)"]?,
+						Empty => write![f, "(@empty)"]?,
 					}
 					spacer = true;
 				}
 				Macro(Macro::Builtin(.., ref name)) => {
-					if spacer { write![f, " "]?; }
+					if spacer {
+						write![f, " "]?;
+					}
 					write![f, "{}", name]?;
 					spacer = true;
 				}
 				Macro(Macro::Library(ref param, ref code)) => {
-					if spacer { write![f, " "]?; }
+					if spacer {
+						write![f, " "]?;
+					}
 					write![f, "(mo {}", param]?;
 					for i in code.iter().rev() {
 						write![f, " {}", i]?;
@@ -126,9 +144,17 @@ impl fmt::Display for Sourcedata {
 					write![f, ")"]?;
 					spacer = true;
 				}
-				Null => { if first { write![f, "()"]?; } else { write![f, ")"]?; } }
+				Null => {
+					if first {
+						write![f, "()"]?;
+					} else {
+						write![f, ")"]?;
+					}
+				}
 				Pair(ref head, ref tail) => {
-					if spacer { write![f, " "]?; }
+					if spacer {
+						write![f, " "]?;
+					}
 					if first {
 						write![f, "("]?;
 					}
@@ -146,12 +172,16 @@ impl fmt::Display for Sourcedata {
 					}
 				}
 				String(ref arg) => {
-					if spacer { write![f, " "]?; }
+					if spacer {
+						write![f, " "]?;
+					}
 					write![f, "(\" {})", arg]?;
 					spacer = true;
 				}
 				Symbol(ref arg) => {
-					if spacer { write![f, " "]?; }
+					if spacer {
+						write![f, " "]?;
+					}
 					write![f, "{}", arg]?;
 					spacer = true;
 				}
@@ -375,13 +405,19 @@ pub fn internal_trace(program: &mut Program, _: &mut Env) -> String {
 	let mut empty_length = 1;
 	let mut first = true;
 	for i in program.iter() {
-		if !first { string.push_str("\n"); }
+		if !first {
+			string.push_str("\n");
+		}
 		if let Sourcedata(Some(ref source), ..) = **i {
 			let source_string = format!["{}", source];
 			empty_length = source_string.len();
 			string.push_str(&format!["{} <= {}", source_string, i]);
 		} else {
-			string.push_str(&format!["{} <= {}", (0..empty_length).map(|_| "_").collect::<String>(), i]);
+			string.push_str(&format![
+				"{} <= {}",
+				(0..empty_length).map(|_| "_").collect::<String>(),
+				i
+			]);
 		}
 		first = false;
 	}
@@ -392,10 +428,7 @@ pub fn internal_trace(program: &mut Program, _: &mut Env) -> String {
 ///
 /// If the top of the stack contains `Commands::Deparameterize`, then the variables to be popped
 /// are merged into that [top] object. This is all that's needed to optimize tail calls.
-pub fn optimize_tail_call(program: &mut Program,
-                          env: &mut Env,
-                          params: &[String])
-                          -> Vec<String> {
+pub fn optimize_tail_call(program: &mut Program, env: &mut Env, params: &[String]) -> Vec<String> {
 	if let Some(top) = program.pop() {
 		match top.1 {
 			Coredata::Internal(Commands::Deparameterize(ref content)) => {

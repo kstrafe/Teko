@@ -19,12 +19,12 @@
 //! ```
 use std::rc::Rc;
 
-use num::BigInt;
-
 use builtins::*;
 use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro, Function};
 use utilities::*;
 use super::VEC_CAPACITY;
+
+use num::BigInt;
 
 /// Evaluates a program with a given environment.
 ///
@@ -38,7 +38,7 @@ use super::VEC_CAPACITY;
 /// use num_traits::cast::ToPrimitive;
 /// fn main() {
 /// 	let program = teko::parse::parse_string("(+ 1 2 4) (+ 1 2)").ok().unwrap();
-/// 		let env = teko::interpret::initialize_environment_with_standard_library();
+/// 	let env = teko::interpret::initialize_environment_with_standard_library();
 /// 	let env = teko::interpret::eval(program, env);
 /// 	match env.result.1 {
 /// 		teko::data_structures::Coredata::Integer(ref value) => {
@@ -66,22 +66,26 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						env.params.pop();
 						err(source, &error, &mut program, &mut env);
 					}
-					Sourcedata(_,
-					            Coredata::Function(Function::Library(ref parameters,
-					                                                 ref transfer))) => {
+					Sourcedata(
+						_,
+						Coredata::Function(Function::Library(ref parameters, ref transfer)),
+					) => {
 						if let Some(arguments) = env.params.pop() {
 							if arguments.len() != parameters.len() {
-								err(source,
-								    &Some(format!["[E0]: expected {} but got {} arguments",
-								                  parameters.len(),
-								                  arguments.len()]),
-								    &mut program,
-								    &mut env);
+								err(
+									source,
+									&Some(format![
+										"[E0]: expected {} but got {} arguments",
+										parameters.len(),
+										arguments.len()
+									]),
+									&mut program,
+									&mut env,
+								);
 							} else {
-								let cmd =
-									Commands::Deparameterize(optimize_tail_call(&mut program,
-									                                            &mut env,
-									                                            parameters));
+								let cmd = Commands::Deparameterize(
+									optimize_tail_call(&mut program, &mut env, parameters),
+								);
 								ppush![source, Coredata::Internal(cmd)];
 								for (counter, parameter) in parameters.iter().enumerate() {
 									if env.store.contains_key(parameter) {
@@ -90,8 +94,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 											.unwrap()
 											.push(arguments[counter].clone());
 									} else {
-										env.store.insert(parameter.clone(),
-										                 vec![arguments[counter].clone()]);
+										env.store.insert(
+											parameter.clone(),
+											vec![arguments[counter].clone()],
+										);
 									}
 								}
 								program.extend(transfer.iter().cloned());
@@ -99,10 +105,12 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						}
 					}
 					_ => {
-						err(source,
-						    &Some("[E1]: element not callable".into()),
-						    &mut program,
-						    &mut env);
+						err(
+							source,
+							&Some("[E1]: element not callable".into()),
+							&mut program,
+							&mut env,
+						);
 					}
 				}
 			}
@@ -134,7 +142,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				match *env.result.clone() {
 					Sourcedata(_, Coredata::Function(..)) => {
 						env.params.push(vec![]);
-						ppush![source, Coredata::Internal(Commands::Call(env.result.clone()))];
+						ppush![
+							source,
+							Coredata::Internal(Commands::Call(env.result.clone()))
+						];
 						for argument in collect_pair_into_vec(arguments) {
 							ppush![None, Coredata::Internal(Commands::Parameterize)];
 							program.push(argument.clone());
@@ -147,21 +158,25 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					}
 					Sourcedata(_, Coredata::Macro(Macro::Library(ref bound, ref code))) => {
 						ppush![None, Coredata::Internal(Commands::Evaluate)];
-						let command =
-							optimize_tail_call(&mut program, &mut env, &[bound.clone()]);
+						let command = optimize_tail_call(&mut program, &mut env, &[bound.clone()]);
 						if env.store.contains_key(bound) {
 							env.store.get_mut(bound).unwrap().push(arguments.clone());
 						} else {
 							env.store.insert(bound.clone(), vec![arguments.clone()]);
 						}
-						ppush![source, Coredata::Internal(Commands::Deparameterize(command))];
+						ppush![
+							source,
+							Coredata::Internal(Commands::Deparameterize(command))
+						];
 						program.extend(code.iter().cloned());
 					}
 					_ => {
-						err(source,
-						    &Some("[E3]: element not callable".into()),
-						    &mut program,
-						    &mut env);
+						err(
+							source,
+							&Some("[E3]: element not callable".into()),
+							&mut program,
+							&mut env,
+						);
 					}
 				}
 			}
@@ -179,7 +194,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 							env.result = value.clone();
 							None
 						} else {
-							Some(format!["[E4]: `{}' does exist but its stack is empty", string])
+							Some(format![
+								"[E4]: `{}' does exist but its stack is empty",
+								string
+							])
 						}
 					} else {
 						Some(format!["[E5]: `{}' does not exist", string])
@@ -192,7 +210,6 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			}
 		}
 	}
-	println!("{}", env.result);
 	env
 }
 
@@ -200,7 +217,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 ///
 /// ```
 /// extern crate teko;
-/// let env: teko::data_structures::Env =
+/// let _: teko::data_structures::Env =
 /// 	teko::interpret::initialize_environment_with_standard_library();
 /// ```
 pub fn initialize_environment_with_standard_library() -> Env {

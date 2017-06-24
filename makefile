@@ -7,6 +7,9 @@ test:
 2:
 	(cargo build --color=always --features clippy 2>&1 | ${ta} >> pipe) &
 .PHONY:
+3:
+	(cargo test --color=always -- --nocapture 2>&1 | ${ta} >> pipe) &
+.PHONY:
 profile-debug:
 	mkdir -p tmp/
 	cargo test --no-run

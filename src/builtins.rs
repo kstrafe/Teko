@@ -143,7 +143,11 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<String> {
 					}
 				}
 				Sourcedata(Some(ref source), ..) => {
-					return Some(format!["expected String but got {}, {}", data_name(symbol), source]);
+					return Some(format![
+						"expected String but got {}, {}",
+						data_name(symbol),
+						source
+					]);
 				}
 				_ => {
 					return Some(format!["expected String but got {}", data_name(symbol)]);
@@ -161,9 +165,19 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<String> {
 fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 	{
 		let args = env.result.clone();
-		let sub = Rc::new(Sourcedata(None, Coredata::Function(Function::Builtin(define_internal, "@define-internal".into()))));
-		program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Call(sub)))));
-		program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Parameterize))));
+		let sub = Rc::new(Sourcedata(
+			None,
+			Coredata::Function(Function::Builtin(
+				define_internal,
+				"@define-internal".into(),
+			)),
+		));
+		program.push(Rc::new(
+			Sourcedata(None, Coredata::Internal(Commands::Call(sub))),
+		));
+		program.push(Rc::new(
+			Sourcedata(None, Coredata::Internal(Commands::Parameterize)),
+		));
 		if let Some(ref tail) = args.tail() {
 			match tail.1 {
 				Coredata::Pair(ref heado, _) => {
@@ -179,7 +193,9 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 		} else {
 			return Some("arity mismatch, expecting 2 but got 0".into());
 		}
-		program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Parameterize))));
+		program.push(Rc::new(
+			Sourcedata(None, Coredata::Internal(Commands::Parameterize)),
+		));
 		if let Some(ref head) = args.head() {
 			match head.1 {
 				Coredata::Symbol(ref string) => {
@@ -207,7 +223,11 @@ fn divide(_: &mut Program, env: &mut Env) -> Option<String> {
 						sum = sum / value;
 					}
 					Sourcedata(Some(ref source), ..) => {
-						return Some(format!["expected Integer but got {}, {}", data_name(arg), source]);
+						return Some(format![
+							"expected Integer but got {}, {}",
+							data_name(arg),
+							source
+						]);
 					}
 					_ => {
 						return Some(format!["expected Integer but got {}", data_name(arg)]);
@@ -226,7 +246,11 @@ fn divide(_: &mut Program, env: &mut Env) -> Option<String> {
 						}
 					}
 					Sourcedata(Some(ref source), ..) => {
-						return Some(format!["expected Integer but got {}, {}", data_name(arg), source]);
+						return Some(format![
+							"expected Integer but got {}, {}",
+							data_name(arg),
+							source
+						]);
 					}
 					_ => {
 						return Some(format!["expected Integer but got {}", data_name(arg)]);
@@ -264,7 +288,11 @@ fn eq(_: &mut Program, env: &mut Env) -> Option<String> {
 					}
 				}
 				Sourcedata(Some(ref source), ..) => {
-					return Some(format!["expected Integer but got {}, {}", data_name(arg), source]);
+					return Some(format![
+						"expected Integer but got {}, {}",
+						data_name(arg),
+						source
+					]);
 				}
 				_ => {
 					return Some(format!["expected Integer but got {}", data_name(arg)]);
@@ -286,9 +314,10 @@ fn error(_: &mut Program, env: &mut Env) -> Option<String> {
 			env.result = Rc::new(Sourcedata(None, Coredata::Error(arg.clone())));
 			None
 		} else {
-			env.result =
-				Rc::new(Sourcedata(None,
-													 Coredata::Error(Rc::new(Sourcedata(None, Coredata::Null)))));
+			env.result = Rc::new(Sourcedata(
+				None,
+				Coredata::Error(Rc::new(Sourcedata(None, Coredata::Null))),
+			));
 			None
 		}
 	} else {
@@ -300,7 +329,10 @@ fn error(_: &mut Program, env: &mut Env) -> Option<String> {
 fn eval_expose(program: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			Some(format!["arity mismatch, expecting 1 but got {}", args.len()])
+			Some(format![
+				"arity mismatch, expecting 1 but got {}",
+				args.len()
+			])
 		} else if let Some(arg) = args.first() {
 			program.push(arg.clone());
 			None
@@ -327,7 +359,11 @@ fn exit(_: &mut Program, env: &mut Env) -> Option<String> {
 						}
 					}
 					Sourcedata(Some(ref source), ..) => {
-						return Some(format!["expected Integer but got {}, {}", data_name(arg), source]);
+						return Some(format![
+							"expected Integer but got {}, {}",
+							data_name(arg),
+							source
+						]);
 					}
 					_ => {
 						return Some(format!["expected Integer but got {}", data_name(arg)]);
@@ -337,7 +373,10 @@ fn exit(_: &mut Program, env: &mut Env) -> Option<String> {
 				::std::process::exit(0);
 			}
 		} else {
-			return Some(format!["arity mismatch, expecting 0 or 1 args but got {}", args.len()]);
+			return Some(format![
+				"arity mismatch, expecting 0 or 1 args but got {}",
+				args.len()
+			]);
 		}
 	} else {
 		return Some("no argument stack".into());
@@ -356,20 +395,30 @@ fn function(_: &mut Program, env: &mut Env) -> Option<String> {
 	} else {
 		return Some("arity mismatch, expecting 2 but got 0".into());
 	};
-	env.result = Rc::new(Sourcedata(None, Coredata::Function(Function::Library(params, code))));
+	env.result = Rc::new(Sourcedata(
+		None,
+		Coredata::Function(Function::Library(params, code)),
+	));
 	None
 }
 
 fn head(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			Some(format!["arity mismatch, expected 1 arg but got {}", args.len()])
+			Some(format![
+				"arity mismatch, expected 1 arg but got {}",
+				args.len()
+			])
 		} else if let Some(arg) = args.first() {
 			if let Some(head) = arg.head() {
 				env.result = head.clone();
 				return None;
 			} else if let Sourcedata(Some(ref source), ..) = **arg {
-				return Some(format!["expected Pair but got {}, {}", data_name(arg), source]);
+				return Some(format![
+					"expected Pair but got {}, {}",
+					data_name(arg),
+					source
+				]);
 			} else {
 				return Some(format!["expected Pair but got {}", data_name(arg)]);
 			}
@@ -388,9 +437,10 @@ fn if_conditional(program: &mut Program, env: &mut Env) -> Option<String> {
 			if let Some(head_of_tail) = tail.head() {
 				if let Some(tail_of_tail) = tail.tail() {
 					if let Some(head_of_tail_of_tail) = tail_of_tail.head() {
-						program.push(Rc::new(Sourcedata(None,
-																						Coredata::Internal(Commands::If(head_of_tail,
-																																						head_of_tail_of_tail)))));
+						program.push(Rc::new(Sourcedata(
+							None,
+							Coredata::Internal(Commands::If(head_of_tail, head_of_tail_of_tail)),
+						)));
 						program.push(head);
 						return None;
 					}
@@ -404,7 +454,10 @@ fn if_conditional(program: &mut Program, env: &mut Env) -> Option<String> {
 fn is_error(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			return Some(format!["arity mismatch, expecting 1 but got {}", args.len()]);
+			return Some(format![
+				"arity mismatch, expecting 1 but got {}",
+				args.len()
+			]);
 		}
 		if let Some(arg) = args.first() {
 			if let Coredata::Error(_) = arg.1 {
@@ -424,7 +477,10 @@ fn is_error(_: &mut Program, env: &mut Env) -> Option<String> {
 fn is_pair(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			return Some(format!["arity mismatch, expecting 1 but got {}", args.len()]);
+			return Some(format![
+				"arity mismatch, expecting 1 but got {}",
+				args.len()
+			]);
 		}
 		if let Some(arg) = args.first() {
 			if let Coredata::Pair(..) = arg.1 {
@@ -448,16 +504,25 @@ fn is_symbol_eq(_: &mut Program, env: &mut Env) -> Option<String> {
 				if let Coredata::Symbol(ref a) = arg1.1 {
 					if let Coredata::Symbol(ref b) = arg2.1 {
 						if a == b {
-							env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
+							env.result =
+								Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
 							return None;
 						}
 					} else if let Some(ref source) = arg2.0 {
-						return Some(format!["expected Symbol but got {}, {}", data_name(arg2), source]);
+						return Some(format![
+							"expected Symbol but got {}, {}",
+							data_name(arg2),
+							source
+						]);
 					} else {
 						return Some(format!["expected Symbol but got {}", data_name(arg2)]);
 					}
 				} else if let Some(ref source) = arg1.0 {
-					return Some(format!["expected Symbol but got {}, {}", data_name(arg1), source]);
+					return Some(format![
+						"expected Symbol but got {}, {}",
+						data_name(arg1),
+						source
+					]);
 				} else {
 					return Some(format!["expected Symbol but got {}", data_name(arg1)]);
 				}
@@ -510,7 +575,11 @@ fn lt(_: &mut Program, env: &mut Env) -> Option<String> {
 					}
 				}
 				Sourcedata(Some(ref source), ..) => {
-					return Some(format!["expected Integer but got {}, {}", data_name(arg), source]);
+					return Some(format![
+						"expected Integer but got {}, {}",
+						data_name(arg),
+						source
+					]);
 				}
 				_ => {
 					return Some(format!["expected Integer but got {}", data_name(arg)]);
@@ -531,14 +600,21 @@ fn make_macro(_: &mut Program, env: &mut Env) -> Option<String> {
 			let params = match *head {
 				Sourcedata(_, Coredata::Symbol(ref string)) => string.clone(),
 				Sourcedata(Some(ref source), ..) => {
-					return Some(format!["expected Symbol but got {}, {}", data_name(&*head), source]);
+					return Some(format![
+						"expected Symbol but got {}, {}",
+						data_name(&*head),
+						source
+					]);
 				}
 				_ => {
 					return Some(format!["expected Symbol but got {}", data_name(&*head)]);
 				}
 			};
 			let code = collect_pair_into_vec(&tail);
-			env.result = Rc::new(Sourcedata(None, Coredata::Macro(Macro::Library(params, code))));
+			env.result = Rc::new(Sourcedata(
+				None,
+				Coredata::Macro(Macro::Library(params, code)),
+			));
 			return None;
 		}
 	}
@@ -554,7 +630,11 @@ fn multiply(_: &mut Program, env: &mut Env) -> Option<String> {
 					sum = sum * value;
 				}
 				Sourcedata(Some(ref source), ..) => {
-					return Some(format!["expected Integer but got {}, {}", data_name(&*arg), source]);
+					return Some(format![
+						"expected Integer but got {}, {}",
+						data_name(&*arg),
+						source
+					]);
 				}
 				_ => {
 					return Some(format!["expected Integer but got {}", data_name(&*arg)]);
@@ -605,18 +685,26 @@ fn or(_: &mut Program, env: &mut Env) -> Option<String> {
 fn pair(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 2 {
-			Some(format!["arity mismatch, expecting 2 but got {}", args.len()])
+			Some(format![
+				"arity mismatch, expecting 2 but got {}",
+				args.len()
+			])
 		} else {
 			if let Some(arg1) = args.first() {
 				if let Some(arg2) = args.get(1) {
 					if let Coredata::Pair(..) = arg2.1 {
 					} else if let Coredata::Null = arg2.1 {
 					} else if let Sourcedata(Some(ref source), ..) = **arg2 {
-						return Some(format!["expected Pair or Null but got {}, {}", data_name(arg2), source]);
+						return Some(format![
+							"expected Pair or Null but got {}, {}",
+							data_name(arg2),
+							source
+						]);
 					} else {
 						return Some(format!["expected Pair or Null but got {}", data_name(arg2)]);
 					}
-					env.result = Rc::new(Sourcedata(None, Coredata::Pair(arg1.clone(), arg2.clone())));
+					env.result =
+						Rc::new(Sourcedata(None, Coredata::Pair(arg1.clone(), arg2.clone())));
 				} else {
 					unreachable!();
 				}
@@ -639,7 +727,11 @@ fn plus(_: &mut Program, env: &mut Env) -> Option<String> {
 					sum = sum + value;
 				}
 				Sourcedata(Some(ref source), ..) => {
-					return Some(format!["expected Integer but got {}, {}", data_name(&**arg), source]);
+					return Some(format![
+						"expected Integer but got {}, {}",
+						data_name(&**arg),
+						source
+					]);
 				}
 				Sourcedata(None, ..) => {
 					return Some(format!["expected Integer but got {}", data_name(&**arg)]);
@@ -682,7 +774,10 @@ fn sleep(_: &mut Program, env: &mut Env) -> Option<String> {
 	use num::ToPrimitive;
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			return Some(format!["arity mismatch, expecting 1 but got {}", args.len()]);
+			return Some(format![
+				"arity mismatch, expecting 1 but got {}",
+				args.len()
+			]);
 		}
 		if let Some(arg) = args.first() {
 			match **arg {
@@ -694,7 +789,11 @@ fn sleep(_: &mut Program, env: &mut Env) -> Option<String> {
 					}
 				}
 				Sourcedata(Some(ref source), ..) => {
-					return Some(format!["expected Integer but got {}, {}", data_name(arg), source]);
+					return Some(format![
+						"expected Integer but got {}, {}",
+						data_name(arg),
+						source
+					]);
 				}
 				ref arg @ Sourcedata(None, ..) => {
 					return Some(format!["expected Integer but got {}", data_name(arg)]);
@@ -730,7 +829,11 @@ fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 						sum = sum - value;
 					}
 					Sourcedata(Some(ref source), ..) => {
-						return Some(format!["expected Integer but got {}, {}", data_name(arg), source]);
+						return Some(format![
+							"expected Integer but got {}, {}",
+							data_name(arg),
+							source
+						]);
 					}
 					_ => {
 						return Some(format!["expected Integer but got {}", data_name(arg)]);
@@ -749,7 +852,11 @@ fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 						}
 					}
 					Sourcedata(Some(ref source), ..) => {
-						return Some(format!["expected Integer but got {}, {}", data_name(arg), source]);
+						return Some(format![
+							"expected Integer but got {}, {}",
+							data_name(arg),
+							source
+						]);
 					}
 					_ => {
 						return Some(format!["expected Integer but got {}", data_name(arg)]);
@@ -771,13 +878,20 @@ fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			return Some(format!["arity mismatch, expecting 1 but got {}", args.len()]);
+			return Some(format![
+				"arity mismatch, expecting 1 but got {}",
+				args.len()
+			]);
 		} else if let Some(arg) = args.first() {
 			if let Some(tail) = arg.tail() {
 				env.result = tail;
 				return None;
 			} else if let Sourcedata(Some(ref source), ..) = **arg {
-				return Some(format!["expected Pair but got {}, {}", data_name(arg), source]);
+				return Some(format![
+					"expected Pair but got {}, {}",
+					data_name(arg),
+					source
+				]);
 			} else {
 				return Some(format!["expected Pair but got {}", data_name(arg)]);
 			}
@@ -805,7 +919,9 @@ pub fn trace(program: &mut Program, env: &mut Env) -> Option<String> {
 fn wind(program: &mut Program, env: &mut Env) -> Option<String> {
 	let args = env.result.clone();
 	let code = collect_pair_into_vec(&args);
-	program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Wind))));
+	program.push(Rc::new(
+		Sourcedata(None, Coredata::Internal(Commands::Wind)),
+	));
 	program.extend(code.iter().cloned());
 	None
 }
