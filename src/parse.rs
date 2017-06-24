@@ -22,7 +22,7 @@ pub fn parse_file(filename: &str) -> Result<Program, ParseState> {
 	let mut file = File::open(filename).ok().unwrap();
 	let mut contents = String::new();
 	file.read_to_string(&mut contents).ok();
-	parse_string_with_state(&contents, ParseState::from_file(filename))
+	parse_string_with_state(&contents, ParseState::from(filename))
 }
 
 // //////////////////////////////////////////////////////////

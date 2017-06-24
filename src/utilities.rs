@@ -381,13 +381,12 @@ impl Default for ParseState {
 }
 
 impl ParseState {
-	/// Initialize the parse state with a filename.
-	pub fn from_file(filename: &str) -> ParseState {
+	pub fn from(source: &str) -> ParseState {
 		let mut state = ParseState::default();
 		state.current_read_position = Source {
 			line: 1,
 			column: 1,
-			source: filename.into(),
+			source: source.into(),
 		};
 		state
 	}
