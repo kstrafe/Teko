@@ -11,9 +11,5 @@ clippy = {version = "0.0.140", optional = true}
 num = "0.1.37"
 num-traits = "0.1.37"
 
-[profile.release]
-debug = true
-
-
 [features]
 default = []
