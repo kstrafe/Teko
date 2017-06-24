@@ -1,10 +1,11 @@
 /*
 *.bk
 !.gitignore
-!FlameGraph/
+!examples/
 !src/
 !tests/
 !find_test_executable.sh
 !input
 !makefile
-!RATIONALE.md
+!README.md
+!rustfmt.toml

@@ -118,9 +118,10 @@
 // ✓ Implement a proper fmt::Display for Sourcedata
 // ✓ Actually make error handling consistent + stacktrace
 // ✓ Clippify everything
-//   Create extension interface
-//   Write tests
+// ✓ Write tests (not complete, but the structure is there)
 // ✓ Document everything
+// ✓ Make readme and build instructions
+//   Create extension interface (not sure if feasible atm)
 //
 // //////////////////////////////////////////////////////////
 
