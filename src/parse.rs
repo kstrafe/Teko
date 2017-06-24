@@ -84,7 +84,8 @@ pub fn finish_parsing_characters(mut state: ParseState) -> Result<Program, Parse
 /// The nice thing about this is that we can always parse more later and put
 /// the result into the interpreter with the same effect.
 pub fn is_ready_to_finish(state: &ParseState) -> bool {
-	state.unmatched_opening_parentheses.is_empty() && state.token.is_empty()
+	state.unmatched_opening_parentheses.is_empty() && state.token.is_empty() &&
+		!state.stack.is_empty()
 }
 
 /// Parses character-by-character to allow parsing from arbitrary character sources.
