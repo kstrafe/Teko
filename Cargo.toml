@@ -2,7 +2,7 @@
 name = "teko"
 description = "The Teko programming language implementation in Rust"
 readme = "README.md"
-version = "0.1.6"
+version = "0.1.7"
 authors = ["Kevin Robert Stravers <macocio@gmail.com>"]
 license = "GPL-3.0"
 repository = "https://github.com/BourgondAries/teko"

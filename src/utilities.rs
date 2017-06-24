@@ -521,7 +521,11 @@ pub fn internal_trace(program: &mut Program, _: &mut Env) -> String {
 		}
 		first = false;
 	}
-	string
+	if string == "" {
+		"stack is emtpy".into()
+	} else {
+		string
+	}
 }
 
 /// Optimizes tail calls by seeing if the current `params` can be merged with the top of the stack.
