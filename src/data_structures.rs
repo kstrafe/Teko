@@ -8,6 +8,7 @@ use num::BigInt;
 /// Evaluation commands used internally by the interpreter
 ///
 /// When put on the stack these values have different effects on the interpreter.
+#[derive(Debug, PartialEq)]
 pub enum Commands {
 	Call(Statement),
 	Prepare(Statement),
@@ -20,6 +21,7 @@ pub enum Commands {
 }
 
 /// Top level data structure used by the parser and interpreter
+#[derive(Debug)]
 pub struct Sourcedata(pub Option<Source>, pub Coredata);
 /// Top level statements are reference counted `Sourcedata`
 pub type Statement = Rc<Sourcedata>;
@@ -30,6 +32,7 @@ pub type Program = Vec<Statement>;
 ///
 pub type Transfer = fn(program: &mut Program, env: &mut Env) -> Option<String>;
 /// Boolean values
+#[derive(Debug, PartialEq)]
 pub enum Boolean {
 	True,
 	False,
@@ -52,6 +55,7 @@ pub enum Macro {
 }
 
 /// Core data types of the Teko machine
+#[derive(Debug)]
 pub enum Coredata {
 	/// Denote true and false
 	Boolean(Boolean),

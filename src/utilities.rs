@@ -1,14 +1,165 @@
 //! Utilities used by the implementation.
 
-use std::fmt;
+use std::{cmp, fmt};
 use std::rc::Rc;
 
-use data_structures::{Commands, Coredata, Env, ParseState, Program, Source, Sourcedata};
+use data_structures::{Commands, Coredata, Env, Function, Macro, ParseState, Program, Source, Sourcedata};
 use super::VEC_CAPACITY;
 
 // //////////////////////////////////////////////////////////
 // Impls
 // //////////////////////////////////////////////////////////
+
+impl cmp::PartialEq for Coredata {
+	fn eq(&self, other: &Self) -> bool {
+		use data_structures::Boolean;
+		match *self {
+			Coredata::Boolean(Boolean::True) => {
+				if let Coredata::Boolean(Boolean::True) = *other {
+					true
+				} else {
+					false
+				}
+			}
+			Coredata::Boolean(Boolean::False) => {
+				if let Coredata::Boolean(Boolean::False) = *other {
+					true
+				} else {
+					false
+				}
+			}
+			Coredata::Error(ref lhs) => {
+				if let Coredata::Error(ref rhs) = *other {
+					lhs == rhs
+				} else {
+					false
+				}
+			}
+			Coredata::Function(Function::Builtin(_, ref lhs)) => {
+				if let Coredata::Function(Function::Builtin(_, ref rhs)) = *other {
+					lhs == rhs
+				} else {
+					false
+				}
+			}
+			Coredata::Function(Function::Library(ref lhsparams, ref lhscode)) => {
+				if let Coredata::Function(Function::Library(ref rhsparams, ref rhscode)) = *other {
+					lhsparams == rhsparams && lhscode == rhscode
+				} else {
+					false
+				}
+			}
+			Coredata::Integer(ref lhs) => {
+				if let Coredata::Integer(ref rhs) = *other {
+					lhs == rhs
+				} else {
+					false
+				}
+			}
+			Coredata::Macro(Macro::Builtin(_, ref lhs)) => {
+				if let Coredata::Macro(Macro::Builtin(_, ref rhs)) = *other {
+					lhs == rhs
+				} else {
+					false
+				}
+			}
+			Coredata::Macro(Macro::Library(ref lhsparam, ref lhscode)) => {
+				if let Coredata::Macro(Macro::Library(ref rhsparam, ref rhscode)) = *other {
+					lhsparam == rhsparam && lhscode == rhscode
+				} else {
+					false
+				}
+			}
+			Coredata::Internal(ref lhs) => {
+				if let Coredata::Internal(ref rhs) = *other {
+					lhs == rhs
+				} else {
+					false
+				}
+			}
+			Coredata::Null => {
+				if let Coredata::Null = *other {
+					true
+				} else {
+					false
+				}
+			}
+			Coredata::Pair(ref lhshead, ref lhstail) => {
+				if let Coredata::Pair(ref rhshead, ref rhstail) = *other {
+					lhshead == rhshead && lhstail == rhstail
+				} else {
+					false
+				}
+			}
+			Coredata::String(ref lhs) => {
+				if let Coredata::String(ref rhs) = *other {
+					lhs == rhs
+				} else {
+					false
+				}
+			}
+			Coredata::Symbol(ref lhs) => {
+				if let Coredata::Symbol(ref rhs) = *other {
+					lhs == rhs
+				} else {
+					false
+				}
+			}
+		}
+	}
+}
+
+impl cmp::PartialEq for Sourcedata {
+	fn eq(&self, other: &Self) -> bool {
+		self.1 == other.1
+	}
+}
+
+impl fmt::Debug for Function {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match *self {
+			Function::Builtin(.., ref name) => {
+				write![f, "{}", name]?;
+			}
+			Function::Library(ref params, ref code) => {
+				write![f, "(fn ("]?;
+				let mut first = true;
+				for i in params.iter() {
+					if first {
+						write![f, "{}", i]?;
+					} else {
+						write![f, " {}", i]?;
+					}
+					first = false;
+				}
+				write![f, ")"]?;
+				for i in code.iter().rev() {
+					write![f, " {}", i]?;
+				}
+				write![f, ")"]?;
+			}
+		}
+		Ok(())
+	}
+}
+
+impl fmt::Debug for Macro {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match *self {
+			Macro::Builtin(.., ref name) => {
+				write![f, "{}", name]?;
+			}
+			Macro::Library(ref param, ref code) => {
+				write![f, "(mo {}", param]?;
+				for i in code.iter().rev() {
+					write![f, " {}", i]?;
+				}
+				write![f, ")"]?;
+			}
+		}
+		Ok(())
+	}
+}
 
 /// Display for Sourcedata.
 ///

@@ -260,7 +260,7 @@ mod tests {
 	use parse::parse_file;
 	#[test]
 	fn test_interpreter() {
-		let p = parse_file("input").ok().unwrap();
+		let p = parse_file("examples/basic.tko").ok().unwrap();
 		interpret(p);
 	}
 }
