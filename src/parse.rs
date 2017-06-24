@@ -77,6 +77,16 @@ pub fn finish_parsing_characters(mut state: ParseState) -> Result<Program, Parse
 	}
 }
 
+/// Let us know if the parser can safely call `finish_parsing_characters`.
+///
+/// When implement character feeds we may not be certain when input ends, so we
+/// need this function to be able to check if we can safely get a parse state.
+/// The nice thing about this is that we can always parse more later and put
+/// the result into the interpreter with the same effect.
+pub fn is_ready_to_finish(state: &ParseState) -> bool {
+	state.unmatched_opening_parentheses.is_empty()
+}
+
 /// Parses character-by-character to allow parsing from arbitrary character sources.
 ///
 /// Mainly used to implement utility functions that feed characters.
