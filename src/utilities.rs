@@ -1,6 +1,7 @@
 //! Utilities used by the implementation.
 
-use std::{cmp, fmt};
+use std::{cmp, convert, fmt, io};
+use std::error::Error;
 use std::rc::Rc;
 
 use data_structures::{Commands, Coredata, Env, Function, Macro, ParseState, Program, Source,
@@ -388,6 +389,14 @@ impl ParseState {
 			column: 1,
 			source: source.into(),
 		};
+		state
+	}
+}
+
+impl convert::From<io::Error> for ParseState {
+	fn from(err: io::Error) -> Self {
+		let mut state = ParseState::default();
+		state.error = Some(err.description().into());
 		state
 	}
 }
