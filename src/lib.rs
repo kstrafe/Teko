@@ -96,6 +96,9 @@
 //   Sort imports and uses where possible
 // ✓ Implement a proper fmt::Display for Sourcedata
 //   Actually make error handling consistent + stacktrace
+//   Clippify everything
+//   Write tests
+//   Document everything
 //
 // //////////////////////////////////////////////////////////
 

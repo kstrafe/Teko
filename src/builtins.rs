@@ -19,11 +19,13 @@
 //! You always want to put the result of your computation inside `env.result`.
 //! You don't need to clear `params` or `program` manually, that's done by the VM for you.
 
-use std::rc::Rc;
 use std::collections::HashMap;
-use num::{zero, one};
+use std::rc::Rc;
+
 use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro, Function};
 use utilities::*;
+
+use num::{zero, one};
 
 // //////////////////////////////////////////////////////////
 // Standard Library Table
@@ -144,29 +146,37 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<String> {
 
 fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 	{
-		let arguments = env.result.clone();
+		let args = env.result.clone();
 		let sub = Rc::new(Sourcedata(None, Coredata::Function(Function::Builtin(define_internal, "".into()))));
 		program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Call(sub)))));
 		program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Parameterize))));
-		match arguments.tail().1 {
-			Coredata::Pair(ref heado, _) => {
-				program.push(heado.clone());
+		if let Some(ref tail) = args.tail() {
+			match tail.1 {
+				Coredata::Pair(ref heado, _) => {
+					program.push(heado.clone());
+				}
+				Coredata::Null => {
+					unwind_with_error_message("", program, env);
+				}
+				_ => {
+					panic!{"it cant be"};
+				}
 			}
-			Coredata::Null => {
-				unwind_with_error_message("", program, env);
-			}
-			_ => {
-				panic!{"it cant be"};
-			}
+		} else {
+			panic!["ARGTAIL"];
 		}
 		program.push(Rc::new(Sourcedata(None, Coredata::Internal(Commands::Parameterize))));
-		match arguments.head().1 {
-			Coredata::Symbol(ref string) => {
-				program.push(Rc::new(Sourcedata(None, Coredata::String(string.clone()))));
+		if let Some(ref head) = args.head() {
+			match head.1 {
+				Coredata::Symbol(ref string) => {
+					program.push(Rc::new(Sourcedata(None, Coredata::String(string.clone()))));
+				}
+				_ => {
+					panic!("Define did not get a symbol!");
+				}
 			}
-			_ => {
-				panic!("Define did not get a symbol!");
-			}
+		} else {
+			panic!["ARGHEAD"];
 		}
 	}
 	env.params.push(vec![]);
@@ -324,39 +334,56 @@ fn exit(program: &mut Program, env: &mut Env) -> Option<String> {
 
 fn function(_: &mut Program, env: &mut Env) -> Option<String> {
 	let args = env.result.clone();
-	let params = collect_pair_of_symbols_into_vec_string(&args.head());
-	let code = collect_pair_into_vec(&args.tail());
+	let params = if let &Some(ref args) = &args.head() {
+		collect_pair_of_symbols_into_vec_string(args)
+	} else {
+		panic!["function did not get args"];
+	};
+	let code = if let &Some(ref code) = &args.tail() {
+		collect_pair_into_vec(code)
+	} else {
+		panic!["function did not get code"];
+	};
 	env.result = Rc::new(Sourcedata(None, Coredata::Function(Function::Library(params, code))));
 	None
 }
 
 fn head(program: &mut Program, env: &mut Env) -> Option<String> {
-	let error = if let Some(args) = env.params.last() {
+	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
 			Some(format!["head: arity mismatch, expected 1 argument but got {}", args.len()])
 		} else {
-			env.result = args.first().unwrap().head().clone();
-			None
+			if let Some(ref arg) = args.first() {
+				if let Some(ref head) = arg.head() {
+					env.result = head.clone();
+					return None;
+				}
+			}
+			Some(format!["Unable to get arg"])
 		}
 	} else {
 		Some(format!["head: parameter stack is empty"])
-	};
-
-	if let Some(error) = error {
-		unwind_with_error_message(&error, program, env);
 	}
-	None
 }
 
 fn if_conditional(program: &mut Program, env: &mut Env) -> Option<String> {
-	let arguments = env.result.clone();
-	program.push(Rc::new(Sourcedata(None,
-	                                Coredata::Internal(Commands::If(arguments.tail().head(),
-	                                                                arguments.tail()
-		                                                                .tail()
-		                                                                .head())))));
-	program.push(arguments.head());
-	None
+	let arg = env.result.clone();
+	if let Some(head) = arg.head() {
+		if let Some(tail) = arg.tail() {
+			if let Some(head_of_tail) = tail.head() {
+				if let Some(tail_of_tail) = tail.tail() {
+					if let Some(head_of_tail_of_tail) = tail_of_tail.head() {
+						program.push(Rc::new(Sourcedata(None,
+																						Coredata::Internal(Commands::If(head_of_tail,
+																																						head_of_tail_of_tail)))));
+						program.push(head);
+						return None;
+					}
+				}
+			}
+		}
+	}
+	Some("Unable to test if".into())
 }
 
 fn is_error(_: &mut Program, env: &mut Env) -> Option<String> {
@@ -431,16 +458,21 @@ fn lt(_: &mut Program, env: &mut Env) -> Option<String> {
 }
 
 fn make_macro(_: &mut Program, env: &mut Env) -> Option<String> {
-	let args = env.result.clone();
-	let params = match args.head().1 {
-		Coredata::Symbol(ref string) => string.clone(),
-		_ => {
-			panic!("Wrong use of macro");
+	let arg = env.result.clone();
+	if let Some(head) = arg.head() {
+		if let Some(tail) = arg.tail() {
+			let params = match head.1 {
+				Coredata::Symbol(ref string) => string.clone(),
+				_ => {
+					panic!("Wrong use of macro");
+				}
+			};
+			let code = collect_pair_into_vec(&tail);
+			env.result = Rc::new(Sourcedata(None, Coredata::Macro(Macro::Library(params, code))));
+			return None;
 		}
-	};
-	let code = collect_pair_into_vec(&args.tail());
-	env.result = Rc::new(Sourcedata(None, Coredata::Macro(Macro::Library(params, code))));
-	None
+	}
+	Some("make macro failed".into())
 }
 
 fn multiply(_: &mut Program, env: &mut Env) -> Option<String> {
@@ -465,7 +497,7 @@ fn multiply(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
-fn not(program: &mut Program, env: &mut Env) -> Option<String> {
+fn not(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
 			Some(format!["arity mismatch, expected 1, got {}", args.len()])
@@ -543,7 +575,7 @@ fn quote(_: &mut Program, _: &mut Env) -> Option<String> {
 	None
 }
 
-fn set(_: &mut Program, env: &mut Env) -> Option<String> {
+fn set(_: &mut Program, _: &mut Env) -> Option<String> {
 	unimplemented!();
 }
 
@@ -616,15 +648,19 @@ fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 
 /// Take the tail of a pair.
 fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
-	let args = env.params
-		.last()
-		.expect("Should exist by virtue of functions");
-	if args.len() != 1 {
-		panic!("should have only a single arg");
-	} else {
-		env.result = args.first().unwrap().tail().clone();
+	if let Some(ref args) = env.params.last() {
+		if args.len() != 1 {
+			panic!("should have only a single arg");
+		} else {
+			if let Some(ref first) = args.first() {
+				if let Some(tail) = first.tail() {
+					env.result = tail;
+					return None;
+				}
+			}
+		}
 	}
-	None
+	Some("thing went wrong".into())
 }
 
 /// Return a stack trace.

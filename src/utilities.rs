@@ -1,17 +1,19 @@
-//! Contains utilities used by the implementation
-use std::rc::Rc;
+//! Utilities used by the implementation.
+
 use std::fmt;
-use data_structures::{Commands, Coredata, Env, ParseState, Program, Source, Sourcedata, Macro};
+use std::rc::Rc;
+
+use data_structures::{Commands, Coredata, Env, ParseState, Program, Source, Sourcedata};
 use super::VEC_CAPACITY;
 
-/// Implement the writer of sourcedata.
+/// Display for Sourcedata.
 ///
 /// All Sourcedata can be written in a form such that it can be read again.
 impl fmt::Display for Sourcedata {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		use data_structures::Coredata::*;
-		use data_structures::Commands::*;
 		use data_structures::{Boolean, Function, Macro};
+		use data_structures::Commands::*;
+		use data_structures::Coredata::*;
 		let mut first = true;
 		let null = &Sourcedata(None, Coredata::Null);
 		let mut queue = Vec::with_capacity(VEC_CAPACITY);
@@ -154,6 +156,7 @@ impl Default for Source {
 	}
 }
 
+/// A simple human-friendly display format for source.
 impl fmt::Display for Source {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write![f, "{}:{}:{}", self.line, self.column, self.source]
@@ -161,18 +164,18 @@ impl fmt::Display for Source {
 }
 
 impl Sourcedata {
-	pub fn head(&self) -> Rc<Sourcedata> {
+	pub fn head(&self) -> Option<Rc<Sourcedata>> {
 		if let &Sourcedata(_, Coredata::Pair(ref head, _)) = self {
-			head.clone()
+			Some(head.clone())
 		} else {
-			Rc::new(Sourcedata(None, Coredata::Null))
+			None
 		}
 	}
-	pub fn tail(&self) -> Rc<Sourcedata> {
+	pub fn tail(&self) -> Option<Rc<Sourcedata>> {
 		if let &Sourcedata(_, Coredata::Pair(_, ref tail)) = self {
-			tail.clone()
+			Some(tail.clone())
 		} else {
-			Rc::new(Sourcedata(None, Coredata::Null))
+			None
 		}
 	}
 }
