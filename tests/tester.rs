@@ -11,6 +11,8 @@ use num::BigInt;
 
 #[test]
 fn main() {
+	error("divide-by-zero.tko");
+
 	integer("addition-0.tko", "0");
 	integer("addition-1.tko", "0");
 	integer("addition-2.tko", "3");
@@ -21,6 +23,14 @@ fn main() {
 // //////////////////////////////////////////////////////////
 // Utility functions
 // //////////////////////////////////////////////////////////
+
+fn error(filename: &str) {
+	if let Coredata::Error(_) = file2result(filename).1 {
+		assert![true];
+	} else {
+		assert![false];
+	}
+}
 
 fn file2result(filename: &str) -> Rc<teko::data_structures::Sourcedata> {
 	let program = parse_file(&(String::from("tests/") + filename))

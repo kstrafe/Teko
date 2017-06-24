@@ -22,10 +22,10 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro, Function};
+use data_structures::{Boolean, Commands, Coredata, Env, Function, Macro, Program, Sourcedata};
 use utilities::*;
 
-use num::{one, zero};
+use num::{BigInt, one, zero};
 
 // //////////////////////////////////////////////////////////
 // Standard Library Table
@@ -256,7 +256,10 @@ fn divide(_: &mut Program, env: &mut Env) -> Option<String> {
 		if args.len() == 1 {
 			for arg in args.iter() {
 				match **arg {
-					Sourcedata(_, Coredata::Integer(ref value)) => {
+					Sourcedata(ref source, Coredata::Integer(ref value)) => {
+						if value == &zero::<BigInt>() {
+							return Some(format!["argument {} is zero", optional_source(source)]);
+						}
 						sum = sum / value;
 					}
 					Sourcedata(Some(ref source), ..) => {
@@ -275,10 +278,15 @@ fn divide(_: &mut Program, env: &mut Env) -> Option<String> {
 			let mut first = true;
 			for arg in args.iter() {
 				match **arg {
-					Sourcedata(_, Coredata::Integer(ref value)) => {
+					Sourcedata(ref source, Coredata::Integer(ref value)) => {
 						if first {
 							sum = value.clone();
 						} else {
+							if value == &zero::<BigInt>() {
+								return Some(
+									format!["argument {} is zero", optional_source(source)],
+								);
+							}
 							sum = sum / value;
 						}
 					}

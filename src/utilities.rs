@@ -555,6 +555,14 @@ pub fn optimize_tail_call(program: &mut Program, env: &mut Env, params: &[String
 	}
 }
 
+pub fn optional_source(source: &Option<Source>) -> String {
+	if let Some(ref source) = *source {
+		format!["{}", source]
+	} else {
+		String::from("_")
+	}
+}
+
 // TODO change from panic to unwind, but can we be safe about such a serious error by
 // unwinding? Maybe a stop function that freezes the interpreter...
 /// Pops the specified parameters from the stack.
