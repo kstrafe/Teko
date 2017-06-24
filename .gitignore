@@ -2,6 +2,7 @@
 *.bk
 !.gitignore
 !examples/
+!specification/
 !src/
 !tests/
 !find_test_executable.sh

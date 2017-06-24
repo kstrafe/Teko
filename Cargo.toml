@@ -1,10 +1,12 @@
 [package]
 name = "teko"
+description = "The Teko programming language implementation in Rust"
 version = "0.1.0"
 authors = ["Kevin Robert Stravers <macocio@gmail.com>"]
+license = "GPL-3.0"
 
 [dependencies]
-clippy = {version = "*", optional = true}
+clippy = {version = "0.0.140", optional = true}
 num = "0.1.37"
 num-traits = "0.1.37"
 
