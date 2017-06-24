@@ -478,9 +478,9 @@ pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Progra
 	let unwind = if let Some(ref error) = *error {
 		let trace = internal_trace(program, env);
 		if let Some(ref source) = *source {
-			Some(format!["{}\n{} <= {}", trace, source, error])
+			Some(format!["\n{}\n{} <= {}", trace, source, error])
 		} else {
-			Some(format!["{}\n{}", trace, error])
+			Some(format!["\n{}\n{}", trace, error])
 		}
 	} else {
 		None
