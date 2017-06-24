@@ -1,3 +1,6 @@
+(* 1 2 (+ ()) 5)
+(exit)
+
 (write (error? (wind (if true
   (write (* 1 2 3 ()))
   (unwind 31234)))))
@@ -39,3 +42,7 @@
                       (count (+ v a)))))
 (write (count 0))
 (write (" after max))
+
+Some(format!["expected String but got {}, {}", data_name(args), source]);
+Some("arity mismatch, expecting N but got M".into());
+Some("no argument stack".into());

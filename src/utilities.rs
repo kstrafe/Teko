@@ -6,6 +6,22 @@ use std::rc::Rc;
 use data_structures::{Commands, Coredata, Env, ParseState, Program, Source, Sourcedata};
 use super::VEC_CAPACITY;
 
+pub fn data_name(data: &Sourcedata) -> String {
+	use data_structures::Coredata::*;
+	match data.1 {
+		Boolean(..)  => "Boolean",
+		Error(..)    => "Error",
+		Function(..) => "Function",
+		Integer(..)  => "Integer",
+		Internal(..) => "Internal",
+		Macro(..)    => "Macro",
+		Null         => "Null",
+		Pair(..)     => "Pair",
+		String(..)   => "String",
+		Symbol(..)   => "Symbol",
+	}.into()
+}
+
 /// Display for Sourcedata.
 ///
 /// All Sourcedata can be written in a form such that it can be read again.
@@ -337,14 +353,18 @@ pub fn compute_intersection<'a>(a: &'a Vec<String>, b: &'a Vec<String>) -> Vec<&
 	intersection
 }
 
+/// Unwind and trace with an error message if it is Some.
+///
+/// Mixes unwind and tracing from an error's invocation. Any time an unwind
+/// happens `env.result` will contain an error with a string containing the stack
+/// trace an addition to the error provided.
 pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Program, env: &mut Env) {
 	let unwind = if let &Some(ref error) = error {
-		use builtins::trace;
-		trace(program, env);
+		let trace = internal_trace(program, env);
 		if let &Some(ref source) = source {
-			Some(format!["{} <= {}\n{}", source, error, env.result])
+			Some(format!["{}\n{} <= {}", trace, source, error])
 		} else {
-			Some(format!["{}\n{}", error, env.result])
+			Some(format!["{}\n{}", trace, error])
 		}
 	} else {
 		None
@@ -352,6 +372,24 @@ pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Progra
 	if let Some(error) = unwind {
 		unwind_with_error_message(&error[..], program, env);
 	}
+}
+
+pub fn internal_trace(program: &mut Program, _: &mut Env) -> String {
+	let mut string = String::from("");
+	let mut empty_length = 1;
+	let mut first = true;
+	for i in program.iter() {
+		if !first { string.push_str("\n"); }
+		if let &Sourcedata(Some(ref source), ..) = &**i {
+			let source_string = format!["{}", source];
+			empty_length = source_string.len();
+			string.push_str(&format!["{} <= {}", source_string, i]);
+		} else {
+			string.push_str(&format!["{} <= {}", (0..empty_length).map(|_| "_").collect::<String>(), i]);
+		}
+		first = false;
+	}
+	string
 }
 
 /// Optimizes tail calls by seeing if the current `params` can be merged with the top of the stack.

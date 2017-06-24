@@ -18,13 +18,13 @@
 //! }
 //! ```
 use std::rc::Rc;
-use super::VEC_CAPACITY;
 
 use num::BigInt;
 
 use builtins::*;
 use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro, Function};
 use utilities::*;
+use super::VEC_CAPACITY;
 
 /// Evaluates a program with a given environment.
 ///
