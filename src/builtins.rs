@@ -31,6 +31,9 @@ use num::{one, zero};
 // Standard Library Table
 // //////////////////////////////////////////////////////////
 
+const HELP: &str = "Enter `(@variables)' to see all current variables in scope
+`(exit)' or CTRL-D to exit";
+
 /// Create the builtin library table.
 ///
 /// The table contains mappings from strings to arbitrary data, functions, and macros.
@@ -43,6 +46,7 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 	construct_builtins! {
 		// This section contains non-functions and non-macros
 		{
+			"help" => Coredata::String(HELP.into()),
 			"true" => Coredata::Boolean(Boolean::True),
 			"false" => Coredata::Boolean(Boolean::False),
 		}
