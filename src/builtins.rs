@@ -11,7 +11,7 @@
 //! The program stack `.top()` contains the next datum to be evaluated. So pushing
 //! and popping operations are very useful.
 //!
-//! Env has three elements: `store`, `params`, and `result`. When a function is called,
+//! `Env` has three elements: `store`, `params`, and `result`. When a function is called,
 //! all args are stored in `params`. When a macro is called, the parse tree is
 //! located in `result`. Note that params is a vector of a vector, because nested function
 //! calls will need to store args there, functioning like a stack.
@@ -84,9 +84,10 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Function : "exit" => exit,
 		// Useful builtins
 		Function : "@program-count" => at_program_count,
-		Function : "@sleep" => sleep,
+		Function : "@msleep" => msleep,
 		Function : "@trace" => trace,
 		Function : "@variable-count" => at_variable_count,
+		Function : "@variables" => at_variables,
 	}
 }
 
@@ -94,6 +95,7 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 // Standard Library Entries
 // //////////////////////////////////////////////////////////
 
+/// Logical AND.
 fn and(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		for arg in args {
@@ -131,12 +133,35 @@ fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
+/// Find all active variables in the dynamic scope.
+fn at_variables(_: &mut Program, env: &mut Env) -> Option<String> {
+	env.result = Rc::new(Sourcedata(None, Coredata::Null));
+	for key in env.store.keys() {
+		env.result = Rc::new(Sourcedata(
+			None,
+			Coredata::Pair(
+				Rc::new(Sourcedata(None, Coredata::Symbol(key.clone()))),
+				env.result.clone(),
+			),
+		));
+	}
+	None
+}
+
+/// Used by define to perform the final step of assigning.
 fn define_internal(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if let Some(symbol) = args.first() {
 			match **symbol {
-				Sourcedata(_, Coredata::String(ref string)) => {
+				Sourcedata(ref source, Coredata::String(ref string)) => {
 					if let Some(rhs) = args.get(1) {
+						if env.store.contains_key(string) {
+							if let Some(ref source) = *source {
+								return Some(format!["can not define `{}', already exists, {}", string, source]);
+							} else {
+								return Some(format!["can not define `{}', already exists", string]);
+							}
+						}
 						env.store.insert(string.clone(), vec![rhs.clone()]);
 					} else {
 						return Some("arity mismatch, expecting 2 but got 1".into());
@@ -162,6 +187,7 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
+/// Define a variable to be some value.
 fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 	{
 		let args = env.result.clone();
@@ -172,15 +198,15 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 				"@define-internal".into(),
 			)),
 		));
-		program.push(Rc::new(
-			Sourcedata(None, Coredata::Internal(Commands::Call(sub))),
-		));
-		program.push(Rc::new(
-			Sourcedata(None, Coredata::Internal(Commands::Parameterize)),
-		));
 		if let Some(ref tail) = args.tail() {
 			match tail.1 {
 				Coredata::Pair(ref heado, _) => {
+					program.push(Rc::new(
+						Sourcedata(None, Coredata::Internal(Commands::Call(sub))),
+					));
+					program.push(Rc::new(
+						Sourcedata(None, Coredata::Internal(Commands::Parameterize)),
+					));
 					program.push(heado.clone());
 				}
 				Coredata::Null => {
@@ -196,10 +222,10 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 		program.push(Rc::new(
 			Sourcedata(None, Coredata::Internal(Commands::Parameterize)),
 		));
-		if let Some(ref head) = args.head() {
-			match head.1 {
-				Coredata::Symbol(ref string) => {
-					program.push(Rc::new(Sourcedata(None, Coredata::String(string.clone()))));
+		if let Some(head) = args.head() {
+			match *head {
+				Sourcedata(ref source, Coredata::Symbol(ref string)) => {
+					program.push(Rc::new(Sourcedata(source.clone(), Coredata::String(string.clone()))));
 				}
 				_ => {
 					return Some(format!["expected Pair but got {}", head]);
@@ -213,6 +239,7 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
+/// Mathematical division of integers.
 fn divide(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		let mut sum = one();
@@ -268,6 +295,7 @@ fn divide(_: &mut Program, env: &mut Env) -> Option<String> {
 	}
 }
 
+/// Integer equality comparison.
 fn eq(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		let mut last = None;
@@ -306,6 +334,9 @@ fn eq(_: &mut Program, env: &mut Env) -> Option<String> {
 	}
 }
 
+/// Error constructor.
+///
+/// Error is its own type in Teko.
 fn error(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() >= 2 {
@@ -325,7 +356,7 @@ fn error(_: &mut Program, env: &mut Env) -> Option<String> {
 	}
 }
 
-/// Evaluates the arg as if it's a program.
+/// Evaluates the argument as if it's a program.
 fn eval_expose(program: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
@@ -344,6 +375,7 @@ fn eval_expose(program: &mut Program, env: &mut Env) -> Option<String> {
 	}
 }
 
+/// Exit the entire program.
 fn exit(_: &mut Program, env: &mut Env) -> Option<String> {
 	use num::ToPrimitive;
 
@@ -383,6 +415,7 @@ fn exit(_: &mut Program, env: &mut Env) -> Option<String> {
 	}
 }
 
+/// Construct a function object with dynamic scope.
 fn function(_: &mut Program, env: &mut Env) -> Option<String> {
 	let args = env.result.clone();
 	let params = if let Some(ref args) = args.head() {
@@ -402,6 +435,10 @@ fn function(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
+/// Take the head of a pair.
+///
+/// If the argument is not a pair then this will unwind with
+/// an error.
 fn head(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
@@ -430,6 +467,7 @@ fn head(_: &mut Program, env: &mut Env) -> Option<String> {
 	}
 }
 
+/// Conditional branching primitive.
 fn if_conditional(program: &mut Program, env: &mut Env) -> Option<String> {
 	let arg = env.result.clone();
 	if let Some(head) = arg.head() {
@@ -451,6 +489,7 @@ fn if_conditional(program: &mut Program, env: &mut Env) -> Option<String> {
 	Some("arity mismatch, expecting 3".into())
 }
 
+/// Check if a value is an error type.
 fn is_error(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
@@ -474,6 +513,7 @@ fn is_error(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
+/// Check if the value is a pair type.
 fn is_pair(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
@@ -497,6 +537,7 @@ fn is_pair(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
+/// Check if two symbols are the same.
 fn is_symbol_eq(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if let Some(arg1) = args.first() {
@@ -539,6 +580,7 @@ fn is_symbol_eq(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
+/// Check if the value is a symbol.
 fn is_symbol(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if let Some(arg) = args.first() {
@@ -554,7 +596,7 @@ fn is_symbol(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
-/// The less-than function, traditionally named
+/// The less-than function for comparing integers.
 fn lt(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		let mut last = None;
@@ -593,6 +635,7 @@ fn lt(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
+/// The macro value constructor.
 fn make_macro(_: &mut Program, env: &mut Env) -> Option<String> {
 	let arg = env.result.clone();
 	if let Some(head) = arg.head() {
@@ -621,6 +664,7 @@ fn make_macro(_: &mut Program, env: &mut Env) -> Option<String> {
 	Some("arity mismatch, expecting 2".into())
 }
 
+/// Integer multiplication.
 fn multiply(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		let mut sum = one();
@@ -648,6 +692,7 @@ fn multiply(_: &mut Program, env: &mut Env) -> Option<String> {
 	}
 }
 
+/// Boolean NOT.
 fn not(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
@@ -667,6 +712,7 @@ fn not(_: &mut Program, env: &mut Env) -> Option<String> {
 	}
 }
 
+/// Boolean (inclusive) OR.
 fn or(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		for arg in args {
@@ -682,6 +728,10 @@ fn or(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
+/// Pair value constructor.
+///
+/// The second argument must be a `Pair` or `Null`, else it will
+/// unwind with an error.
 fn pair(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 2 {
@@ -718,6 +768,7 @@ fn pair(_: &mut Program, env: &mut Env) -> Option<String> {
 	}
 }
 
+/// Integer addition. `(+ Integer*) => Integer`
 fn plus(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		let mut sum = zero();
@@ -745,6 +796,7 @@ fn plus(_: &mut Program, env: &mut Env) -> Option<String> {
 	}
 }
 
+/// Print all arguments to standard output.
 fn print(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		for arg in args {
@@ -765,11 +817,99 @@ fn quote(_: &mut Program, _: &mut Env) -> Option<String> {
 	None
 }
 
-fn set(_: &mut Program, _: &mut Env) -> Option<String> {
-	unimplemented!();
+/// Used by set internall to set variables.
+fn set_internal(_: &mut Program, env: &mut Env) -> Option<String> {
+	if let Some(args) = env.params.last() {
+		if let Some(symbol) = args.first() {
+			match **symbol {
+				Sourcedata(ref source, Coredata::String(ref string)) => {
+					if let Some(rhs) = args.get(1) {
+						if !env.store.contains_key(string) {
+							if let Some(ref source) = *source {
+								return Some(format!["can not set! `{}', does not exist, {}", string, source]);
+							} else {
+								return Some(format!["can not set! `{}', does not exist", string]);
+							}
+						}
+						env.store.insert(string.clone(), vec![rhs.clone()]);
+					} else {
+						return Some("arity mismatch, expecting 2 but got 1".into());
+					}
+				}
+				Sourcedata(Some(ref source), ..) => {
+					return Some(format![
+						"expected String but got {}, {}",
+						data_name(symbol),
+						source
+					]);
+				}
+				_ => {
+					return Some(format!["expected String but got {}", data_name(symbol)]);
+				}
+			}
+		} else {
+			return Some("arity mismatch, expecting 2 but got 0".into());
+		}
+	} else {
+		return Some("no arg stack".into());
+	}
+	None
 }
 
-fn sleep(_: &mut Program, env: &mut Env) -> Option<String> {
+/// Set a variable in the environment.
+fn set(program: &mut Program, env: &mut Env) -> Option<String> {
+	{
+		let args = env.result.clone();
+		let sub = Rc::new(Sourcedata(
+			None,
+			Coredata::Function(Function::Builtin(
+				set_internal,
+				"@set-internal".into(),
+			)),
+		));
+		if let Some(ref tail) = args.tail() {
+			match tail.1 {
+				Coredata::Pair(ref heado, _) => {
+					program.push(Rc::new(
+						Sourcedata(None, Coredata::Internal(Commands::Call(sub))),
+					));
+					program.push(Rc::new(
+						Sourcedata(None, Coredata::Internal(Commands::Parameterize)),
+					));
+					program.push(heado.clone());
+				}
+				Coredata::Null => {
+					return Some("arity mismatch, expecting 2 but got 0".into());
+				}
+				_ => {
+					return Some(format!["expected Pair but got {}", tail]);
+				}
+			}
+		} else {
+			return Some("arity mismatch, expecting 2 but got 0".into());
+		}
+		program.push(Rc::new(
+			Sourcedata(None, Coredata::Internal(Commands::Parameterize)),
+		));
+		if let Some(head) = args.head() {
+			match *head {
+				Sourcedata(ref source, Coredata::Symbol(ref string)) => {
+					program.push(Rc::new(Sourcedata(source.clone(), Coredata::String(string.clone()))));
+				}
+				_ => {
+					return Some(format!["expected Pair but got {}", head]);
+				}
+			}
+		} else {
+			return Some("arity mismatch, expecting 2 but got 1".into());
+		}
+	}
+	env.params.push(vec![]);
+	None
+}
+
+/// Sleep for a given number of milliseconds.
+fn msleep(_: &mut Program, env: &mut Env) -> Option<String> {
 	use std::{thread, time};
 	use num::ToPrimitive;
 	if let Some(args) = env.params.last() {
@@ -819,6 +959,7 @@ fn string(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
+/// Integer subtraction.
 fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		let mut sum = zero();
@@ -875,6 +1016,8 @@ fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 }
 
 /// Take the tail of a pair.
+///
+/// If the argument is not a pair, then an error will be unwound.
 fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
@@ -905,7 +1048,7 @@ fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
 
 /// Return a stack trace.
 ///
-/// The stack trace will not print tail call optimized calls, so there may
+/// The stack trace will not show tail call optimized calls, so there may
 /// be some calls missing here. Since the requirement is for the program
 /// to be unbounded in the amount of tail calls, there's no way to definitively
 /// store all calls.

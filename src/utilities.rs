@@ -6,21 +6,9 @@ use std::rc::Rc;
 use data_structures::{Commands, Coredata, Env, ParseState, Program, Source, Sourcedata};
 use super::VEC_CAPACITY;
 
-pub fn data_name(data: &Sourcedata) -> String {
-	use data_structures::Coredata::*;
-	match data.1 {
-		Boolean(..) => "Boolean",
-		Error(..) => "Error",
-		Function(..) => "Function",
-		Integer(..) => "Integer",
-		Internal(..) => "Internal",
-		Macro(..) => "Macro",
-		Null => "Null",
-		Pair(..) => "Pair",
-		String(..) => "String",
-		Symbol(..) => "Symbol",
-	}.into()
-}
+// //////////////////////////////////////////////////////////
+// Impls
+// //////////////////////////////////////////////////////////
 
 /// Display for Sourcedata.
 ///
@@ -192,6 +180,25 @@ impl fmt::Display for Sourcedata {
 	}
 }
 
+impl Sourcedata {
+	/// Return the head of a pair, unwind if not a pair.
+	pub fn head(&self) -> Option<Rc<Sourcedata>> {
+		if let Sourcedata(_, Coredata::Pair(ref head, _)) = *self {
+			Some(head.clone())
+		} else {
+			None
+		}
+	}
+	/// Return the tail of a pair, unwind if not a pair.
+	pub fn tail(&self) -> Option<Rc<Sourcedata>> {
+		if let Sourcedata(_, Coredata::Pair(_, ref tail)) = *self {
+			Some(tail.clone())
+		} else {
+			None
+		}
+	}
+}
+
 impl Default for Source {
 	fn default() -> Source {
 		Source {
@@ -202,27 +209,9 @@ impl Default for Source {
 	}
 }
 
-/// A simple human-friendly display format for source.
 impl fmt::Display for Source {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write![f, "{}:{}:{}", self.line, self.column, self.source]
-	}
-}
-
-impl Sourcedata {
-	pub fn head(&self) -> Option<Rc<Sourcedata>> {
-		if let Sourcedata(_, Coredata::Pair(ref head, _)) = *self {
-			Some(head.clone())
-		} else {
-			None
-		}
-	}
-	pub fn tail(&self) -> Option<Rc<Sourcedata>> {
-		if let Sourcedata(_, Coredata::Pair(_, ref tail)) = *self {
-			Some(tail.clone())
-		} else {
-			None
-		}
 	}
 }
 
@@ -240,6 +229,7 @@ impl Default for ParseState {
 }
 
 impl ParseState {
+	/// Initialize the parse state with a filename.
 	pub fn from_file(filename: &str) -> ParseState {
 		let mut state = ParseState::default();
 		state.current_read_position = Source {
@@ -289,17 +279,119 @@ pub fn collect_pair_of_symbols_into_vec_string(data: &Rc<Sourcedata>) -> Vec<Str
 	ret
 }
 
-/// Prepare the stack for unwinding, with the result being an error message.
+/// Takes the intersection of two sets.
+pub fn compute_intersection<'a>(a: &'a [String], b: &'a [String]) -> Vec<&'a String> {
+	let mut intersection: Vec<&'a String> = Vec::with_capacity(VEC_CAPACITY);
+	for i in a {
+		if b.contains(i) {
+			intersection.push(i);
+		}
+	}
+	intersection
+}
+
+/// Takes the union of two sets.
+pub fn compute_union(a: &[String], b: &[String]) -> Vec<String> {
+	let mut c = a.to_vec();
+	for i in a {
+		if !b.contains(i) {
+			c.push(i.clone());
+		}
+	}
+	c
+}
+
+/// Get the name associated with the data type.
+pub fn data_name(data: &Sourcedata) -> String {
+	use data_structures::Coredata::*;
+	match data.1 {
+		Boolean(..) => "Boolean",
+		Error(..) => "Error",
+		Function(..) => "Function",
+		Integer(..) => "Integer",
+		Internal(..) => "Internal",
+		Macro(..) => "Macro",
+		Null => "Null",
+		Pair(..) => "Pair",
+		String(..) => "String",
+		Symbol(..) => "Symbol",
+	}.into()
+}
+
+/// Unwind and trace with an error message if it is Some.
 ///
-/// Note that preparing the stack means to push an the unwind call onto the stack.
-/// This function doesn't unwind directly.
-pub fn unwind_with_error_message(string: &str, program: &mut Program, env: &mut Env) {
-	let sub = Rc::new(Sourcedata(None, Coredata::String(string.into())));
-	env.params
-		.push(vec![Rc::new(Sourcedata(None, Coredata::Error(sub)))]);
-	unwind(program, env);
-	if env.params.pop().is_none() {
-		panic!["Stack corruption"];
+/// Mixes unwind and tracing from an error's invocation. Any time an unwind
+/// happens `env.result` will contain an error with a string containing the stack
+/// trace an addition to the error provided.
+pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Program, env: &mut Env) {
+	let unwind = if let Some(ref error) = *error {
+		let trace = internal_trace(program, env);
+		if let Some(ref source) = *source {
+			Some(format!["{}\n{} <= {}", trace, source, error])
+		} else {
+			Some(format!["{}\n{}", trace, error])
+		}
+	} else {
+		None
+	};
+	if let Some(error) = unwind {
+		unwind_with_error_message(&error[..], program, env);
+	}
+}
+
+/// Create a string of the entire program stack.
+pub fn internal_trace(program: &mut Program, _: &mut Env) -> String {
+	let mut string = String::from("");
+	let mut empty_length = 1;
+	let mut first = true;
+	for i in program.iter() {
+		if !first {
+			string.push_str("\n");
+		}
+		if let Sourcedata(Some(ref source), ..) = **i {
+			let source_string = format!["{}", source];
+			empty_length = source_string.len();
+			string.push_str(&format!["{} <= {}", source_string, i]);
+		} else {
+			string.push_str(&format![
+				"{} <= {}",
+				(0..empty_length).map(|_| "_").collect::<String>(),
+				i
+			]);
+		}
+		first = false;
+	}
+	string
+}
+
+/// Optimizes tail calls by seeing if the current `params` can be merged with the top of the stack.
+///
+/// If the top of the stack contains `Commands::Deparameterize`, then the variables to be popped
+/// are merged into that [top] object. This is all that's needed to optimize tail calls.
+pub fn optimize_tail_call(program: &mut Program, env: &mut Env, params: &[String]) -> Vec<String> {
+	if let Some(top) = program.pop() {
+		match top.1 {
+			Coredata::Internal(Commands::Deparameterize(ref content)) => {
+				for i in compute_intersection(content, params) {
+					if let Some(ref mut entry) = env.store.get_mut(i) {
+						if entry.pop().is_some() {
+							// OK
+						} else {
+							panic!["Store inconsistency; entry empty"];
+						}
+					} else {
+						panic!["Store inconsistency; entry nonexistent"];
+					}
+				}
+				compute_union(content, params)
+			}
+			_ => {
+				program.push(top.clone()); // Put top back on the program stack
+				params.to_vec()
+			}
+		}
+	} else {
+		params.to_vec()
 	}
 }
 
@@ -357,100 +449,16 @@ pub fn unwind(program: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
-/// Takes the union of two sets.
-pub fn compute_union(a: &[String], b: &[String]) -> Vec<String> {
-	let mut c = a.to_vec();
-	for i in a {
-		if !b.contains(i) {
-			c.push(i.clone());
-		}
-	}
-	c
-}
-
-/// Takes the intersection of two sets.
-pub fn compute_intersection<'a>(a: &'a [String], b: &'a [String]) -> Vec<&'a String> {
-	let mut intersection: Vec<&'a String> = Vec::with_capacity(VEC_CAPACITY);
-	for i in a {
-		if b.contains(i) {
-			intersection.push(i);
-		}
-	}
-	intersection
-}
-
-/// Unwind and trace with an error message if it is Some.
+/// Prepare the stack for unwinding, with the result being an error message.
 ///
-/// Mixes unwind and tracing from an error's invocation. Any time an unwind
-/// happens `env.result` will contain an error with a string containing the stack
-/// trace an addition to the error provided.
-pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Program, env: &mut Env) {
-	let unwind = if let Some(ref error) = *error {
-		let trace = internal_trace(program, env);
-		if let Some(ref source) = *source {
-			Some(format!["{}\n{} <= {}", trace, source, error])
-		} else {
-			Some(format!["{}\n{}", trace, error])
-		}
-	} else {
-		None
-	};
-	if let Some(error) = unwind {
-		unwind_with_error_message(&error[..], program, env);
-	}
-}
-
-pub fn internal_trace(program: &mut Program, _: &mut Env) -> String {
-	let mut string = String::from("");
-	let mut empty_length = 1;
-	let mut first = true;
-	for i in program.iter() {
-		if !first {
-			string.push_str("\n");
-		}
-		if let Sourcedata(Some(ref source), ..) = **i {
-			let source_string = format!["{}", source];
-			empty_length = source_string.len();
-			string.push_str(&format!["{} <= {}", source_string, i]);
-		} else {
-			string.push_str(&format![
-				"{} <= {}",
-				(0..empty_length).map(|_| "_").collect::<String>(),
-				i
-			]);
-		}
-		first = false;
-	}
-	string
-}
-
-/// Optimizes tail calls by seeing if the current `params` can be merged with the top of the stack.
-///
-/// If the top of the stack contains `Commands::Deparameterize`, then the variables to be popped
-/// are merged into that [top] object. This is all that's needed to optimize tail calls.
-pub fn optimize_tail_call(program: &mut Program, env: &mut Env, params: &[String]) -> Vec<String> {
-	if let Some(top) = program.pop() {
-		match top.1 {
-			Coredata::Internal(Commands::Deparameterize(ref content)) => {
-				for i in compute_intersection(content, params) {
-					if let Some(ref mut entry) = env.store.get_mut(i) {
-						if entry.pop().is_some() {
-							// OK
-						} else {
-							panic!["Store inconsistency; entry empty"];
-						}
-					} else {
-						panic!["Store inconsistency; entry nonexistent"];
-					}
-				}
-				compute_union(content, params)
-			}
-			_ => {
-				program.push(top.clone()); // Put top back on the program stack
-				params.to_vec()
-			}
-		}
-	} else {
-		params.to_vec()
+/// Note that preparing the stack means to push an the unwind call onto the stack.
+/// This function doesn't unwind directly.
+pub fn unwind_with_error_message(string: &str, program: &mut Program, env: &mut Env) {
+	let sub = Rc::new(Sourcedata(None, Coredata::String(string.into())));
+	env.params
+		.push(vec![Rc::new(Sourcedata(None, Coredata::Error(sub)))]);
+	unwind(program, env);
+	if env.params.pop().is_none() {
+		panic!["Stack corruption"];
 	}
 }

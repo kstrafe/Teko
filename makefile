@@ -10,6 +10,9 @@ test:
 3:
 	(cargo test --color=always -- --nocapture 2>&1 | ${ta} >> pipe) &
 .PHONY:
+4:
+	(cargo doc --open 2>&1 | ${ta} > /dev/null) &
+.PHONY:
 profile-debug:
 	mkdir -p tmp/
 	cargo test --no-run
