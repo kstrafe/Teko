@@ -90,7 +90,7 @@ pub struct Env {
 }
 
 /// State used by the parser internally
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ParseState {
 	/// Most recent position in the stream being read
 	pub current_read_position: Source,
