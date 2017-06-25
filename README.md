@@ -1,7 +1,7 @@
 # The Teko Programming Language Implementation in Rust #
 
 This library implements the virtual machine that runs Teko. If you're looking for the
-command line interface please refer to [teko](https://github.com/BourgondAries/teko-rs).
+command line interface please refer to [teko-rs](https://github.com/BourgondAries/teko-rs).
 
 # Documentation #
 
