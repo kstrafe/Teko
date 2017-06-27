@@ -21,8 +21,8 @@ use std::rc::Rc;
 
 use builtins::*;
 use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro, Function};
-use utilities::*;
 use super::VEC_CAPACITY;
+use utilities::*;
 
 use num::BigInt;
 
@@ -75,7 +75,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 								err(
 									source,
 									&Some(format![
-										"[E0]: expected {} but got {} arguments",
+										"expected {} but got {} arguments",
 										parameters.len(),
 										arguments.len()
 									]),
@@ -107,7 +107,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					_ => {
 						err(
 							source,
-							&Some("[E1]: element not callable".into()),
+							&Some("element not callable".into()),
 							&mut program,
 							&mut env,
 						);
@@ -132,7 +132,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					last.push(env.result.clone());
 					None
 				} else {
-					Some("[E2]: parameter stack nonexistent".into())
+					Some("parameter stack nonexistent".into())
 				};
 				err(&None, &condition, &mut program, &mut env);
 			}
@@ -173,7 +173,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					_ => {
 						err(
 							source,
-							&Some("[E3]: element not callable".into()),
+							&Some("element not callable".into()),
 							&mut program,
 							&mut env,
 						);
@@ -195,12 +195,12 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 							None
 						} else {
 							Some(format![
-								"[E4]: `{}' does exist but its stack is empty",
+								"`{}' does exist but its stack is empty",
 								string
 							])
 						}
 					} else {
-						Some(format!["[E5]: `{}' does not exist", string])
+						Some(format!["`{}' does not exist", string])
 					};
 					err(source, &error, &mut program, &mut env);
 				}

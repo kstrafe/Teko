@@ -122,6 +122,8 @@
 // ✓ Document everything
 // ✓ Make readme and build instructions
 //   Create extension interface (not sure if feasible atm)
+//   Pretty printing
+//   Colorize errors
 //
 // //////////////////////////////////////////////////////////
 

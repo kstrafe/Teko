@@ -484,7 +484,7 @@ pub fn data_name(data: &Sourcedata) -> String {
 /// happens `env.result` will contain an error with a string containing the stack
 /// trace an addition to the error provided.
 pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Program, env: &mut Env) {
-	let unwind = if let Some(ref error) = *error {
+	let error = if let Some(ref error) = *error {
 		let trace = internal_trace(program, env);
 		if let Some(ref source) = *source {
 			Some(format!["\n{}\n{} <= {}", trace, source, error])
@@ -494,8 +494,13 @@ pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Progra
 	} else {
 		None
 	};
-	if let Some(error) = unwind {
-		unwind_with_error_message(&error[..], program, env);
+	if let Some(error) = error {
+		let sub = Rc::new(Sourcedata(None, Coredata::String(error.into())));
+		env.params.push(vec![Rc::new(Sourcedata(None, Coredata::Error(sub)))]);
+		unwind(program, env);
+		if env.params.pop().is_none() {
+			panic!["Stack corruption"];
+		}
 	}
 }
 
@@ -619,18 +624,4 @@ pub fn unwind(program: &mut Program, env: &mut Env) -> Option<String> {
 		}
 	}
 	None
-}
-
-/// Prepare the stack for unwinding, with the result being an error message.
-///
-/// Note that preparing the stack means to push an the unwind call onto the stack.
-/// This function doesn't unwind directly.
-pub fn unwind_with_error_message(string: &str, program: &mut Program, env: &mut Env) {
-	let sub = Rc::new(Sourcedata(None, Coredata::String(string.into())));
-	env.params
-		.push(vec![Rc::new(Sourcedata(None, Coredata::Error(sub)))]);
-	unwind(program, env);
-	if env.params.pop().is_none() {
-		panic!["Stack corruption"];
-	}
 }
