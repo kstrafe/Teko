@@ -66,10 +66,9 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						env.params.pop();
 						err(source, &error, &mut program, &mut env);
 					}
-					Sourcedata(
-						_,
-						Coredata::Function(Function::Library(ref parameters, ref transfer)),
-					) => {
+					Sourcedata(_,
+					           Coredata::Function(Function::Library(ref parameters,
+					                                                ref transfer))) => {
 						if let Some(arguments) = env.params.pop() {
 							if arguments.len() != parameters.len() {
 								err(
@@ -77,7 +76,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 									&Some(format![
 										"expected {} but got {} arguments",
 										parameters.len(),
-										arguments.len()
+										arguments.len(),
 									]),
 									&mut program,
 									&mut env,
@@ -89,10 +88,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 								ppush![source, Coredata::Internal(cmd)];
 								for (counter, parameter) in parameters.iter().enumerate() {
 									if env.store.contains_key(parameter) {
-										env.store
-											.get_mut(parameter)
-											.unwrap()
-											.push(arguments[counter].clone());
+										env.store.get_mut(parameter).unwrap().push(
+											arguments[counter]
+												.clone(),
+										);
 									} else {
 										env.store.insert(
 											parameter.clone(),
@@ -194,13 +193,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 							env.result = value.clone();
 							None
 						} else {
-							Some(format![
-								"`{}' does exist but its stack is empty",
-								string
-							])
+							Some(format!["variable not found: {}", string])
 						}
 					} else {
-						Some(format!["`{}' does not exist", string])
+						Some(format!["variable not found: {}", string])
 					};
 					err(source, &error, &mut program, &mut env);
 				}

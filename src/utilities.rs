@@ -487,7 +487,7 @@ pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Progra
 	let error = if let Some(ref error) = *error {
 		let trace = internal_trace(program, env);
 		if let Some(ref source) = *source {
-			Some(format!["\n{}\n{} <= {}", trace, source, error])
+			Some(format!["\n{}\n{} : {}", trace, source, error])
 		} else {
 			Some(format!["\n{}\n{}", trace, error])
 		}
@@ -496,7 +496,11 @@ pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Progra
 	};
 	if let Some(error) = error {
 		let sub = Rc::new(Sourcedata(None, Coredata::String(error.into())));
-		env.params.push(vec![Rc::new(Sourcedata(None, Coredata::Error(sub)))]);
+		env.params.push(vec![
+			Rc::new(
+				Sourcedata(None, Coredata::Error(sub))
+			),
+		]);
 		unwind(program, env);
 		if env.params.pop().is_none() {
 			panic!["Stack corruption"];
@@ -516,12 +520,12 @@ pub fn internal_trace(program: &mut Program, _: &mut Env) -> String {
 		if let Sourcedata(Some(ref source), ..) = **i {
 			let source_string = format!["{}", source];
 			empty_length = source_string.len();
-			string.push_str(&format!["{} <= {}", source_string, i]);
+			string.push_str(&format!["{} : {}", source_string, i]);
 		} else {
 			string.push_str(&format![
-				"{} <= {}",
+				"{} : {}",
 				(0..empty_length).map(|_| "_").collect::<String>(),
-				i
+				i,
 			]);
 		}
 		first = false;

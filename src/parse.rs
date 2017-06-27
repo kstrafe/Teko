@@ -210,9 +210,11 @@ fn set_error(state: &mut ParseState, message: &str) -> ParseState {
 }
 
 fn copy_current_read_position_to_unmatched_opening_parentheses(state: &mut ParseState) {
-	state
-		.unmatched_opening_parentheses
-		.push(state.current_read_position.clone());
+	state.unmatched_opening_parentheses.push(
+		state
+			.current_read_position
+			.clone(),
+	);
 }
 
 fn pop_previous_opening_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
@@ -289,7 +291,7 @@ mod tests {
 			"test)",
 			"(test1 (test2)",
 			"(((((((()))))))",
-			"(((((()))))))"
+			"(((((()))))))",
 		];
 	}
 }
