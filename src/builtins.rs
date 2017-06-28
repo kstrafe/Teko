@@ -1085,8 +1085,7 @@ fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
 /// to be unbounded in the amount of tail calls, there's no way to definitively
 /// store all calls.
 pub fn trace(program: &mut Program, env: &mut Env) -> Option<String> {
-	let string = internal_trace(program, env);
-	env.result = Rc::new(Sourcedata(None, Coredata::String(string)));
+	env.result = internal_trace(program, env);
 	None
 }
 

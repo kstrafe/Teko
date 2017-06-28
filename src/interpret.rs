@@ -52,6 +52,7 @@ use num::BigInt;
 /// ```
 pub fn eval(mut program: Program, mut env: Env) -> Env {
 	macro_rules! ppush {
+		($source:expr, $data:expr,) => { ppush![$source, $data] };
 		($source:expr, $data:expr) => {
 			program.push(Rc::new(Sourcedata($source.clone(), $data)))
 		};
@@ -143,7 +144,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						env.params.push(vec![]);
 						ppush![
 							source,
-							Coredata::Internal(Commands::Call(env.result.clone()))
+							Coredata::Internal(Commands::Call(env.result.clone())),
 						];
 						for argument in collect_pair_into_vec(arguments) {
 							ppush![None, Coredata::Internal(Commands::Parameterize)];
@@ -165,7 +166,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						}
 						ppush![
 							source,
-							Coredata::Internal(Commands::Deparameterize(command))
+							Coredata::Internal(Commands::Deparameterize(command)),
 						];
 						program.extend(code.iter().cloned());
 					}

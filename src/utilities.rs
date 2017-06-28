@@ -508,33 +508,39 @@ pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Progra
 	}
 }
 
+pub fn rc<T>(rc: T) -> Rc<T> {
+	Rc::new(rc)
+}
+
+pub fn rcs(rcs: Coredata) -> Rc<Sourcedata> {
+	rc(Sourcedata(None, rcs))
+}
+
 /// Create a string of the entire program stack.
-pub fn internal_trace(program: &mut Program, _: &mut Env) -> String {
-	let mut string = String::from("");
-	let mut empty_length = 1;
-	let mut first = true;
-	for i in program.iter() {
-		if !first {
-			string.push_str("\n");
-		}
+pub fn internal_trace(program: &mut Program, _: &mut Env) -> Rc<Sourcedata> {
+	use data_structures::Coredata::*;
+	let null = Rc::new(Sourcedata(None, Coredata::Null));
+	let mut lst = null.clone();
+	for i in program.iter().rev() {
 		if let Sourcedata(Some(ref source), ..) = **i {
 			let source_string = format!["{}", source];
-			empty_length = source_string.len();
-			string.push_str(&format!["{} : {}", source_string, i]);
+			let expr_string = format!["{}", i];
+			let src = rc(Sourcedata(None, String(source_string)));
+			let expr = rc(Sourcedata(None, String(expr_string)));
+			lst = rcs(Pair(
+				rcs(Pair(src, rcs(Pair(i.clone(), rcs(Null))))),
+				lst.clone(),
+			));
 		} else {
-			string.push_str(&format![
-				"{} : {}",
-				(0..empty_length).map(|_| "_").collect::<String>(),
-				i,
-			]);
+			let expr_string = format!["{}", i];
+			let expr = rc(Sourcedata(None, String(expr_string)));
+			lst = rcs(Pair(
+				rcs(Pair(rcs(Null), rcs(Pair(i.clone(), rcs(Null))))),
+				lst.clone(),
+			));
 		}
-		first = false;
 	}
-	if string == "" {
-		"stack is emtpy".into()
-	} else {
-		string
-	}
+	lst
 }
 
 /// Optimizes tail calls by seeing if the current `params` can be merged with the top of the stack.
