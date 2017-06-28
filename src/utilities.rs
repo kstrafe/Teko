@@ -495,21 +495,15 @@ pub fn data_name(data: &Sourcedata) -> String {
 /// trace an addition to the error provided.
 pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Program, env: &mut Env) {
 	let error = if let Some(ref error) = *error {
+		program.push(rc(Sourcedata(source.clone(), Coredata::String(error.clone()))));
 		let trace = internal_trace(program, env);
-		if let Some(ref source) = *source {
-			Some(format!["\n{}\n{} : {}", trace, source, error])
-		} else {
-			Some(format!["\n{}\n{}", trace, error])
-		}
+		Some(trace)
 	} else {
 		None
 	};
 	if let Some(error) = error {
-		let sub = Rc::new(Sourcedata(None, Coredata::String(error.into())));
 		env.params.push(vec![
-			Rc::new(
-				Sourcedata(None, Coredata::Error(sub))
-			),
+			rcs(Coredata::Error(error))
 		]);
 		unwind(program, env);
 		if env.params.pop().is_none() {
@@ -521,7 +515,7 @@ pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Progra
 /// Create a string of the entire program stack.
 pub fn internal_trace(program: &mut Program, _: &mut Env) -> Rc<Sourcedata> {
 	use data_structures::Coredata::*;
-	let null = Rc::new(Sourcedata(None, Coredata::Null));
+	let null = rcs(Coredata::Null);
 	let mut lst = null.clone();
 	for i in program.iter().rev() {
 		if let Sourcedata(Some(ref source), ..) = **i {

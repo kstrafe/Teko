@@ -17,8 +17,6 @@
 //! 	}
 //! }
 //! ```
-use std::rc::Rc;
-
 use builtins::*;
 use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro, Function};
 use super::VEC_CAPACITY;
@@ -54,7 +52,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 	macro_rules! ppush {
 		($source:expr, $data:expr,) => { ppush![$source, $data] };
 		($source:expr, $data:expr) => {
-			program.push(Rc::new(Sourcedata($source.clone(), $data)))
+			program.push(rc(Sourcedata($source.clone(), $data)))
 		};
 	}
 	while let Some(top) = program.pop() {
@@ -187,7 +185,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			}
 			Sourcedata(ref source, Coredata::Symbol(ref string)) => {
 				if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
-					env.result = Rc::new(Sourcedata(source.clone(), Coredata::Integer(number)));
+					env.result = rc(Sourcedata(source.clone(), Coredata::Integer(number)));
 				} else {
 					let error = if let Some(value) = env.store.get(string) {
 						if let Some(value) = value.last() {
@@ -221,7 +219,7 @@ pub fn initialize_environment_with_standard_library() -> Env {
 	Env {
 		store: create_builtin_library_table(),
 		params: Vec::with_capacity(VEC_CAPACITY),
-		result: Rc::new(Sourcedata(None, Coredata::Null)),
+		result: rc(Sourcedata(None, Coredata::Null)),
 	}
 }
 
