@@ -368,6 +368,16 @@ impl fmt::Display for Source {
 	}
 }
 
+impl<'a> convert::From<&'a Source> for Rc<Sourcedata> {
+	fn from(src: &'a Source) -> Rc<Sourcedata> {
+		use data_structures::Coredata::*;
+		rcs(Pair(rcs(Integer(src.line.into())),
+		         rcs(Pair(rcs(Integer(src.column.into())),
+		                  rcs(Pair(rcs(String(src.source.clone())),
+		                           rcs(Null)))))))
+	}
+}
+
 impl Default for ParseState {
 	fn default() -> ParseState {
 		ParseState {
@@ -508,14 +518,6 @@ pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Progra
 	}
 }
 
-pub fn rc<T>(rc: T) -> Rc<T> {
-	Rc::new(rc)
-}
-
-pub fn rcs(rcs: Coredata) -> Rc<Sourcedata> {
-	rc(Sourcedata(None, rcs))
-}
-
 /// Create a string of the entire program stack.
 pub fn internal_trace(program: &mut Program, _: &mut Env) -> Rc<Sourcedata> {
 	use data_structures::Coredata::*;
@@ -523,17 +525,11 @@ pub fn internal_trace(program: &mut Program, _: &mut Env) -> Rc<Sourcedata> {
 	let mut lst = null.clone();
 	for i in program.iter().rev() {
 		if let Sourcedata(Some(ref source), ..) = **i {
-			let source_string = format!["{}", source];
-			let expr_string = format!["{}", i];
-			let src = rc(Sourcedata(None, String(source_string)));
-			let expr = rc(Sourcedata(None, String(expr_string)));
 			lst = rcs(Pair(
-				rcs(Pair(src, rcs(Pair(i.clone(), rcs(Null))))),
+				rcs(Pair(source.into(), rcs(Pair(i.clone(), rcs(Null))))),
 				lst.clone(),
 			));
 		} else {
-			let expr_string = format!["{}", i];
-			let expr = rc(Sourcedata(None, String(expr_string)));
 			lst = rcs(Pair(
 				rcs(Pair(rcs(Null), rcs(Pair(i.clone(), rcs(Null))))),
 				lst.clone(),
@@ -608,6 +604,16 @@ pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &[String]) {
 			env.store.remove(arg);
 		}
 	}
+}
+
+/// Alias for `Rc::new(_)`.
+pub fn rc<T>(rc: T) -> Rc<T> {
+	Rc::new(rc)
+}
+
+/// Alias for `Rc::new(Sourcedata(None, _))`.
+pub fn rcs(rcs: Coredata) -> Rc<Sourcedata> {
+	rc(Sourcedata(None, rcs))
 }
 
 /// Unwinds the stack until first wind is encountered.
