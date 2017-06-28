@@ -316,7 +316,38 @@ impl fmt::Display for Sourcedata {
 					if spacer {
 						write![f, " "]?;
 					}
-					write![f, "(\" {})", arg]?;
+					macro_rules! is_plainly_printable {
+						($i:ident) => {
+							// TODO remove () around cast: rustc panics because it thinks it's a generic
+							!$i.is_whitespace() && $i != '(' && $i != ')' && $i as u32 > 0x1F && (($i as u32) < 0x7F || $i as u32 > 0x9F)
+						};
+					}
+					let mut l3: char = '_';
+					let mut l2: char;
+					let mut l1: char = ' ';
+					write![f, "(\""]?;
+					for ch in arg.chars().chain("_".chars()) {
+						l2 = l1;
+						l1 = ch;
+						// Is l2 surrounded by printable characters?
+						if !is_plainly_printable!(l2) {
+							if is_plainly_printable!(l1) && is_plainly_printable!(l3) {
+								match l2 {
+									' ' => write![f, " "]?,
+									_ => write![f, "({})", l2 as u32]?,
+								}
+							} else {
+								match l2 {
+									_ => write![f, "({})", l2 as u32]?,
+								}
+							}
+						} else {
+							// l2 is printable, so all is well
+							write![f, "{}", l2]?;
+						}
+						l3 = l2;
+					}
+					write![f, ")"]?;
 					spacer = true;
 				}
 				Symbol(ref arg) => {

@@ -123,7 +123,9 @@
 // ✓ Make readme and build instructions
 //   Create extension interface (not sure if feasible atm)
 //   Pretty printing
+// ✓ Escape strings during printing
 //   Colorize errors
+//   Add builtin doc to retrieve documentation about functions
 //
 // //////////////////////////////////////////////////////////
 
