@@ -84,6 +84,7 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Function : "eval" => eval_expose,
 		Function : "write" => write,
 		Function : "print" => print,
+		Function : "doc" => doc,
 		Macro    : "\"" => string,
 		Function : "exit" => exit,
 		// Useful builtins
@@ -310,6 +311,41 @@ fn divide(_: &mut Program, env: &mut Env) -> Option<String> {
 		None
 	} else {
 		Some("no argument stack".into())
+	}
+}
+
+/// Retrieve the first statement of a function or macro.
+fn doc(_: &mut Program, env: &mut Env) -> Option<String> {
+	if let Some(args) = env.params.last() {
+		if args.len() != 1 {
+			Some(format!["arity mismatch, expecting 1 but got {}", args.len()])
+		} else if let Some(arg) = args.first() {
+			match arg.1 {
+				Coredata::Function(Function::Library(_, ref stats)) => {
+					if stats.len() > 0 {
+						env.result = stats.last().unwrap().clone();
+					} else {
+						env.result = rcs(Coredata::Null);
+					}
+					None
+				}
+				Coredata::Macro(Macro::Library(_, ref stats)) => {
+					if stats.len() > 0 {
+						env.result = stats.last().unwrap().clone();
+					} else {
+						env.result = rcs(Coredata::Null);
+					}
+					None
+				}
+				_ => {
+					Some(format!["expected Function or Macro but got {}", data_name(&arg)])
+				}
+			}
+		} else {
+			None
+		}
+	} else {
+		None
 	}
 }
 
