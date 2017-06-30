@@ -326,6 +326,7 @@ impl fmt::Display for Sourcedata {
 					let mut l3: char = '_';
 					let mut l2: char;
 					let mut l1: char = ' ';
+					let mut rle = 1;  // rle = runtime-length-encoding
 					write![f, "(\""]?;
 					for ch in arg.chars().chain("_".chars()) {
 						l2 = l1;
@@ -335,11 +336,20 @@ impl fmt::Display for Sourcedata {
 							if is_plainly_printable!(l1) && is_plainly_printable!(l3) {
 								match l2 {
 									' ' => write![f, " "]?,
-									_ => write![f, "({})", l2 as u32]?,
+									_ => {
+										write![f, "({})", l2 as u32]?;
+									}
 								}
 							} else {
-								match l2 {
-									_ => write![f, "({})", l2 as u32]?,
+								if l1 == l2 {
+									rle += 1;
+								} else {
+									if rle == 1 {
+										write![f, "({})", l2 as u32]?;
+									} else {
+										write![f, "({} {})", l2 as u32, rle]?;
+									}
+									rle = 1;
 								}
 							}
 						} else {

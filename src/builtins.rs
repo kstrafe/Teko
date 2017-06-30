@@ -22,6 +22,7 @@
 // //////////////////////////////////////////////////////////
 // std imports
 // //////////////////////////////////////////////////////////
+use std::char;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -851,9 +852,12 @@ fn plus(_: &mut Program, env: &mut Env) -> Option<String> {
 fn print(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		for arg in args {
-			print!["{}", arg];
+			if let Coredata::String(ref value) = arg.1 {
+				println!["{}", value];
+			} else {
+				println!["{}", arg];
+			}
 		}
-		println![""];
 		None
 	} else {
 		Some("no argument stack".into())
@@ -1007,15 +1011,63 @@ fn msleep(_: &mut Program, env: &mut Env) -> Option<String> {
 /// Create a string
 ///
 /// Creates a string from the given symbols by inserting single spaces inbetween each symbol.
-/// TODO: Allow subexpressions; implement string interpolation and non-printable
-/// character insertion.
 fn string(_: &mut Program, env: &mut Env) -> Option<String> {
-	if let Some(vec) = collect_pair_of_symbols_into_vec_string(&env.result) {
-		env.result = Rc::new(Sourcedata(None, Coredata::String(vec.join(" "))));
-		None
-	} else {
-		Some("non symbol contained in string".into())
+	let data = {
+		let mut data = collect_pair_into_vec(&env.result);
+		data.reverse();
+		data
+	};
+	let mut ret = String::from("");
+	let mut last_symbol = false;
+	for i in data {
+		match *i {
+			Sourcedata(_, Coredata::Symbol(ref string)) => {
+				if last_symbol {
+					ret.push(' ');
+				}
+				ret.push_str(string);
+				last_symbol = true;
+			}
+			Sourcedata(_, Coredata::Pair(ref head, ref tail)) => {
+				let repeats = if let Coredata::Null = tail.1 {
+					1
+				} else if let Sourcedata(ref source, Coredata::Pair(ref head, ref tail)) = **tail {
+					if let Sourcedata(ref source, Coredata::Symbol(ref value)) = **head {
+						let code = value.parse::<u32>();
+						if let Ok(code) = code {
+							code
+						} else {
+							return Some(format!["{}, unable to parse value to unsigned 32-bit integer: {}", optional_source(source), value]);
+						}
+					} else {
+						return Some(format!["{}, tail is not a pair: {}", optional_source(source), tail]);
+					}
+				} else {
+					return Some("string character only accepts a one or two arguments".into());
+				};
+				if let Coredata::Symbol(ref value) = head.1 {
+					let code = value.parse::<u32>();
+					if let Ok(code) = code {
+						if let Some(code) = char::from_u32(code) {
+							for _ in 0..repeats {
+								ret.push(code);
+							}
+						} else {
+							return Some("value is not a valid character value".into());
+						}
+					} else {
+						return Some("value is not an unsigned 32-bit value".into());
+					}
+				}
+				last_symbol = false;
+			}
+			_ => {
+				return None;
+			}
+		}
 	}
+	env.result = rcs(Coredata::String(ret));
+	None
 }
 
 /// Integer subtraction.
