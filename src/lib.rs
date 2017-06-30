@@ -125,7 +125,8 @@
 //   Pretty printing
 // ✓ Escape strings during printing
 //   Colorize errors
-//   Add builtin doc to retrieve documentation about functions
+// ✓ Add builtin doc to retrieve documentation about functions
+//   Reconsider access to program stack
 //
 // //////////////////////////////////////////////////////////
 
