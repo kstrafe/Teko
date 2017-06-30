@@ -319,7 +319,8 @@ impl fmt::Display for Sourcedata {
 					macro_rules! is_plainly_printable {
 						($i:ident) => {
 							// TODO remove () around cast: rustc panics because it thinks it's a generic
-							!$i.is_whitespace() && $i != '(' && $i != ')' && $i as u32 > 0x1F && (($i as u32) < 0x7F || $i as u32 > 0x9F)
+							!$i.is_whitespace() && $i != '(' && $i != ')' && $i as u32 > 0x1F &&
+							(($i as u32) < 0x7F || $i as u32 > 0x9F)
 						};
 					}
 					let mut l3: char = '_';
@@ -402,10 +403,13 @@ impl fmt::Display for Source {
 impl<'a> convert::From<&'a Source> for Rc<Sourcedata> {
 	fn from(src: &'a Source) -> Rc<Sourcedata> {
 		use data_structures::Coredata::*;
-		rcs(Pair(rcs(Integer(src.line.into())),
-		         rcs(Pair(rcs(Integer(src.column.into())),
-		                  rcs(Pair(rcs(String(src.source.clone())),
-		                           rcs(Null)))))))
+		rcs(Pair(
+			rcs(Integer(src.line.into())),
+			rcs(Pair(
+				rcs(Integer(src.column.into())),
+				rcs(Pair(rcs(String(src.source.clone())), rcs(Null))),
+			)),
+		))
 	}
 }
 
@@ -526,16 +530,16 @@ pub fn data_name(data: &Sourcedata) -> String {
 /// trace an addition to the error provided.
 pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Program, env: &mut Env) {
 	let error = if let Some(ref error) = *error {
-		program.push(rc(Sourcedata(source.clone(), Coredata::String(error.clone()))));
+		program.push(rc(
+			Sourcedata(source.clone(), Coredata::String(error.clone())),
+		));
 		let trace = internal_trace(program, env);
 		Some(trace)
 	} else {
 		None
 	};
 	if let Some(error) = error {
-		env.params.push(vec![
-			rcs(Coredata::Error(error))
-		]);
+		env.params.push(vec![rcs(Coredata::Error(error))]);
 		unwind(program, env);
 		if env.params.pop().is_none() {
 			panic!["Stack corruption"];

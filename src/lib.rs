@@ -40,10 +40,10 @@
 //! function.
 //!
 //! ```text
-//! (define factorial (fn (n accum)
-//!                       (if (= n 1)
-//!                           accum
-//!                           (factorial (- n 1) (* n accum)))))
+//! (def factorial (fn (n accum)
+//!                    (if (= n 1)
+//!                        accum
+//!                        (factorial (- n 1) (* n accum)))))
 //! (factorial 5 1)
 //! ```
 //! # Usage #
@@ -55,10 +55,10 @@
 //! use num_traits::cast::ToPrimitive;
 //! fn main() {
 //! 	let program = teko::parse::parse_string("
-//! 	(define factorial (fn (n accum)
-//! 	                      (if (= n 1)
-//! 	                          accum
-//! 	                          (factorial (- n 1) (* n accum)))))
+//! 	(def factorial (fn (n accum)
+//! 	                   (if (= n 1)
+//! 	                       accum
+//! 	                       (factorial (- n 1) (* n accum)))))
 //! 	(write (factorial 5 1))").ok().unwrap();
 //! 	let env = teko::interpret::interpret(program);
 //!

@@ -19,20 +19,29 @@
 //! You always want to put the result of your computation inside `env.result`.
 //! You don't need to clear `params` or `program` manually, that's done by the VM for you.
 
+// //////////////////////////////////////////////////////////
+// std imports
+// //////////////////////////////////////////////////////////
 use std::collections::HashMap;
 use std::rc::Rc;
 
+// //////////////////////////////////////////////////////////
+// Internal data structures used by Teko
+// //////////////////////////////////////////////////////////
 use data_structures::{Boolean, Commands, Coredata, Env, Function, Macro, Program, Sourcedata};
 use utilities::*;
 
+// //////////////////////////////////////////////////////////
+// External libraries
+// //////////////////////////////////////////////////////////
 use num::{BigInt, one, zero};
 
 // //////////////////////////////////////////////////////////
 // Standard Library Table
 // //////////////////////////////////////////////////////////
 
-const HELP: &str = "Enter `(@variables)' to see all current variables in scope
-`(exit)' or CTRL-D to exit";
+const HELP: &str = "To see all current variables in scope enter: (@variables)
+to exit press CTRL-D, CTRL-C, or: (exit)";
 
 /// Create the builtin library table.
 ///
@@ -79,7 +88,7 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Macro    : "fn" => function,
 		Macro    : "mo" => make_macro,
 		// Some useful features
-		Macro    : "define" => define,
+		Macro    : "def" => define,
 		Macro    : "set!" => set,
 		Function : "eval" => eval_expose,
 		Function : "write" => write,
@@ -318,27 +327,26 @@ fn divide(_: &mut Program, env: &mut Env) -> Option<String> {
 fn doc(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			Some(format!["arity mismatch, expecting 1 but got {}", args.len()])
+			Some(format![
+				"arity mismatch, expecting 1 but got {}",
+				args.len(),
+			])
 		} else if let Some(arg) = args.first() {
 			match arg.1 {
-				Coredata::Function(Function::Library(_, ref stats)) => {
-					if stats.len() > 0 {
-						env.result = stats.last().unwrap().clone();
-					} else {
-						env.result = rcs(Coredata::Null);
-					}
-					None
-				}
+				Coredata::Function(Function::Library(_, ref stats)) |
 				Coredata::Macro(Macro::Library(_, ref stats)) => {
-					if stats.len() > 0 {
-						env.result = stats.last().unwrap().clone();
-					} else {
+					if stats.is_empty() {
 						env.result = rcs(Coredata::Null);
+					} else {
+						env.result = stats.last().unwrap().clone();
 					}
 					None
 				}
 				_ => {
-					Some(format!["expected Function or Macro but got {}", data_name(&arg)])
+					Some(format![
+						"expected Function or Macro but got {}",
+						data_name(arg),
+					])
 				}
 			}
 		} else {
