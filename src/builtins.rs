@@ -92,6 +92,7 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Macro    : "def" => define,
 		Macro    : "set!" => set,
 		Function : "eval" => eval_expose,
+		Function : "->string" => to_string,
 		Function : "write" => write,
 		Function : "print" => print,
 		Function : "doc" => doc,
@@ -849,6 +850,9 @@ fn plus(_: &mut Program, env: &mut Env) -> Option<String> {
 }
 
 /// Print all arguments to standard output.
+///
+/// Does not put strings on the write form, however,
+/// strings inside structures are still printed in their written form: (" X).
 fn print(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		for arg in args {
@@ -1157,6 +1161,18 @@ fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
 	}
 }
 
+/// Convert data structures to a string.
+fn to_string(_: &mut Program, env: &mut Env) -> Option<String> {
+	if let Some(args) = env.params.last() {
+		for arg in args {
+			env.result = rcs(Coredata::String(format!["{}", arg]));
+		}
+		None
+	} else {
+		Some("no argument stack".into())
+	}
+}
+
 /// Return a stack trace.
 ///
 /// The stack trace will not show tail call optimized calls, so there may
@@ -1181,7 +1197,7 @@ fn wind(program: &mut Program, env: &mut Env) -> Option<String> {
 
 /// Write to standard output.
 ///
-/// Writing is a transitive operation together with read. This means that
+/// Writing is a symmetric operation together with read. This means that
 /// writing an object, and then reading the result will give back the same
 /// object, although it may be necessary to explicitly eval parts of the
 /// object, the representation will always stay intact regardless of how
