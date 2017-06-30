@@ -70,7 +70,7 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		// Lisp primitives
 		Macro    : "if" => if_conditional,
 		Macro    : "quote" => quote,
-		Function : "same?" => is_symbol_eq,
+		Function : "same?" => is_data_eq,
 		Function : "symbol?" => is_symbol,
 		Function : "head" => head,
 		Function : "tail" => tail,
@@ -549,6 +549,32 @@ fn if_conditional(program: &mut Program, env: &mut Env) -> Option<String> {
 	Some("arity mismatch, expecting 3".into())
 }
 
+/// Check if data is the same.
+fn is_data_eq(_: &mut Program, env: &mut Env) -> Option<String> {
+	if let Some(args) = env.params.last() {
+		let mut last = None;
+		let mut result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
+		for arg in args.iter() {
+			let data = &arg.1;
+			if let Some(previous) = last {
+				if previous == data {
+					// Do nothing
+				} else {
+					result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
+					break;
+				}
+				last = Some(data);
+			} else {
+				last = Some(data);
+			}
+		}
+		env.result = result;
+		None
+	} else {
+		Some("no argument stack".into())
+	}
+}
+
 /// Check if a value is an error type.
 fn is_error(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
@@ -594,49 +620,6 @@ fn is_pair(_: &mut Program, env: &mut Env) -> Option<String> {
 	} else {
 		return Some("no argument stack".into());
 	}
-	None
-}
-
-/// Check if two symbols are the same.
-fn is_symbol_eq(_: &mut Program, env: &mut Env) -> Option<String> {
-	if let Some(args) = env.params.last() {
-		if let Some(arg1) = args.first() {
-			if let Some(arg2) = args.get(1) {
-				if let Coredata::Symbol(ref a) = arg1.1 {
-					if let Coredata::Symbol(ref b) = arg2.1 {
-						if a == b {
-							env.result =
-								Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
-							return None;
-						}
-					} else if let Some(ref source) = arg2.0 {
-						return Some(format![
-							"expected Symbol but got {}, {}",
-							data_name(arg2),
-							source,
-						]);
-					} else {
-						return Some(format!["expected Symbol but got {}", data_name(arg2)]);
-					}
-				} else if let Some(ref source) = arg1.0 {
-					return Some(format![
-						"expected Symbol but got {}, {}",
-						data_name(arg1),
-						source,
-					]);
-				} else {
-					return Some(format!["expected Symbol but got {}", data_name(arg1)]);
-				}
-			} else {
-				return Some("arity mismatch, expecting 2 but got 1".into());
-			}
-		} else {
-			return Some("arity mismatch, expecting 2 but got 0".into());
-		}
-	} else {
-		return Some("no argument stack".into());
-	}
-	env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
 	None
 }
 
