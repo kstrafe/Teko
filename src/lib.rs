@@ -121,12 +121,14 @@
 // ✓ Write tests (not complete, but the structure is there)
 // ✓ Document everything
 // ✓ Make readme and build instructions
-//   Create extension interface (not sure if feasible atm)
-//   Pretty printing
 // ✓ Escape strings during printing
-//   Colorize errors
 // ✓ Add builtin doc to retrieve documentation about functions
+//   Pretty printing
+//   Colorize errors
+//   Create extension interface (not sure if feasible atm)
 //   Reconsider access to program stack
+//   Split project
+//   Flesh out specification
 //
 // //////////////////////////////////////////////////////////
 
