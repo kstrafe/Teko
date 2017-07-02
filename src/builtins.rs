@@ -701,7 +701,10 @@ fn list_length(_: &mut Program, env: &mut Env) -> Option<String> {
 			if let Some(len) = arg.len() {
 				env.result = rcs(Coredata::Integer(len.into()));
 			} else {
-				return Some(format!["expected Pair or String but got {}", data_name(arg)]);
+				return Some(format![
+					"expected Pair or String but got {}",
+					data_name(arg),
+				]);
 			}
 		}
 	} else {
@@ -1116,13 +1119,23 @@ fn string(_: &mut Program, env: &mut Env) -> Option<String> {
 						if let Ok(code) = code {
 							code
 						} else {
-							return Some(format!["{}, unable to parse value to unsigned 32-bit integer: {}", optional_source(source), value]);
+							return Some(format![
+								"{}, unable to parse value to unsigned 32-bit integer: {}",
+								optional_source(source),
+								value,
+							]);
 						}
 					} else {
-						return Some(format!["{}, tail is not a pair: {}", optional_source(source), tail]);
+						return Some(format![
+							"{}, tail is not a pair: {}",
+							optional_source(source),
+							tail,
+						]);
 					}
 				} else {
-					return Some("string character only accepts a one or two arguments".into());
+					return Some(
+						"string character only accepts a one or two arguments".into(),
+					);
 				};
 				if let Coredata::Symbol(ref value) = head.1 {
 					let code = value.parse::<u32>();
