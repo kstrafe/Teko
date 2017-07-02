@@ -24,6 +24,7 @@
 // //////////////////////////////////////////////////////////
 use std::char;
 use std::collections::HashMap;
+use std::io::{self, Read};
 use std::rc::Rc;
 
 // //////////////////////////////////////////////////////////
@@ -92,6 +93,7 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		// Some useful features
 		Macro    : "def" => define,
 		Macro    : "set!" => set,
+		Function : "read" => read,
 		Function : "eval" => eval_expose,
 		Function : "list" => list,
 		Function : "len" => list_length,
@@ -951,6 +953,33 @@ fn print(_: &mut Program, env: &mut Env) -> Option<String> {
 /// A builtin macro always stores the tail of the invocation inside `env.result`, so this macro is
 /// empty; it doesn't need to do anything.
 fn quote(_: &mut Program, _: &mut Env) -> Option<String> {
+	None
+}
+
+fn read(_: &mut Program, env: &mut Env) -> Option<String> {
+	use data_structures::ParseState;
+	use parse::*;
+	let mut parser = ParseState::from("tty");
+	for ch in io::stdin().bytes() {
+		if let Ok(ch) = ch {
+			if let Err(state) = parse_character(ch as char, &mut parser) {
+				break;
+			}
+			if is_ready_to_finish(&parser) {
+				let result = finish_parsing_characters(parser);
+				if let Ok(tree) = result {
+					if let Some(tree) = tree.first() {
+						env.result = tree.clone();
+					} else {
+						break;
+					}
+				}
+				break;
+			}
+		} else {
+			break;
+		}
+	}
 	None
 }
 
