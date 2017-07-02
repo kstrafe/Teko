@@ -336,9 +336,7 @@ impl fmt::Display for Sourcedata {
 							if is_plainly_printable!(l1) && is_plainly_printable!(l3) {
 								match l2 {
 									' ' => write![f, " "]?,
-									_ => {
-										write![f, "({})", l2 as u32]?;
-									}
+									_ => write![f, "({})", l2 as u32]?,
 								}
 							} else {
 								if l1 == l2 {
@@ -390,6 +388,28 @@ impl Sourcedata {
 			Some(tail.clone())
 		} else {
 			None
+		}
+	}
+	/// Compute the size of the object in element count.
+	pub fn len(&self) -> Option<usize> {
+		if let Coredata::String(ref string) = self.1 {
+			return Some(string.len());
+		}
+		let mut current = self;
+		let mut length = 0;
+		loop {
+			match current.1 {
+				Coredata::Pair(_, ref tail) => {
+					length += 1;
+					current = &*tail;
+				}
+				Coredata::Null => {
+					return Some(length);
+				}
+				_ => {
+					return None;
+				}
+			}
 		}
 	}
 }

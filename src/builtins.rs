@@ -68,6 +68,7 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Function : "/" => divide,
 		Function : "=" => eq,
 		Function : "<" => lt,
+		Function : ">" => gt,
 		// Boolean logic
 		Function : "and" => and,
 		Function : "or" => or,
@@ -92,6 +93,8 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Macro    : "def" => define,
 		Macro    : "set!" => set,
 		Function : "eval" => eval_expose,
+		Function : "list" => list,
+		Function : "len" => list_length,
 		Function : "->string" => to_string,
 		Function : "write" => write,
 		Function : "print" => print,
@@ -503,6 +506,45 @@ fn function(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
+/// The greater-than function for comparing integers.
+fn gt(_: &mut Program, env: &mut Env) -> Option<String> {
+	if let Some(args) = env.params.last() {
+		let mut last = None;
+		let mut result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
+		for arg in args.iter() {
+			match **arg {
+				Sourcedata(_, Coredata::Integer(ref integer)) => {
+					if let Some(previous) = last {
+						if previous > integer {
+							// Do nothing
+						} else {
+							result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
+							break;
+						}
+						last = Some(integer);
+					} else {
+						last = Some(integer);
+					}
+				}
+				Sourcedata(Some(ref source), ..) => {
+					return Some(format![
+						"expected Integer but got {}, {}",
+						data_name(arg),
+						source,
+					]);
+				}
+				_ => {
+					return Some(format!["expected Integer but got {}", data_name(arg)]);
+				}
+			}
+		}
+		env.result = result;
+	} else {
+		return Some("no argument stack".into());
+	}
+	None
+}
+
 /// Take the head of a pair.
 ///
 /// If the argument is not a pair then this will unwind with
@@ -643,6 +685,39 @@ fn is_symbol(_: &mut Program, env: &mut Env) -> Option<String> {
 				env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
 			}
 		}
+	} else {
+		return Some("no argument stack".into());
+	}
+	None
+}
+
+/// Compute the length of a list.
+fn list_length(_: &mut Program, env: &mut Env) -> Option<String> {
+	if let Some(args) = env.params.last() {
+		if args.len() != 1 {
+			return Some(format!["arity mismatch, expected 1, got {}", args.len()]);
+		}
+		if let Some(arg) = args.first() {
+			if let Some(len) = arg.len() {
+				env.result = rcs(Coredata::Integer(len.into()));
+			} else {
+				return Some(format!["expected Pair or String but got {}", data_name(arg)]);
+			}
+		}
+	} else {
+		return Some("no argument stack".into());
+	}
+	None
+}
+
+/// Construct a list (nested pair) of items.
+fn list(_: &mut Program, env: &mut Env) -> Option<String> {
+	if let Some(args) = env.params.last() {
+		let mut result = rcs(Coredata::Null);
+		for arg in args.iter().rev() {
+			result = rcs(Coredata::Pair(arg.clone(), result));
+		}
+		env.result = result;
 	} else {
 		return Some("no argument stack".into());
 	}
