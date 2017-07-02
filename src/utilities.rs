@@ -508,8 +508,8 @@ pub fn compute_intersection<'a>(a: &'a [String], b: &'a [String]) -> Vec<&'a Str
 /// Takes the union of two sets.
 pub fn compute_union(a: &[String], b: &[String]) -> Vec<String> {
 	let mut c = a.to_vec();
-	for i in a {
-		if !b.contains(i) {
+	for i in b {
+		if !a.contains(i) {
 			c.push(i.clone());
 		}
 	}
