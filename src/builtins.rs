@@ -160,7 +160,7 @@ fn at_variables(_: &mut Program, env: &mut Env) -> Option<String> {
 	for key in env.store.keys() {
 		env.result = Rc::new(Sourcedata(
 			None,
-			Coredata::Pair(
+			Coredata::Cell(
 				Rc::new(Sourcedata(None, Coredata::Symbol(key.clone()))),
 				env.result.clone(),
 			),
@@ -225,7 +225,7 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 		));
 		if let Some(ref tail) = args.tail() {
 			match tail.1 {
-				Coredata::Pair(ref heado, _) => {
+				Coredata::Cell(ref heado, _) => {
 					program.push(Rc::new(
 						Sourcedata(None, Coredata::Internal(Commands::Call(sub))),
 					));
@@ -238,7 +238,7 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 					return Some("arity mismatch, expecting 2 but got 0".into());
 				}
 				_ => {
-					return Some(format!["expected Pair but got {}", tail]);
+					return Some(format!["expected Cell but got {}", tail]);
 				}
 			}
 		} else {
@@ -255,7 +255,7 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 					));
 				}
 				_ => {
-					return Some(format!["expected Pair but got {}", head]);
+					return Some(format!["expected Cell but got {}", head]);
 				}
 			}
 		} else {
@@ -564,12 +564,12 @@ fn head(_: &mut Program, env: &mut Env) -> Option<String> {
 				return None;
 			} else if let Sourcedata(Some(ref source), ..) = **arg {
 				return Some(format![
-					"expected Pair but got {}, {}",
+					"expected Cell but got {}, {}",
 					data_name(arg),
 					source,
 				]);
 			} else {
-				return Some(format!["expected Pair but got {}", data_name(arg)]);
+				return Some(format!["expected Cell but got {}", data_name(arg)]);
 			}
 		} else {
 			unreachable!();
@@ -663,7 +663,7 @@ fn is_cell(_: &mut Program, env: &mut Env) -> Option<String> {
 			]);
 		}
 		if let Some(arg) = args.first() {
-			if let Coredata::Pair(..) = arg.1 {
+			if let Coredata::Cell(..) = arg.1 {
 				env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
 			} else {
 				env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
@@ -704,7 +704,7 @@ fn list_length(_: &mut Program, env: &mut Env) -> Option<String> {
 				env.result = rcs(Coredata::Integer(len.into()));
 			} else {
 				return Some(format![
-					"expected Pair or String but got {}",
+					"expected Cell or String but got {}",
 					data_name(arg),
 				]);
 			}
@@ -720,7 +720,7 @@ fn list(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		let mut result = rcs(Coredata::Null);
 		for arg in args.iter().rev() {
-			result = rcs(Coredata::Pair(arg.clone(), result));
+			result = rcs(Coredata::Cell(arg.clone(), result));
 		}
 		env.result = result;
 	} else {
@@ -861,9 +861,9 @@ fn or(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
-/// Pair value constructor.
+/// Cell value constructor.
 ///
-/// The second argument must be a `Pair` or `Null`, else it will
+/// The second argument must be a `Cell` or `Null`, else it will
 /// unwind with an error.
 fn cell(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
@@ -875,19 +875,19 @@ fn cell(_: &mut Program, env: &mut Env) -> Option<String> {
 		} else {
 			if let Some(arg1) = args.first() {
 				if let Some(arg2) = args.get(1) {
-					if let Coredata::Pair(..) = arg2.1 {
+					if let Coredata::Cell(..) = arg2.1 {
 					} else if let Coredata::Null = arg2.1 {
 					} else if let Sourcedata(Some(ref source), ..) = **arg2 {
 						return Some(format![
-							"expected Pair or Null but got {}, {}",
+							"expected Cell or Null but got {}, {}",
 							data_name(arg2),
 							source,
 						]);
 					} else {
-						return Some(format!["expected Pair or Null but got {}", data_name(arg2)]);
+						return Some(format!["expected Cell or Null but got {}", data_name(arg2)]);
 					}
 					env.result =
-						Rc::new(Sourcedata(None, Coredata::Pair(arg1.clone(), arg2.clone())));
+						Rc::new(Sourcedata(None, Coredata::Cell(arg1.clone(), arg2.clone())));
 				} else {
 					unreachable!();
 				}
@@ -1041,7 +1041,7 @@ fn set(program: &mut Program, env: &mut Env) -> Option<String> {
 		));
 		if let Some(ref tail) = args.tail() {
 			match tail.1 {
-				Coredata::Pair(ref heado, _) => {
+				Coredata::Cell(ref heado, _) => {
 					program.push(Rc::new(
 						Sourcedata(None, Coredata::Internal(Commands::Call(sub))),
 					));
@@ -1054,7 +1054,7 @@ fn set(program: &mut Program, env: &mut Env) -> Option<String> {
 					return Some("arity mismatch, expecting 2 but got 0".into());
 				}
 				_ => {
-					return Some(format!["expected Pair but got {}", tail]);
+					return Some(format!["expected Cell but got {}", tail]);
 				}
 			}
 		} else {
@@ -1071,7 +1071,7 @@ fn set(program: &mut Program, env: &mut Env) -> Option<String> {
 					));
 				}
 				_ => {
-					return Some(format!["expected Pair but got {}", head]);
+					return Some(format!["expected Cell but got {}", head]);
 				}
 			}
 		} else {
@@ -1142,10 +1142,10 @@ fn string(_: &mut Program, env: &mut Env) -> Option<String> {
 				ret.push_str(string);
 				last_symbol = true;
 			}
-			Sourcedata(_, Coredata::Pair(ref head, ref tail)) => {
+			Sourcedata(_, Coredata::Cell(ref head, ref tail)) => {
 				let repeats = if let Coredata::Null = tail.1 {
 					1
-				} else if let Sourcedata(ref source, Coredata::Pair(ref head, ref tail)) = **tail {
+				} else if let Sourcedata(ref source, Coredata::Cell(ref head, ref tail)) = **tail {
 					if let Sourcedata(ref source, Coredata::Symbol(ref value)) = **head {
 						let code = value.parse::<u32>();
 						if let Ok(code) = code {
@@ -1266,12 +1266,12 @@ fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
 				return None;
 			} else if let Sourcedata(Some(ref source), ..) = **arg {
 				return Some(format![
-					"expected Pair but got {}, {}",
+					"expected Cell but got {}, {}",
 					data_name(arg),
 					source,
 				]);
 			} else {
-				return Some(format!["expected Pair but got {}", data_name(arg)]);
+				return Some(format!["expected Cell but got {}", data_name(arg)]);
 			}
 		} else {
 			unreachable!();

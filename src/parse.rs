@@ -169,7 +169,7 @@ fn right_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
 			_ => {
 				active = Rc::new(Sourcedata(
 					top.0.clone(),
-					Coredata::Pair(top.clone(), active),
+					Coredata::Cell(top.clone(), active),
 				));
 			}
 		}

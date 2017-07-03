@@ -59,6 +59,8 @@ pub enum Macro {
 pub enum Coredata {
 	/// Denote true and false
 	Boolean(Boolean),
+	/// A pair of data items
+	Cell(Rc<Sourcedata>, Rc<Sourcedata>),
 	/// Error type
 	Error(Statement),
 	/// Function type
@@ -71,8 +73,6 @@ pub enum Coredata {
 	Macro(Macro),
 	/// Null (an empty list)
 	Null,
-	/// A pair of data items
-	Pair(Rc<Sourcedata>, Rc<Sourcedata>),
 	/// String type
 	String(String),
 	/// Symbol type

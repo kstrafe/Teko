@@ -179,7 +179,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				}
 			}
 			Sourcedata(_, Coredata::Internal(Commands::Wind)) => {}
-			Sourcedata(_, Coredata::Pair(ref head, ref tail)) => {
+			Sourcedata(_, Coredata::Cell(ref head, ref tail)) => {
 				ppush![head.0, Coredata::Internal(Commands::Prepare(tail.clone()))];
 				program.push(head.clone());
 			}

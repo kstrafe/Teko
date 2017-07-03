@@ -89,8 +89,8 @@ impl cmp::PartialEq for Coredata {
 					false
 				}
 			}
-			Coredata::Pair(ref lhshead, ref lhstail) => {
-				if let Coredata::Pair(ref rhshead, ref rhstail) = *other {
+			Coredata::Cell(ref lhshead, ref lhstail) => {
+				if let Coredata::Cell(ref rhshead, ref rhstail) = *other {
 					lhshead == rhshead && lhstail == rhstail
 				} else {
 					false
@@ -200,7 +200,7 @@ impl fmt::Display for Sourcedata {
 						write![f, " "]?;
 					}
 					write![f, "(error"]?;
-					if let Coredata::Pair(..) = arg.1 {
+					if let Coredata::Cell(..) = arg.1 {
 						write![f, " ("]?;
 						queue.push(arg);
 						spacer = false;
@@ -295,7 +295,7 @@ impl fmt::Display for Sourcedata {
 						write![f, ")"]?;
 					}
 				}
-				Pair(ref head, ref tail) => {
+				Cell(ref head, ref tail) => {
 					if spacer {
 						write![f, " "]?;
 					}
@@ -303,7 +303,7 @@ impl fmt::Display for Sourcedata {
 						write![f, "("]?;
 					}
 					queue.push(tail);
-					if let Coredata::Pair(..) = head.1 {
+					if let Coredata::Cell(..) = head.1 {
 						write![f, "("]?;
 						queue.push(head);
 						spacer = false;
@@ -377,7 +377,7 @@ impl fmt::Display for Sourcedata {
 impl Sourcedata {
 	/// Return the head of a cell, unwind if not a cell.
 	pub fn head(&self) -> Option<Rc<Sourcedata>> {
-		if let Sourcedata(_, Coredata::Pair(ref head, _)) = *self {
+		if let Sourcedata(_, Coredata::Cell(ref head, _)) = *self {
 			Some(head.clone())
 		} else {
 			None
@@ -385,7 +385,7 @@ impl Sourcedata {
 	}
 	/// Return the tail of a cell, unwind if not a cell.
 	pub fn tail(&self) -> Option<Rc<Sourcedata>> {
-		if let Sourcedata(_, Coredata::Pair(_, ref tail)) = *self {
+		if let Sourcedata(_, Coredata::Cell(_, ref tail)) = *self {
 			Some(tail.clone())
 		} else {
 			None
@@ -400,7 +400,7 @@ impl Sourcedata {
 		let mut length = 0;
 		loop {
 			match current.1 {
-				Coredata::Pair(_, ref tail) => {
+				Coredata::Cell(_, ref tail) => {
 					length += 1;
 					current = &*tail;
 				}
@@ -434,11 +434,11 @@ impl fmt::Display for Source {
 impl<'a> convert::From<&'a Source> for Rc<Sourcedata> {
 	fn from(src: &'a Source) -> Rc<Sourcedata> {
 		use data_structures::Coredata::*;
-		rcs(Pair(
+		rcs(Cell(
 			rcs(Integer(src.line.into())),
-			rcs(Pair(
+			rcs(Cell(
 				rcs(Integer(src.column.into())),
-				rcs(Pair(rcs(String(src.source.clone())), rcs(Null))),
+				rcs(Cell(rcs(String(src.source.clone())), rcs(Null))),
 			)),
 		))
 	}
@@ -486,7 +486,7 @@ pub fn collect_cell_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
 	let mut to_return = vec![];
 	let mut current = data.clone();
 	loop {
-		current = if let Sourcedata(_, Coredata::Pair(ref head, ref tail)) = *current {
+		current = if let Sourcedata(_, Coredata::Cell(ref head, ref tail)) = *current {
 			to_return.push(head.clone());
 			tail.clone()
 		} else {
@@ -542,13 +542,13 @@ pub fn data_name(data: &Sourcedata) -> String {
 	use data_structures::Coredata::*;
 	match data.1 {
 		Boolean(..) => "Boolean",
+		Cell(..) => "Cell",
 		Error(..) => "Error",
 		Function(..) => "Function",
 		Integer(..) => "Integer",
 		Internal(..) => "Internal",
 		Macro(..) => "Macro",
 		Null => "Null",
-		Pair(..) => "Pair",
 		String(..) => "String",
 		Symbol(..) => "Symbol",
 	}.into()
@@ -585,13 +585,13 @@ pub fn internal_trace(program: &mut Program, _: &mut Env) -> Rc<Sourcedata> {
 	let mut lst = null.clone();
 	for i in program.iter().rev() {
 		if let Sourcedata(Some(ref source), ..) = **i {
-			lst = rcs(Pair(
-				rcs(Pair(source.into(), rcs(Pair(i.clone(), rcs(Null))))),
+			lst = rcs(Cell(
+				rcs(Cell(source.into(), rcs(Cell(i.clone(), rcs(Null))))),
 				lst.clone(),
 			));
 		} else {
-			lst = rcs(Pair(
-				rcs(Pair(rcs(Null), rcs(Pair(i.clone(), rcs(Null))))),
+			lst = rcs(Cell(
+				rcs(Cell(rcs(Null), rcs(Cell(i.clone(), rcs(Null))))),
 				lst.clone(),
 			));
 		}
