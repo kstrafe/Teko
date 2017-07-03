@@ -1,16 +1,28 @@
 use std::{cmp, fmt};
 
-#[derive(Debug)]
-pub enum Userdata {
+macro_rules! make_user_data {
+	($($i:ident $t:tt),*,) => { make_user_data![$($i $t),*]; };
+	($($i:ident $t:tt),*) => {
+		#[derive(Debug)]
+		pub enum Userdata {
+			$($i $t),*
+		}
+		pub fn user_data_name(data: &Userdata) -> &str {
+			match *data {
+				$(Userdata::$i { .. } => stringify![$i]),*
+			}
+		}
+	};
 }
 
-pub fn user_data_name(data: &Userdata) -> &str {
-	""
-}
+make_user_data![
+];
 
 impl cmp::PartialEq for Userdata {
 	fn eq(&self, other: &Self) -> bool {
-		true
+		if self as *const Userdata == other as *const Userdata {
+			return true;
+		}
 	}
 }
 
@@ -19,4 +31,3 @@ impl fmt::Display for Userdata {
 		write![f, ""]
 	}
 }
-
