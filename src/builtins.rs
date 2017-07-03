@@ -19,29 +19,6 @@
 //! You always want to put the result of your computation inside `env.result`.
 //! You don't need to clear `params` or `program` manually, that's done by the VM for you.
 
-use std::{cmp, fmt};
-
-#[derive(Debug)]
-pub enum Userdata {
-	YourData { i: i32 },
-}
-
-pub fn user_data_name(data: &Userdata) -> &str {
-	""
-}
-
-impl cmp::PartialEq for Userdata {
-	fn eq(&self, other: &Self) -> bool {
-		true
-	}
-}
-
-impl fmt::Display for Userdata {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write![f, ""]
-	}
-}
-
 // //////////////////////////////////////////////////////////
 // std imports
 // //////////////////////////////////////////////////////////

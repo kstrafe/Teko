@@ -144,6 +144,7 @@ pub mod builtins;
 pub mod data_structures;
 pub mod interpret;
 pub mod parse;
+pub mod user;
 pub mod utilities;
 
 // Preallocate buffers for each Vec

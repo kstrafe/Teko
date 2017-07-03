@@ -5,6 +5,8 @@ use std::rc::Rc;
 
 use num::BigInt;
 
+use user::Userdata;
+
 /// Evaluation commands used internally by the interpreter
 ///
 /// When put on the stack these values have different effects on the interpreter.
@@ -54,7 +56,6 @@ pub enum Macro {
 	Library(String, Program),
 }
 
-use builtins::Userdata;
 /// Core data types of the Teko machine
 #[derive(Debug)]
 pub enum Coredata {
