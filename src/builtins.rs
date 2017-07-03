@@ -86,8 +86,8 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Function : "symbol?" => is_symbol,
 		Function : "head" => head,
 		Function : "tail" => tail,
-		Function : "pair" => pair,
-		Function : "pair?" => is_pair,
+		Function : "cell" => cell,
+		Function : "cell?" => is_cell,
 		Macro    : "fn" => function,
 		Macro    : "mo" => make_macro,
 		// Some useful features
@@ -488,7 +488,7 @@ fn exit(_: &mut Program, env: &mut Env) -> Option<String> {
 fn function(_: &mut Program, env: &mut Env) -> Option<String> {
 	let args = env.result.clone();
 	let params = if let Some(ref args) = args.head() {
-		if let Some(params) = collect_pair_of_symbols_into_vec_string(args) {
+		if let Some(params) = collect_cell_of_symbols_into_vec_string(args) {
 			params
 		} else {
 			return Some("parameter list contains non-symbols".into());
@@ -497,7 +497,7 @@ fn function(_: &mut Program, env: &mut Env) -> Option<String> {
 		return Some("arity mismatch, expecting 2 but got 0".into());
 	};
 	let code = if let Some(ref code) = args.tail() {
-		collect_pair_into_vec(code)
+		collect_cell_into_vec(code)
 	} else {
 		return Some("arity mismatch, expecting 2 but got 0".into());
 	};
@@ -547,9 +547,9 @@ fn gt(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
-/// Take the head of a pair.
+/// Take the head of a cell.
 ///
-/// If the argument is not a pair then this will unwind with
+/// If the argument is not a cell then this will unwind with
 /// an error.
 fn head(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
@@ -653,8 +653,8 @@ fn is_error(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
-/// Check if the value is a pair type.
-fn is_pair(_: &mut Program, env: &mut Env) -> Option<String> {
+/// Check if the value is a cell type.
+fn is_cell(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
 			return Some(format![
@@ -715,7 +715,7 @@ fn list_length(_: &mut Program, env: &mut Env) -> Option<String> {
 	None
 }
 
-/// Construct a list (nested pair) of items.
+/// Construct a list (nested cell) of items.
 fn list(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		let mut result = rcs(Coredata::Null);
@@ -786,7 +786,7 @@ fn make_macro(_: &mut Program, env: &mut Env) -> Option<String> {
 					return Some(format!["expected Symbol but got {}", data_name(&*head)]);
 				}
 			};
-			let code = collect_pair_into_vec(&tail);
+			let code = collect_cell_into_vec(&tail);
 			env.result = Rc::new(Sourcedata(
 				None,
 				Coredata::Macro(Macro::Library(params, code)),
@@ -865,7 +865,7 @@ fn or(_: &mut Program, env: &mut Env) -> Option<String> {
 ///
 /// The second argument must be a `Pair` or `Null`, else it will
 /// unwind with an error.
-fn pair(_: &mut Program, env: &mut Env) -> Option<String> {
+fn cell(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 2 {
 			Some(format![
@@ -963,21 +963,24 @@ fn read(_: &mut Program, env: &mut Env) -> Option<String> {
 	for ch in io::stdin().bytes() {
 		if let Ok(ch) = ch {
 			if let Err(state) = parse_character(ch as char, &mut parser) {
-				break;
+				if let Some(error) = state.error {
+					return Some(format!["parse error: {}", error]);
+				} else {
+					return Some(format!["parse error"]);
+				}
 			}
 			if is_ready_to_finish(&parser) {
 				let result = finish_parsing_characters(parser);
 				if let Ok(tree) = result {
-					if let Some(tree) = tree.first() {
-						env.result = tree.clone();
-					} else {
-						break;
+					match tree.first() {
+						Some(tree) => env.result = tree.clone(),
+						None => return Some("parse error: ".into()),
 					}
 				}
 				break;
 			}
 		} else {
-			break;
+			return Some("unable to read standard input".into());
 		}
 	}
 	None
@@ -1124,7 +1127,7 @@ fn msleep(_: &mut Program, env: &mut Env) -> Option<String> {
 /// Creates a string from the given symbols by inserting single spaces inbetween each symbol.
 fn string(_: &mut Program, env: &mut Env) -> Option<String> {
 	let data = {
-		let mut data = collect_pair_into_vec(&env.result);
+		let mut data = collect_cell_into_vec(&env.result);
 		data.reverse();
 		data
 	};
@@ -1156,7 +1159,7 @@ fn string(_: &mut Program, env: &mut Env) -> Option<String> {
 						}
 					} else {
 						return Some(format![
-							"{}, tail is not a pair: {}",
+							"{}, tail is not a cell: {}",
 							optional_source(source),
 							tail,
 						]);
@@ -1247,9 +1250,9 @@ fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 	}
 }
 
-/// Take the tail of a pair.
+/// Take the tail of a cell.
 ///
-/// If the argument is not a pair, then an error will be unwound.
+/// If the argument is not a cell, then an error will be unwound.
 fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
@@ -1304,7 +1307,7 @@ pub fn trace(program: &mut Program, env: &mut Env) -> Option<String> {
 /// Set up a "catch-all" that catches all errors
 fn wind(program: &mut Program, env: &mut Env) -> Option<String> {
 	let args = env.result.clone();
-	let code = collect_pair_into_vec(&args);
+	let code = collect_cell_into_vec(&args);
 	program.push(Rc::new(
 		Sourcedata(None, Coredata::Internal(Commands::Wind)),
 	));

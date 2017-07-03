@@ -57,7 +57,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 	}
 	while let Some(top) = program.pop() {
 		match *top {
-			// Source refers to the head of the pair from which the call originated
+			// Source refers to the head of the cell from which the call originated
 			Sourcedata(ref source, Coredata::Internal(Commands::Call(ref statement))) => {
 				match **statement {
 					Sourcedata(_, Coredata::Function(Function::Builtin(ref transfer, ..))) => {
@@ -134,7 +134,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				};
 				err(&None, &condition, &mut program, &mut env);
 			}
-			// Source here is the HEAD of a pair, so (a b) has source of a, and (((a)) b) has source
+			// Source here is the HEAD of a cell, so (a b) has source of a, and (((a)) b) has source
 			// of ((a))
 			Sourcedata(ref source, Coredata::Internal(Commands::Prepare(ref arguments))) => {
 				match *env.result.clone() {
@@ -144,7 +144,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 							source,
 							Coredata::Internal(Commands::Call(env.result.clone())),
 						];
-						for argument in collect_pair_into_vec(arguments) {
+						for argument in collect_cell_into_vec(arguments) {
 							ppush![None, Coredata::Internal(Commands::Parameterize)];
 							program.push(argument.clone());
 						}

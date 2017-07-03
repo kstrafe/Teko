@@ -375,7 +375,7 @@ impl fmt::Display for Sourcedata {
 }
 
 impl Sourcedata {
-	/// Return the head of a pair, unwind if not a pair.
+	/// Return the head of a cell, unwind if not a cell.
 	pub fn head(&self) -> Option<Rc<Sourcedata>> {
 		if let Sourcedata(_, Coredata::Pair(ref head, _)) = *self {
 			Some(head.clone())
@@ -383,7 +383,7 @@ impl Sourcedata {
 			None
 		}
 	}
-	/// Return the tail of a pair, unwind if not a pair.
+	/// Return the tail of a cell, unwind if not a cell.
 	pub fn tail(&self) -> Option<Rc<Sourcedata>> {
 		if let Sourcedata(_, Coredata::Pair(_, ref tail)) = *self {
 			Some(tail.clone())
@@ -482,7 +482,7 @@ impl convert::From<io::Error> for ParseState {
 // //////////////////////////////////////////////////////////
 
 /// Maps a linked list of data into a vector of data.
-pub fn collect_pair_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
+pub fn collect_cell_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
 	let mut to_return = vec![];
 	let mut current = data.clone();
 	loop {
@@ -498,8 +498,8 @@ pub fn collect_pair_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
 }
 
 /// Maps a linked list of symbols into a vector of strings.
-pub fn collect_pair_of_symbols_into_vec_string(data: &Rc<Sourcedata>) -> Option<Vec<String>> {
-	let data = collect_pair_into_vec(data);
+pub fn collect_cell_of_symbols_into_vec_string(data: &Rc<Sourcedata>) -> Option<Vec<String>> {
+	let data = collect_cell_into_vec(data);
 	let mut ret = vec![];
 	for i in data {
 		match *i {
