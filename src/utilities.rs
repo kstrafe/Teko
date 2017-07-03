@@ -15,6 +15,9 @@ use super::VEC_CAPACITY;
 impl cmp::PartialEq for Coredata {
 	fn eq(&self, other: &Self) -> bool {
 		use data_structures::Boolean;
+		if self  as *const Coredata == other as *const Coredata {
+			return true;
+		}
 		match *self {
 			Coredata::Boolean(Boolean::True) => {
 				if let Coredata::Boolean(Boolean::True) = *other {
