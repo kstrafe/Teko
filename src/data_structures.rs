@@ -54,6 +54,7 @@ pub enum Macro {
 	Library(String, Program),
 }
 
+use builtins::Userdata;
 /// Core data types of the Teko machine
 #[derive(Debug)]
 pub enum Coredata {
@@ -77,6 +78,8 @@ pub enum Coredata {
 	String(String),
 	/// Symbol type
 	Symbol(String),
+	/// User defined data
+	User(Userdata),
 }
 
 /// Environment used by the implementation

@@ -4,6 +4,7 @@ use std::{cmp, convert, fmt, io};
 use std::error::Error;
 use std::rc::Rc;
 
+use builtins::user_data_name;
 use data_structures::{Commands, Coredata, Env, Function, Macro, ParseState, Program, Source,
                       Sourcedata};
 use super::VEC_CAPACITY;
@@ -105,6 +106,13 @@ impl cmp::PartialEq for Coredata {
 			}
 			Coredata::Symbol(ref lhs) => {
 				if let Coredata::Symbol(ref rhs) = *other {
+					lhs == rhs
+				} else {
+					false
+				}
+			}
+			Coredata::User(ref lhs) => {
+				if let Coredata::User(ref rhs) = *other {
 					lhs == rhs
 				} else {
 					false
@@ -367,6 +375,13 @@ impl fmt::Display for Sourcedata {
 					write![f, "{}", arg]?;
 					spacer = true;
 				}
+				User(ref user) => {
+					if spacer {
+						write![f, " "]?;
+					}
+					write![f, "{}", user]?;
+					spacer = true;
+				}
 			}
 			first = false;
 		}
@@ -551,6 +566,7 @@ pub fn data_name(data: &Sourcedata) -> String {
 		Null => "Null",
 		String(..) => "String",
 		Symbol(..) => "Symbol",
+		User(ref user) => user_data_name(user),
 	}.into()
 }
 
