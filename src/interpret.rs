@@ -81,16 +81,17 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 									&mut env,
 								);
 							} else {
-								let cmd = Commands::Deparameterize(
-									optimize_tail_call(&mut program, &mut env, parameters),
-								);
+								let cmd =
+									Commands::Deparameterize(
+										optimize_tail_call(&mut program, &mut env, parameters),
+									);
 								ppush![source, Coredata::Internal(cmd)];
 								for (counter, parameter) in parameters.iter().enumerate() {
 									if env.store.contains_key(parameter) {
-										env.store.get_mut(parameter).unwrap().push(
-											arguments[counter]
-												.clone(),
-										);
+										env.store
+											.get_mut(parameter)
+											.unwrap()
+											.push(arguments[counter].clone());
 									} else {
 										env.store.insert(
 											parameter.clone(),

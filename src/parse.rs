@@ -85,7 +85,7 @@ pub fn finish_parsing_characters(mut state: ParseState) -> Result<Program, Parse
 /// the result into the interpreter with the same effect.
 pub fn is_ready_to_finish(state: &ParseState) -> bool {
 	state.unmatched_opening_parentheses.is_empty() && state.token.is_empty() &&
-		!state.stack.is_empty()
+	!state.stack.is_empty()
 }
 
 /// Check if the parser is empty.
@@ -155,10 +155,7 @@ fn left_parenthesis(state: &mut ParseState) {
 fn right_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
 	move_token_to_stack_if_nonempty(state);
 	pop_previous_opening_parenthesis(state)?;
-	let mut active = Rc::new(Sourcedata(
-		Some(state.current_read_position.clone()),
-		Coredata::Null,
-	));
+	let mut active = Rc::new(Sourcedata(Some(state.current_read_position.clone()), Coredata::Null));
 	let mut source = None;
 	while let Some(top) = state.stack.pop() {
 		match *top {
@@ -167,10 +164,7 @@ fn right_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
 				break;
 			}
 			_ => {
-				active = Rc::new(Sourcedata(
-					top.0.clone(),
-					Coredata::Cell(top.clone(), active),
-				));
+				active = Rc::new(Sourcedata(top.0.clone(), Coredata::Cell(top.clone(), active)));
 			}
 		}
 	}
@@ -210,11 +204,9 @@ fn set_error(state: &mut ParseState, message: &str) -> ParseState {
 }
 
 fn copy_current_read_position_to_unmatched_opening_parentheses(state: &mut ParseState) {
-	state.unmatched_opening_parentheses.push(
-		state
-			.current_read_position
-			.clone(),
-	);
+	state
+		.unmatched_opening_parentheses
+		.push(state.current_read_position.clone());
 }
 
 fn pop_previous_opening_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {

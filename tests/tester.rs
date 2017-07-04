@@ -65,8 +65,6 @@ fn file2result(filename: &str) -> Rc<teko::data_structures::Sourcedata> {
 
 fn integer(filename: &str, number: &str) {
 	let result = file2result(filename);
-	assert_eq![
-		result.1,
-		Coredata::Integer(BigInt::parse_bytes(number.as_bytes(), 10).unwrap())
-	];
+	assert_eq![result.1,
+	           Coredata::Integer(BigInt::parse_bytes(number.as_bytes(), 10).unwrap())];
 }

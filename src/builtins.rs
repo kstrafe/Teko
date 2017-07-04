@@ -215,12 +215,7 @@ fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<String> {
 fn at_variables(_: &mut Program, env: &mut Env) -> Option<String> {
 	env.result = rcs(Coredata::Null);
 	for key in env.store.keys() {
-		env.result = rcs(
-			Coredata::Cell(
-				rcs(Coredata::Symbol(key.clone())),
-				env.result.clone(),
-			),
-		);
+		env.result = rcs(Coredata::Cell(rcs(Coredata::Symbol(key.clone())), env.result.clone()));
 	}
 	None
 }
@@ -272,18 +267,14 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<String> {
 fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 	{
 		let args = env.result.clone();
-		let sub = rcs(Coredata::Function(Function::Builtin(
-			define_internal,
-			"@define-internal".into(),
-		)));
+		let sub =
+			rcs(Coredata::Function(Function::Builtin(define_internal, "@define-internal".into())));
 		let push = if let Some(ref tail) = args.tail() {
 			match tail.1 {
 				Coredata::Cell(ref head, _) => {
-					vec![
-						rcs(Coredata::Internal(Commands::Call(sub))),
-						rcs(Coredata::Internal(Commands::Parameterize)),
-						head.clone(),
-					]
+					vec![rcs(Coredata::Internal(Commands::Call(sub))),
+					     rcs(Coredata::Internal(Commands::Parameterize)),
+					     head.clone()]
 				}
 				Coredata::Null => {
 					return Some(arity_mismatch(2, 2, 1));
@@ -303,9 +294,7 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 						source.clone(),
 						Coredata::Internal(Commands::Parameterize),
 					)));
-					program.push(rc(
-						Sourcedata(source.clone(), Coredata::String(string.clone())),
-					));
+					program.push(rc(Sourcedata(source.clone(), Coredata::String(string.clone()))));
 				}
 				Sourcedata(Some(ref source), ..) => {
 					return Some(format![
@@ -576,11 +565,9 @@ fn if_conditional(program: &mut Program, env: &mut Env) -> Option<String> {
 			if let Some(head_of_tail) = tail.head() {
 				if let Some(tail_of_tail) = tail.tail() {
 					if let Some(head_of_tail_of_tail) = tail_of_tail.head() {
-						program.push(rcs(
-							Coredata::Internal(
-								Commands::If(head_of_tail, head_of_tail_of_tail),
-							),
-						));
+						program.push(rcs(Coredata::Internal(
+							Commands::If(head_of_tail, head_of_tail_of_tail),
+						)));
 						program.push(head);
 						return None;
 					} else {
@@ -924,8 +911,7 @@ fn set_internal(_: &mut Program, env: &mut Env) -> Option<String> {
 fn set(program: &mut Program, env: &mut Env) -> Option<String> {
 	{
 		let args = env.result.clone();
-		let sub = rcs(Coredata::Function(
-				Function::Builtin(set_internal, "@set-internal".into())));
+		let sub = rcs(Coredata::Function(Function::Builtin(set_internal, "@set-internal".into())));
 		if let Some(ref tail) = args.tail() {
 			match tail.1 {
 				Coredata::Cell(ref heado, _) => {
@@ -947,9 +933,8 @@ fn set(program: &mut Program, env: &mut Env) -> Option<String> {
 		if let Some(head) = args.head() {
 			match *head {
 				Sourcedata(ref source, Coredata::Symbol(ref string)) => {
-					program.push(Rc::new(
-						Sourcedata(source.clone(), Coredata::String(string.clone())),
-					));
+					program
+						.push(Rc::new(Sourcedata(source.clone(), Coredata::String(string.clone()))));
 				}
 				_ => {
 					return Some(format!["expected Cell but got {}", head]);
@@ -1033,9 +1018,7 @@ fn string(_: &mut Program, env: &mut Env) -> Option<String> {
 						]);
 					}
 				} else {
-					return Some(
-						"string character only accepts a one or two arguments".into(),
-					);
+					return Some("string character only accepts a one or two arguments".into());
 				};
 				if let Coredata::Symbol(ref value) = head.1 {
 					let code = value.parse::<u32>();
