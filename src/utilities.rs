@@ -618,6 +618,7 @@ pub fn err(source: &Option<Source>, error: &Option<(Option<Source>, String)>, pr
 		if let None = *src {
 			program.push(rc(Sourcedata(source.clone(), Coredata::String(error.clone()))));
 		} else {
+			program.push(rc(Sourcedata(source.clone(), Coredata::String("called from here".into()))));
 			program.push(rc(Sourcedata(src.clone(), Coredata::String(error.clone()))));
 		}
 		let trace = internal_trace(program, env);

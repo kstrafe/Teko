@@ -96,6 +96,7 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		// Some useful features
 		Macro    : "def" => define,
 		Macro    : "set!" => set,
+		Macro    : "program" => program,
 		Function : "read" => read,
 		Function : "eval" => eval_expose,
 		Function : "list" => list,
@@ -119,43 +120,6 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 // Standard Library Entries
 // //////////////////////////////////////////////////////////
 
-// Want to return Result<Rc<Sourcedata>, String>, I think this is the best way
-// The functions should also be arg -> result, access to env... hmmm
-// I don't know. Perhaps make define and the like builtins because it's rather
-// fundamental. This makes the interface much simpler in the sense that a function
-// becomes fn(args: Vec<Statement>) -> Result<Statement, String>, which also means
-// no empty stack to worry about. So... as for macros...
-// hmmm they kinda need to return multiple statements. Although I could create a
-// macro that puts each statement on the stack. The empty macro? I don't know.
-// Or rather the nary functor. Yeah that sounds right.
-// So (program (write (+ 1 2 3)) 9) would do that, since all args are evaluated
-// from left-to-right, there's no worry! Macros can still return multiple args!
-// YAY!
-// Ok so to summarize fn(args: Vec<Statement>) -> Result<Statement, String>
-// Is a string really well-suited? It's an error after all, and it depends on the
-// application and what the application wants to convey
-// We already made sure to not have errors contain much structured data. I guess
-// it's alright like this. We can also use the arity_mismatch to generate strings,
-// which can be done automatically. I love the declarativeness. The same can be
-// done for macros, which will just need to deconstruct the cell and count the
-// amount of heads that are inside.
-// Then there's the type of the arguments, which can also be specified, but I'll need
-// to do it in such a way that it also deconstructs the arguments, that would be very useful.
-// So for example: teko_simple_function!(myfunc(args : 0 => 4) [  Symbol(ref a) String(ref b) ... ] => code
-// That'd be neat, we'd save so much on boilerplate code by doing that.
-// I'll need to make define and unwind/wind something internal though. It's fine :], I reckon
-// those are the only things to stay internal. If you REALLY want to hack you can still do it
-// but this makes the openness for hacking just somewhat smaller.
-// Plenty of macros use program, like if, but once these return instead, we have no problem.
-// One problem I have is how (program) affects TCO, since it requires to be evaluated, which is
-// annoying. So what's the solution? Do nothing? Well that's one option.. but hmmmmm
-// It seems like we almost need this interface just to keep the core clean... however,...
-// It's because of the calling convention, any symbol is just called, and some special
-// symbols need access to the stack. Some even iterate over the program stack like unwind does,
-// and yet it's still a normal function.
-// So perhaps it's best to let a macro abstract itself over the core functions.
-// We get best of both worlds: low-level control when we need it, and high-level cleanliness
-// when requested :)
 macro_rules! teko_simple_function {
 	($name:ident $args:ident : $low:expr => $high:expr => $code:block) => {
 		#[allow(unused_comparisons)]
@@ -205,14 +169,14 @@ macro_rules! teko_simple_macro {
 }
 
 macro_rules! extype {
-	($src:expr, $($expected:ident);*, $data:expr) => {
+	($src:expr, $($expected:ident) or *, $data:expr) => {
 		{
 			$(
 				if let Sourcedata(_, Coredata::$expected(..)) = *$data.clone() {
 					assert![false];
 				}
 			)*
-			($src.clone(), format!["expected {} but got {}", stringify![$($expected);*], data_name(&$data)])
+			($src.clone(), format!["expected {} but got {}", stringify![$($expected) or *], data_name(&$data)])
 		}
 	};
 }
@@ -612,7 +576,7 @@ teko_simple_function!(list_length args : 1 => 1 => {
 	if let Some(len) = arg.len() {
 		Ok(rcs(Coredata::Integer(len.into())))
 	} else {
-		Err(extype![arg.0, String; Cell, arg])
+		Err(extype![arg.0, String or Cell, arg])
 	}
 });
 
@@ -716,7 +680,7 @@ teko_simple_function!(cell args : 2 => 2 => {
 	} else if let Coredata::Null(..) = arg2.1 {
 		// Ok
 	} else {
-		return Err(extype![arg2.0, Cell; Null, arg2]);
+		return Err(extype![arg2.0, Cell or Null, arg2]);
 	}
 	Ok(rcs(Coredata::Cell(arg1.clone(), arg2.clone())))
 });
@@ -881,6 +845,11 @@ teko_simple_function!(msleep args : 1 => 1 => {
 	}
 	Ok(arg.clone())
 });
+
+fn program(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
+	program.extend(collect_cell_into_revvec(&env.result));
+	None
+}
 
 /// Create a string
 ///
