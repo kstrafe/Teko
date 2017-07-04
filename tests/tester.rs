@@ -21,6 +21,9 @@ fn main() {
 	boolean("boolean-6.tko", true);
 
 	error("divide-by-zero.tko");
+	error("define-0.tko");
+	error("define-1.tko");
+	error("define-2.tko");
 
 	integer("addition-0.tko", "0");
 	integer("addition-1.tko", "0");
