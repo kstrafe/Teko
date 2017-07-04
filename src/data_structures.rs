@@ -111,7 +111,7 @@ pub struct ParseState {
 }
 
 /// Information about the source of data.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Source {
 	/// Line number of the input, starts at 1
 	pub line: usize,
