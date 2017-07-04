@@ -170,7 +170,7 @@ macro_rules! teko_simple_function {
 						env.result = result;
 						None
 					}
-					Err(error) => Some((None, error)),
+					Err((source, error)) => Some((source, error)),
 				}
 			} else {
 				Some((None, "fatal: parameter stack empty".into()))
@@ -198,7 +198,7 @@ macro_rules! teko_simple_macro {
 					env.result = result;
 					None
 				}
-				Err(error) => Some((None, error)),
+				Err((source, error)) => Some((source, error)),
 			}
 		}
 	};
@@ -330,21 +330,17 @@ teko_simple_function!(divide args : 1 => usize::MAX => {
 	if args.len() == 1 {
 		for arg in args.iter() {
 			match **arg {
-				Sourcedata(ref source, Coredata::Integer(ref value)) => {
+				Sourcedata(ref src, Coredata::Integer(ref value)) => {
 					if value == &zero::<BigInt>() {
-						return Err(format!["argument {} is zero", optional_source(source)]);
+						return Err((src.clone(), format!["argument is zero"]));
 					}
 					sum = sum / value;
 				}
-				Sourcedata(Some(ref source), ..) => {
-					return Err(format![
-						"expected Integer but got {}, {}",
+				Sourcedata(ref src, ..) => {
+					return Err((src.clone(), format![
+						"expected Integer but got {}",
 						data_name(arg),
-						source,
-					]);
-				}
-				_ => {
-					return Err(format!["expected Integer but got {}", data_name(arg)]);
+					]));
 				}
 			}
 		}
@@ -352,27 +348,18 @@ teko_simple_function!(divide args : 1 => usize::MAX => {
 		let mut first = true;
 		for arg in args.iter() {
 			match **arg {
-				Sourcedata(ref source, Coredata::Integer(ref value)) => {
+				Sourcedata(ref src, Coredata::Integer(ref value)) => {
 					if first {
 						sum = value.clone();
 					} else {
 						if value == &zero::<BigInt>() {
-							return Err(
-								format!["argument {} is zero", optional_source(source)],
-							);
+							return Err((src.clone(), format!["argument is zero"]));
 						}
 						sum = sum / value;
 					}
 				}
-				Sourcedata(Some(ref source), ..) => {
-					return Err(format![
-						"expected Integer but got {}, {}",
-						data_name(arg),
-						source,
-					]);
-				}
-				_ => {
-					return Err(format!["expected Integer but got {}", data_name(arg)]);
+				Sourcedata(ref src, ..) => {
+					return Err((src.clone(), format!["expected Integer but got {}", data_name(arg)]));
 				}
 			}
 			first = false;
@@ -383,21 +370,21 @@ teko_simple_function!(divide args : 1 => usize::MAX => {
 
 /// Retrieve the first statement of a function or macro.
 teko_simple_function!(doc args : 1 => 1 => {
-	let arg = args.first().expect("function macro ensures existence");
-	match arg.1 {
-		Coredata::Function(Function::Library(_, ref stats)) |
-		Coredata::Macro(Macro::Library(_, ref stats)) => {
+	let arg = args.first().unwrap();
+	match **arg {
+		Sourcedata(_, Coredata::Function(Function::Library(_, ref stats))) |
+		Sourcedata(_, Coredata::Macro(Macro::Library(_, ref stats))) => {
 			if stats.is_empty() {
 				Ok(rcs(Coredata::Null))
 			} else {
 				Ok(stats.last().unwrap().clone())
 			}
 		}
-		_ => {
-			Err(format![
+		Sourcedata(ref src, ..) => {
+			Err((src.clone(), format![
 				"expected Function or Macro but got {}",
 				data_name(arg),
-			])
+			]))
 		}
 	}
 });
@@ -421,15 +408,8 @@ teko_simple_function!(eq args : 0 => usize::MAX => {
 					last = Some(integer);
 				}
 			}
-			Sourcedata(Some(ref source), ..) => {
-				return Err(format![
-					"expected Integer but got {}, {}",
-					data_name(arg),
-					source,
-				]);
-			}
-			_ => {
-				return Err(format!["expected Integer but got {}", data_name(arg)]);
+			Sourcedata(ref src, ..) => {
+				return Err((src.clone(), format!["expected Integer but got {}", data_name(arg)]));
 			}
 		}
 	}
@@ -469,22 +449,18 @@ teko_simple_function!(exit args : 0 => 1 => {
 
 	if let Some(arg) = args.last() {
 		match **arg {
-			Sourcedata(_, Coredata::Integer(ref value)) => {
+			Sourcedata(ref src, Coredata::Integer(ref value)) => {
 				if let Some(value) = value.to_i32() {
 					::std::process::exit(value);
 				} else {
-					Err("unable to convert number to value".into())
+					Err((src.clone(), "unable to convert number to value".into()))
 				}
 			}
-			Sourcedata(Some(ref source), ..) => {
-				Err(format![
-					"expected Integer but got {}, {}",
-					data_name(arg),
-					source,
-				])
-			}
-			_ => {
-				Err(format!["expected Integer but got {}", data_name(arg)])
+			Sourcedata(ref src, ..) => {
+				Err((src.clone(), format![
+					"expected Integer but got {}",
+					data_name(arg)
+				]))
 			}
 		}
 	} else {
@@ -498,16 +474,16 @@ teko_simple_macro!(function args : 2 => usize::MAX => {
 		let params = if let Some(params) = collect_cell_of_symbols_into_vec_string(&head) {
 			params
 		} else {
-			return Err("parameter list contains non-symbols".into());
+			return Err((None, "parameter list contains non-symbols".into()));
 		};
 		if let Some(tail) = args.tail() {
 			let code = collect_cell_into_revvec(&tail);
 			Ok(rcs(Coredata::Function(Function::Library(params, code))))
 		} else {
-			Err("tail is empty".into())
+			Err((None, "tail is empty".into()))
 		}
 	} else {
-		Err("parameter list is not a list".into())
+		Err((None, "parameter list is not a list".into()))
 	}
 });
 
@@ -530,15 +506,11 @@ teko_simple_function!(gt args : 0 => usize::MAX => {
 					last = Some(integer);
 				}
 			}
-			Sourcedata(Some(ref source), ..) => {
-				return Err(format![
-					"expected Integer but got {}, {}",
-					data_name(arg),
-					source,
-				]);
-			}
-			_ => {
-				return Err(format!["expected Integer but got {}", data_name(arg)]);
+			Sourcedata(ref src, ..) => {
+				return Err((src.clone(), format![
+					"expected Integer but got {}",
+					data_name(arg)
+				]));
 			}
 		}
 	}
@@ -553,14 +525,14 @@ teko_simple_function!(head args : 1 => 1 => {
 	let arg = args.first().unwrap();
 	if let Some(head) = arg.head() {
 		Ok(head.clone())
-	} else if let Sourcedata(Some(ref source), ..) = **arg {
-		Err(format![
-			"expected Cell but got {}, {}",
-			data_name(arg),
-			source,
-		])
 	} else {
-		Err(format!["expected Cell but got {}", data_name(arg)])
+		match **arg {
+			Sourcedata(ref src, ..) =>
+				Err((src.clone(), format![
+					"expected Cell but got {}",
+					data_name(arg),
+				]))
+		}
 	}
 });
 
@@ -651,10 +623,10 @@ teko_simple_function!(list_length args : 1 => 1 => {
 	if let Some(len) = arg.len() {
 		Ok(rcs(Coredata::Integer(len.into())))
 	} else {
-		Err(format![
+		Err((None, format![
 			"expected Cell or String but got {}",
 			data_name(arg),
-		])
+		]))
 	}
 });
 
@@ -686,15 +658,11 @@ teko_simple_function!(lt args : 0 => usize::MAX => {
 					last = Some(integer);
 				}
 			}
-			Sourcedata(Some(ref source), ..) => {
-				return Err(format![
-					"expected Integer but got {}, {}",
-					data_name(arg),
-					source,
-				]);
-			}
-			_ => {
-				return Err(format!["expected Integer but got {}", data_name(arg)]);
+			Sourcedata(ref src, ..) => {
+				return Err((src.clone(), format![
+					"expected Integer but got {}",
+					data_name(arg)
+				]));
 			}
 		}
 	}
@@ -707,15 +675,11 @@ teko_simple_macro!(make_macro args : 2 => usize::MAX => {
 	let tail = args.tail().unwrap();
 	let params = match *head {
 		Sourcedata(_, Coredata::Symbol(ref string)) => string.clone(),
-		Sourcedata(Some(ref source), ..) => {
-			return Err(format![
-				"expected Symbol but got {}, {}",
+		Sourcedata(ref src, ..) => {
+			return Err((src.clone(), format![
+				"expected Symbol but got {}",
 				data_name(&*head),
-				source,
-			]);
-		}
-		_ => {
-			return Err(format!["expected Symbol but got {}", data_name(&*head)]);
+			]));
 		}
 	};
 	let code = collect_cell_into_revvec(&tail);
@@ -730,15 +694,11 @@ teko_simple_function!(multiply args : 0 => usize::MAX => {
 			Sourcedata(_, Coredata::Integer(ref value)) => {
 				sum = sum * value;
 			}
-			Sourcedata(Some(ref source), ..) => {
-				return Err(format![
-					"expected Integer but got {}, {}",
-					data_name(&*arg),
-					source,
-				]);
-			}
-			_ => {
-				return Err(format!["expected Integer but got {}", data_name(&*arg)]);
+			Sourcedata(ref src, ..) => {
+				return Err((src.clone(), format![
+					"expected Integer but got {}",
+					data_name(&*arg)
+				]));
 			}
 		}
 	}
@@ -778,14 +738,11 @@ teko_simple_function!(cell args : 2 => 2 => {
 		// Ok TODO replace with check is_cell_or_null(...)
 	} else if let Coredata::Null = arg2.1 {
 		// Ok
-	} else if let Sourcedata(Some(ref source), ..) = **arg2 {
-		return Err(format![
-			"expected Cell or Null but got {}, {}",
-			data_name(arg2),
-			source,
-		]);
 	} else {
-		return Err(format!["expected Cell or Null but got {}", data_name(arg2)]);
+		return Err((arg2.0.clone(), format![
+			"expected Cell or Null but got {}",
+			data_name(arg2)
+		]));
 	}
 	Ok(rcs(Coredata::Cell(arg1.clone(), arg2.clone())))
 });
@@ -798,15 +755,11 @@ teko_simple_function!(plus args : 0 => usize::MAX => {
 			Sourcedata(_, Coredata::Integer(ref value)) => {
 				sum = sum + value;
 			}
-			Sourcedata(Some(ref source), ..) => {
-				return Err(format![
-					"expected Integer but got {}, {}",
-					data_name(&**arg),
-					source,
-				]);
-			}
-			Sourcedata(None, ..) => {
-				return Err(format!["expected Integer but got {}", data_name(&**arg)]);
+			Sourcedata(ref src, ..) => {
+				return Err((src.clone(), format![
+					"expected Integer but got {}",
+					data_name(&**arg)
+				]));
 			}
 		}
 	}
@@ -947,22 +900,18 @@ teko_simple_function!(msleep args : 1 => 1 => {
 	use num::ToPrimitive;
 	let arg = args.first().unwrap();
 	match **arg {
-		Sourcedata(_, Coredata::Integer(ref value)) => {
+		Sourcedata(ref src, Coredata::Integer(ref value)) => {
 			if let Some(value) = value.to_u64() {
 				thread::sleep(time::Duration::from_millis(value));
 			} else {
-				return Err("unable to convert number to value".into());
+				return Err((src.clone(), "unable to convert number to value".into()));
 			}
 		}
-		Sourcedata(Some(ref source), ..) => {
-			return Err(format![
-				"expected Integer but got {}, {}",
-				data_name(arg),
-				source,
-			]);
-		}
-		ref arg @ Sourcedata(None, ..) => {
-			return Err(format!["expected Integer but got {}", data_name(arg)]);
+		Sourcedata(ref src, ..) => {
+			return Err((src.clone(), format![
+				"expected Integer but got {}",
+				data_name(arg)
+			]));
 		}
 	}
 	Ok(arg.clone())
@@ -988,32 +937,30 @@ teko_simple_macro!(string arg : 0 => usize::MAX => {
 				ret.push_str(string);
 				last_symbol = true;
 			}
-			Sourcedata(_, Coredata::Cell(ref head, ref tail)) => {
+			Sourcedata(ref src, Coredata::Cell(ref head, ref tail)) => {
 				let repeats = if let Coredata::Null = tail.1 {
 					1
-				} else if let Sourcedata(ref source, Coredata::Cell(ref head, ref tail)) = **tail {
-					if let Sourcedata(ref source, Coredata::Symbol(ref value)) = **head {
+				} else if let Sourcedata(ref src, Coredata::Cell(ref head, ref tail)) = **tail {
+					if let Sourcedata(ref src, Coredata::Symbol(ref value)) = **head {
 						let code = value.parse::<u32>();
 						if let Ok(code) = code {
 							code
 						} else {
-							return Err(format![
-								"{}, unable to parse value to unsigned 32-bit integer: {}",
-								optional_source(source),
+							return Err((src.clone(), format![
+								"unable to parse value to unsigned 32-bit integer: {}",
 								value,
-							]);
+							]));
 						}
 					} else {
-						return Err(format![
-							"{}, tail is not a cell: {}",
-							optional_source(source),
+						return Err((src.clone(), format![
+							"tail is not a cell: {}",
 							tail,
-						]);
+						]));
 					}
 				} else {
-					return Err("string character only accepts a one or two arguments".into());
+					return Err((src.clone(), "string character only accepts a one or two arguments".into()));
 				};
-				if let Coredata::Symbol(ref value) = head.1 {
+				if let Sourcedata(ref src, Coredata::Symbol(ref value)) = **head {
 					let code = value.parse::<u32>();
 					if let Ok(code) = code {
 						if let Some(code) = char::from_u32(code) {
@@ -1021,16 +968,16 @@ teko_simple_macro!(string arg : 0 => usize::MAX => {
 								ret.push(code);
 							}
 						} else {
-							return Err("value is not a valid character value".into());
+							return Err((src.clone(), "value is not a valid character value".into()));
 						}
 					} else {
-						return Err("value is not an unsigned 32-bit value".into());
+						return Err((src.clone(), "value is not an unsigned 32-bit value".into()));
 					}
 				}
 				last_symbol = false;
 			}
 			_ => {
-				return Err("unable to parse input".into());
+				return Err((None, "unable to parse input".into()));
 			}
 		}
 	}
@@ -1046,15 +993,11 @@ teko_simple_function!(subtract args : 1 => usize::MAX => {
 				Sourcedata(_, Coredata::Integer(ref value)) => {
 					sum = sum - value;
 				}
-				Sourcedata(Some(ref source), ..) => {
-					return Err(format![
-						"expected Integer but got {}, {}",
+				Sourcedata(ref src, ..) => {
+					return Err((src.clone(), format![
+						"expected Integer but got {}",
 						data_name(arg),
-						source,
-					]);
-				}
-				_ => {
-					return Err(format!["expected Integer but got {}", data_name(arg)]);
+					]));
 				}
 			}
 		}
@@ -1069,21 +1012,17 @@ teko_simple_function!(subtract args : 1 => usize::MAX => {
 						sum = sum - value;
 					}
 				}
-				Sourcedata(Some(ref source), ..) => {
-					return Err(format![
-						"expected Integer but got {}, {}",
+				Sourcedata(ref src, ..) => {
+					return Err((src.clone(), format![
+						"expected Integer but got {}",
 						data_name(arg),
-						source,
-					]);
-				}
-				_ => {
-					return Err(format!["expected Integer but got {}", data_name(arg)]);
+					]));
 				}
 			}
 			first = false;
 		}
 	} else {
-		return Err(arity_mismatch(1, usize::MAX, 0));
+		return Err((None, arity_mismatch(1, usize::MAX, 0)));
 	}
 	Ok(rcs(Coredata::Integer(sum)))
 });
@@ -1095,14 +1034,11 @@ teko_simple_function!(tail args : 1 => 1 => {
 	let arg = args.first().unwrap();
 	if let Some(tail) = arg.tail() {
 		Ok(tail.clone())
-	} else if let Sourcedata(Some(ref source), ..) = **arg {
-		Err(format![
-			"expected Cell but got {}, {}",
-			data_name(arg),
-			source,
-		])
 	} else {
-		Err(format!["expected Cell but got {}", data_name(arg)])
+		Err((arg.0.clone(), format![
+			"expected Cell but got {}",
+			data_name(arg),
+		]))
 	}
 });
 
