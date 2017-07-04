@@ -615,7 +615,7 @@ pub fn data_name(data: &Sourcedata) -> String {
 /// trace an addition to the error provided.
 pub fn err(source: &Option<Source>, error: &Option<(Option<Source>, String)>, program: &mut Program, env: &mut Env) {
 	let error = if let Some((ref src, ref error)) = *error {
-		if let None = *src {
+		if src.is_none() {
 			program.push(rc(Sourcedata(source.clone(), Coredata::String(error.clone()))));
 		} else {
 			program.push(rc(Sourcedata(source.clone(), Coredata::String("called from here".into()))));

@@ -1,4 +1,4 @@
-use std::{cmp, fmt};
+use std::fmt;
 
 macro_rules! make_user_data {
 	($($i:ident $t:tt),*,) => { make_user_data![$($i $t),*]; };

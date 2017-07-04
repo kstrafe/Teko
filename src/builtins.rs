@@ -26,18 +26,20 @@ use std::char;
 use std::collections::HashMap;
 use std::io::{self, Read};
 use std::rc::Rc;
+use std::{time, thread};
 use std::usize;
 
 // //////////////////////////////////////////////////////////
 // Internal data structures used by Teko
 // //////////////////////////////////////////////////////////
 use data_structures::*;
+use parse::*;
 use utilities::*;
 
 // //////////////////////////////////////////////////////////
 // External libraries
 // //////////////////////////////////////////////////////////
-use num::{BigInt, one, zero};
+use num::{BigInt, one, ToPrimitive, zero};
 
 // //////////////////////////////////////////////////////////
 // Standard Library Table
@@ -123,6 +125,7 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 macro_rules! teko_simple_function {
 	($name:ident $args:ident : $low:expr => $high:expr => $code:block) => {
 		#[allow(unused_comparisons)]
+		#[allow(redundant_closure_call)]
 		fn $name(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 			if let Some($args) = env.params.last() {
 				if $args.len() < $low || $args.len() > $high {
@@ -146,6 +149,7 @@ macro_rules! teko_simple_function {
 macro_rules! teko_simple_macro {
 	($name:ident $arg:ident : $low:expr => $high:expr => $code:block) => {
 		#[allow(unused_comparisons)]
+		#[allow(redundant_closure_call)]
 		fn $name(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 			let $arg = env.result.clone();
 			let len = $arg.len();
@@ -303,7 +307,7 @@ teko_simple_function!(divide args : 1 => usize::MAX => {
 			match **arg {
 				Sourcedata(ref src, Coredata::Integer(ref value)) => {
 					if value == &zero::<BigInt>() {
-						return Err((src.clone(), format!["argument is zero"]));
+						return Err((src.clone(), "argument is zero".into()));
 					}
 					sum = sum / value;
 				}
@@ -321,7 +325,7 @@ teko_simple_function!(divide args : 1 => usize::MAX => {
 						sum = value.clone();
 					} else {
 						if value == &zero::<BigInt>() {
-							return Err((src.clone(), format!["argument is zero"]));
+							return Err((src.clone(), "argument is zero".into()));
 						}
 						sum = sum / value;
 					}
@@ -410,8 +414,6 @@ fn eval_expose(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, 
 
 /// Exit the entire program.
 teko_simple_function!(exit args : 0 => 1 => {
-	use num::ToPrimitive;
-
 	if let Some(arg) = args.last() {
 		match **arg {
 			Sourcedata(ref src, Coredata::Integer(ref value)) => {
@@ -673,8 +675,8 @@ teko_simple_function!(or args : 0 => usize::MAX => {
 /// The second argument must be a `Cell` or `Null()`, else it will
 /// unwind with an error.
 teko_simple_function!(cell args : 2 => 2 => {
-	let arg1 = args.first().unwrap();
-	let arg2 = args.get(1).unwrap();
+	let arg1 = &args[0];
+	let arg2 = &args[1];
 	if let Coredata::Cell(..) = arg2.1 {
 		// Ok TODO replace with check is_cell_or_null(...)
 	} else if let Coredata::Null(..) = arg2.1 {
@@ -725,16 +727,15 @@ fn quote(_: &mut Program, _: &mut Env) -> Option<(Option<Source>, String)> {
 }
 
 fn read(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
-	use data_structures::ParseState;
-	use parse::*;
 	let mut parser = ParseState::from("tty");
 	for ch in io::stdin().bytes() {
 		if let Ok(ch) = ch {
 			if let Err(state) = parse_character(ch as char, &mut parser) {
+				let crp = Some(state.current_read_position.clone());
 				if let Some(error) = state.error {
-					return Some((None, format!["parse error: {}", error]));
+					return Some((crp, format!["parse error: {}", error]));
 				} else {
-					return Some((None, format!["parse error"]));
+					return Some((crp, "parse error".into()));
 				}
 			}
 			if is_ready_to_finish(&parser) {
@@ -828,8 +829,6 @@ fn set(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)>
 
 /// Sleep for a given number of milliseconds.
 teko_simple_function!(msleep args : 1 => 1 => {
-	use std::{thread, time};
-	use num::ToPrimitive;
 	let arg = args.first().unwrap();
 	match **arg {
 		Sourcedata(ref src, Coredata::Integer(ref value)) => {
