@@ -127,9 +127,12 @@
 //   Colorize errors
 //   Create extension interface (not sure if feasible atm)
 //   Reconsider access to program stack
-//   Split project
+//   Split project - user a subtree
 //   Flesh out specification
 //   Make builtins more declarative (specify arg count etc)
+//   Clean up builtins, make these minimal to some degree
+//   Formalize more errors as functions
+//   Perhaps return Source from builtins, since it's useful
 //
 // //////////////////////////////////////////////////////////
 

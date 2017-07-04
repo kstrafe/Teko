@@ -17,7 +17,7 @@ use user::user_data_name;
 impl cmp::PartialEq for Coredata {
 	fn eq(&self, other: &Self) -> bool {
 		use data_structures::Boolean;
-		if self  as *const Coredata == other as *const Coredata {
+		if self as *const Coredata == other as *const Coredata {
 			return true;
 		}
 		match *self {
@@ -501,12 +501,29 @@ pub fn arity_mismatch(expected_min: usize, expected_max: usize, got: usize) -> S
 	if expected_min == expected_max {
 		format!["arity mismatch: expected {} but got {}", expected_min, got]
 	} else if expected_min < expected_max && expected_min == 0 {
-		format!["arity mismatch: expected <={} but got {}", expected_max, got]
+		format![
+			"arity mismatch: expected <={} but got {}",
+			expected_max,
+			got,
+		]
 	} else if expected_min < expected_max && expected_max == usize::MAX {
-		format!["arity mismatch: expected >={} but got {}", expected_min, got]
+		format![
+			"arity mismatch: expected >={} but got {}",
+			expected_min,
+			got,
+		]
 	} else {
-		format!["arity mismatch: expected >={} and <={} but got {}", expected_min, expected_max, got]
+		format![
+			"arity mismatch: expected >={} and <={} but got {}",
+			expected_min,
+			expected_max,
+			got,
+		]
 	}
+}
+
+pub fn not_found(string: &str) -> String {
+	format!["variable not found: {}", string]
 }
 
 /// Maps a linked list of data into a vector of data.

@@ -72,11 +72,11 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 							if arguments.len() != parameters.len() {
 								err(
 									source,
-									&Some(format![
-										"expected {} but got {} arguments",
+									&Some(arity_mismatch(
+										parameters.len(),
 										parameters.len(),
 										arguments.len(),
-									]),
+									)),
 									&mut program,
 									&mut env,
 								);
@@ -134,8 +134,6 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				};
 				err(&None, &condition, &mut program, &mut env);
 			}
-			// Source here is the HEAD of a cell, so (a b) has source of a, and (((a)) b) has source
-			// of ((a))
 			Sourcedata(ref source, Coredata::Internal(Commands::Prepare(ref arguments))) => {
 				match *env.result.clone() {
 					Sourcedata(_, Coredata::Function(..)) => {
@@ -192,10 +190,12 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 							env.result = value.clone();
 							None
 						} else {
-							Some(format!["variable not found: {}", string])
+							// TODO what is an empty store entry doing here?
+							// Should we panic or yield some other error?
+							Some(not_found(string))
 						}
 					} else {
-						Some(format!["variable not found: {}", string])
+						Some(not_found(string))
 					};
 					err(source, &error, &mut program, &mut env);
 				}

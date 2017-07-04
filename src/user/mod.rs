@@ -15,8 +15,7 @@ macro_rules! make_user_data {
 	};
 }
 
-make_user_data![
-];
+make_user_data![];
 
 impl fmt::Display for Userdata {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

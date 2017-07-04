@@ -54,6 +54,8 @@ to exit press CTRL-D, CTRL-C, or: (exit)";
 /// So if you want to create a function "f" you add an entry `Function : "f" => some_name`,
 /// and call it using `(f)` in Teko. You'll also need to declare the function `some_name`
 /// that actually implements your functionality.
+///
+/// For user-defined functions and types please see `user/mod.rs`.
 pub fn create_builtin_library_table() -> HashMap<String, Program> {
 	construct_builtins! {
 		// This section contains non-functions and non-macros
@@ -218,7 +220,9 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 	{
 		let args = env.result.clone();
 		let sub = rcs(Coredata::Function(Function::Builtin(
-		define_internal, "@define-internal".into())));
+			define_internal,
+			"@define-internal".into(),
+		)));
 		let push = if let Some(ref tail) = args.tail() {
 			match tail.1 {
 				Coredata::Cell(ref head, _) => {
@@ -242,11 +246,20 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 			match *head {
 				Sourcedata(ref source, Coredata::Symbol(ref string)) => {
 					program.extend(push);
-					program.push(rc(Sourcedata(source.clone(), Coredata::Internal(Commands::Parameterize))));
-					program.push(rc(Sourcedata(source.clone(), Coredata::String(string.clone()))));
+					program.push(rc(Sourcedata(
+						source.clone(),
+						Coredata::Internal(Commands::Parameterize),
+					)));
+					program.push(rc(
+						Sourcedata(source.clone(), Coredata::String(string.clone())),
+					));
 				}
 				Sourcedata(Some(ref source), ..) => {
-					return Some(format!["{}, expected Symbol but got: {}", source, data_name(&*head)]);
+					return Some(format![
+						"{}, expected Symbol but got: {}",
+						source,
+						data_name(&*head),
+					]);
 				}
 				Sourcedata(None, ..) => {
 					return Some(format!["expected Symbol but got: {}", data_name(&*head)]);
