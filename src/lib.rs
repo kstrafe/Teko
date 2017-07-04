@@ -129,6 +129,7 @@
 //   Reconsider access to program stack
 //   Split project
 //   Flesh out specification
+//   Make builtins more declarative (specify arg count etc)
 //
 // //////////////////////////////////////////////////////////
 

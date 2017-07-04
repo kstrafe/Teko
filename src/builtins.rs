@@ -26,6 +26,7 @@ use std::char;
 use std::collections::HashMap;
 use std::io::{self, Read};
 use std::rc::Rc;
+use std::usize;
 
 // //////////////////////////////////////////////////////////
 // Internal data structures used by Teko
@@ -189,7 +190,7 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<String> {
 						}
 						env.store.insert(string.clone(), vec![rhs.clone()]);
 					} else {
-						return Some("arity mismatch, expecting 2 but got 1".into());
+						return Some(arity_mismatch(2, 2, 1));
 					}
 				}
 				Sourcedata(Some(ref source), ..) => {
@@ -204,7 +205,7 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<String> {
 				}
 			}
 		} else {
-			return Some("arity mismatch, expecting 2 but got 0".into());
+			return Some(arity_mismatch(2, 2, 0));
 		}
 	} else {
 		return Some("no arg stack".into());
@@ -220,22 +221,22 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 		define_internal, "@define-internal".into())));
 		let push = if let Some(ref tail) = args.tail() {
 			match tail.1 {
-				Coredata::Cell(ref heado, _) => {
+				Coredata::Cell(ref head, _) => {
 					vec![
 						rcs(Coredata::Internal(Commands::Call(sub))),
 						rcs(Coredata::Internal(Commands::Parameterize)),
-						heado.clone(),
+						head.clone(),
 					]
 				}
 				Coredata::Null => {
-					return Some("arity mismatch, expecting 2 but got 1".into());
+					return Some(arity_mismatch(2, 2, 1));
 				}
 				_ => {
 					return Some(format!["expecting Cell but got: {}", tail]);
 				}
 			}
 		} else {
-			return Some("arity mismatch, expecting 2 but got 1".into());
+			return Some(arity_mismatch(2, 2, 0));
 		};
 		if let Some(head) = args.head() {
 			match *head {
@@ -252,7 +253,7 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 				}
 			}
 		} else {
-			return Some("arity mismatch, expecting 2 but got 1".into());
+			return Some(arity_mismatch(2, 2, 1));
 		}
 	}
 	env.params.push(vec![]);
@@ -314,7 +315,7 @@ fn divide(_: &mut Program, env: &mut Env) -> Option<String> {
 				first = false;
 			}
 		} else {
-			return Some("arity mismatch, expecting >0 but got 0".into());
+			return Some(arity_mismatch(1, usize::MAX, 0));
 		}
 		env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 		None
@@ -327,10 +328,7 @@ fn divide(_: &mut Program, env: &mut Env) -> Option<String> {
 fn doc(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			Some(format![
-				"arity mismatch, expecting 1 but got {}",
-				args.len(),
-			])
+			Some(arity_mismatch(1, 1, args.len()))
 		} else if let Some(arg) = args.first() {
 			match arg.1 {
 				Coredata::Function(Function::Library(_, ref stats)) |
@@ -402,7 +400,7 @@ fn eq(_: &mut Program, env: &mut Env) -> Option<String> {
 fn error(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() >= 2 {
-			Some("arity mismatch, expecting <2 but got >=2".into())
+			Some(arity_mismatch(0, 1, args.len()))
 		} else if let Some(arg) = args.first() {
 			env.result = Rc::new(Sourcedata(None, Coredata::Error(arg.clone())));
 			None
@@ -422,15 +420,12 @@ fn error(_: &mut Program, env: &mut Env) -> Option<String> {
 fn eval_expose(program: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			Some(format![
-				"arity mismatch, expecting 1 but got {}",
-				args.len(),
-			])
+			Some(arity_mismatch(1, 1, args.len()))
 		} else if let Some(arg) = args.first() {
 			program.push(arg.clone());
 			None
 		} else {
-			Some("arity mismatch, expecting 1 but got 0".into())
+			Some(arity_mismatch(1, 1, args.len()))
 		}
 	} else {
 		Some("no argument stack".into())
@@ -467,10 +462,7 @@ fn exit(_: &mut Program, env: &mut Env) -> Option<String> {
 				::std::process::exit(0);
 			}
 		} else {
-			return Some(format![
-				"arity mismatch, expecting 0 or 1 args but got {}",
-				args.len(),
-			]);
+			return Some(arity_mismatch(0, 1, args.len()));
 		}
 	} else {
 		return Some("no argument stack".into());
@@ -487,12 +479,12 @@ fn function(_: &mut Program, env: &mut Env) -> Option<String> {
 			return Some("parameter list contains non-symbols".into());
 		}
 	} else {
-		return Some("arity mismatch, expecting 2 but got 0".into());
+		return Some(arity_mismatch(2, 2, 0));
 	};
 	let code = if let Some(ref code) = args.tail() {
 		collect_cell_into_vec(code)
 	} else {
-		return Some("arity mismatch, expecting 2 but got 0".into());
+		return Some(arity_mismatch(2, 2, 0));
 	};
 	env.result = Rc::new(Sourcedata(
 		None,
@@ -547,10 +539,7 @@ fn gt(_: &mut Program, env: &mut Env) -> Option<String> {
 fn head(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			Some(format![
-				"arity mismatch, expected 1 arg but got {}",
-				args.len(),
-			])
+			Some(arity_mismatch(1, 1, args.len()))
 		} else if let Some(arg) = args.first() {
 			if let Some(head) = arg.head() {
 				env.result = head.clone();
@@ -588,12 +577,21 @@ fn if_conditional(program: &mut Program, env: &mut Env) -> Option<String> {
 						)));
 						program.push(head);
 						return None;
+					} else {
+						Some(arity_mismatch(3, 3, 2))
 					}
+				} else {
+					Some(arity_mismatch(3, 3, 1))
 				}
+			} else {
+				Some(arity_mismatch(3, 3, 1))
 			}
+		} else {
+			Some(arity_mismatch(3, 3, 1))
 		}
+	} else {
+		Some(arity_mismatch(3, 3, 0))
 	}
-	Some("arity mismatch, expecting 3".into())
 }
 
 /// Check if data is the same.
@@ -626,10 +624,7 @@ fn is_data_eq(_: &mut Program, env: &mut Env) -> Option<String> {
 fn is_error(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			return Some(format![
-				"arity mismatch, expecting 1 but got {}",
-				args.len(),
-			]);
+			return Some(arity_mismatch(1, 1, args.len()));
 		}
 		if let Some(arg) = args.first() {
 			if let Coredata::Error(_) = arg.1 {
@@ -638,7 +633,7 @@ fn is_error(_: &mut Program, env: &mut Env) -> Option<String> {
 				env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
 			}
 		} else {
-			return Some("arity mismatch, expecting 1 but got 0".into());
+			return Some(arity_mismatch(1, 1, 0));
 		}
 	} else {
 		return Some("no argument stack".into());
@@ -650,10 +645,7 @@ fn is_error(_: &mut Program, env: &mut Env) -> Option<String> {
 fn is_cell(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			return Some(format![
-				"arity mismatch, expecting 1 but got {}",
-				args.len(),
-			]);
+			return Some(arity_mismatch(1, 1, args.len()));
 		}
 		if let Some(arg) = args.first() {
 			if let Coredata::Cell(..) = arg.1 {
@@ -662,7 +654,7 @@ fn is_cell(_: &mut Program, env: &mut Env) -> Option<String> {
 				env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::False)));
 			}
 		} else {
-			return Some("arity mismatch, expecting 1 but got 0".into());
+			return Some(arity_mismatch(1, 1, 0));
 		}
 	} else {
 		return Some("no argument stack".into());
@@ -690,7 +682,7 @@ fn is_symbol(_: &mut Program, env: &mut Env) -> Option<String> {
 fn list_length(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			return Some(format!["arity mismatch, expected 1, got {}", args.len()]);
+			return Some(arity_mismatch(1, 1, args.len()));
 		}
 		if let Some(arg) = args.first() {
 			if let Some(len) = arg.len() {
@@ -787,7 +779,7 @@ fn make_macro(_: &mut Program, env: &mut Env) -> Option<String> {
 			return None;
 		}
 	}
-	Some("arity mismatch, expecting 2".into())
+	Some(arity_mismatch(2, 2, 0))
 }
 
 /// Integer multiplication.
@@ -822,7 +814,7 @@ fn multiply(_: &mut Program, env: &mut Env) -> Option<String> {
 fn not(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			Some(format!["arity mismatch, expected 1, got {}", args.len()])
+			return Some(arity_mismatch(1, 1, args.len()));
 		} else if let Some(arg) = args.first() {
 			if let Coredata::Boolean(Boolean::False) = arg.1 {
 				env.result = Rc::new(Sourcedata(None, Coredata::Boolean(Boolean::True)));
@@ -861,10 +853,7 @@ fn or(_: &mut Program, env: &mut Env) -> Option<String> {
 fn cell(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 2 {
-			Some(format![
-				"arity mismatch, expecting 2 but got {}",
-				args.len(),
-			])
+			return Some(arity_mismatch(2, 2, args.len()));
 		} else {
 			if let Some(arg1) = args.first() {
 				if let Some(arg2) = args.get(1) {
@@ -999,7 +988,7 @@ fn set_internal(_: &mut Program, env: &mut Env) -> Option<String> {
 						}
 						env.store.insert(string.clone(), vec![rhs.clone()]);
 					} else {
-						return Some("arity mismatch, expecting 2 but got 1".into());
+						return Some(arity_mismatch(2, 2, 1));
 					}
 				}
 				Sourcedata(Some(ref source), ..) => {
@@ -1014,7 +1003,7 @@ fn set_internal(_: &mut Program, env: &mut Env) -> Option<String> {
 				}
 			}
 		} else {
-			return Some("arity mismatch, expecting 2 but got 0".into());
+			return Some(arity_mismatch(2, 2, 0));
 		}
 	} else {
 		return Some("no arg stack".into());
@@ -1044,14 +1033,14 @@ fn set(program: &mut Program, env: &mut Env) -> Option<String> {
 					program.push(heado.clone());
 				}
 				Coredata::Null => {
-					return Some("arity mismatch, expecting 2 but got 0".into());
+					return Some(arity_mismatch(2, 2, 0));
 				}
 				_ => {
 					return Some(format!["expected Cell but got {}", tail]);
 				}
 			}
 		} else {
-			return Some("arity mismatch, expecting 2 but got 0".into());
+			return Some(arity_mismatch(2, 2, 0));
 		}
 		program.push(Rc::new(
 			Sourcedata(None, Coredata::Internal(Commands::Parameterize)),
@@ -1068,7 +1057,7 @@ fn set(program: &mut Program, env: &mut Env) -> Option<String> {
 				}
 			}
 		} else {
-			return Some("arity mismatch, expecting 2 but got 1".into());
+			return Some(arity_mismatch(2, 2, 1));
 		}
 	}
 	env.params.push(vec![]);
@@ -1081,10 +1070,7 @@ fn msleep(_: &mut Program, env: &mut Env) -> Option<String> {
 	use num::ToPrimitive;
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			return Some(format![
-				"arity mismatch, expecting 1 but got {}",
-				args.len(),
-			]);
+			return Some(arity_mismatch(1, 1, args.len()));
 		}
 		if let Some(arg) = args.first() {
 			match **arg {
@@ -1234,7 +1220,7 @@ fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 				first = false;
 			}
 		} else {
-			return Some("arity mismatch, expecting >0 but got 0".into());
+			return Some(arity_mismatch(1, usize::MAX, 0));
 		}
 		env.result = Rc::new(Sourcedata(None, Coredata::Integer(sum)));
 		None
@@ -1249,10 +1235,7 @@ fn subtract(_: &mut Program, env: &mut Env) -> Option<String> {
 fn tail(_: &mut Program, env: &mut Env) -> Option<String> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			return Some(format![
-				"arity mismatch, expecting 1 but got {}",
-				args.len(),
-			]);
+			return Some(arity_mismatch(1, 1, args.len()));
 		} else if let Some(arg) = args.first() {
 			if let Some(tail) = arg.tail() {
 				env.result = tail;

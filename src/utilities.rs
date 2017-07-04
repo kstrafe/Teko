@@ -3,6 +3,7 @@
 use std::{cmp, convert, fmt, io};
 use std::error::Error;
 use std::rc::Rc;
+use std::usize;
 
 use data_structures::{Commands, Coredata, Env, Function, Macro, ParseState, Program, Source,
                       Sourcedata};
@@ -495,6 +496,18 @@ impl convert::From<io::Error> for ParseState {
 // //////////////////////////////////////////////////////////
 // Utility functions
 // //////////////////////////////////////////////////////////
+
+pub fn arity_mismatch(expected_min: usize, expected_max: usize, got: usize) -> String {
+	if expected_min == expected_max {
+		format!["arity mismatch: expected {} but got {}", expected_min, got]
+	} else if expected_min < expected_max && expected_min == 0 {
+		format!["arity mismatch: expected <={} but got {}", expected_max, got]
+	} else if expected_min < expected_max && expected_max == usize::MAX {
+		format!["arity mismatch: expected >={} but got {}", expected_min, got]
+	} else {
+		format!["arity mismatch: expected >={} and <={} but got {}", expected_min, expected_max, got]
+	}
+}
 
 /// Maps a linked list of data into a vector of data.
 pub fn collect_cell_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
