@@ -32,7 +32,7 @@ pub type Program = Vec<Statement>;
 
 /// Denotes a "transfer function" that transform the state of the program
 ///
-pub type Transfer = fn(program: &mut Program, env: &mut Env) -> Option<String>;
+pub type Transfer = fn(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)>;
 /// Boolean values
 #[derive(Debug, PartialEq)]
 pub enum Boolean {

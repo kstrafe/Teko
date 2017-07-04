@@ -65,18 +65,18 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						env.params.pop();
 						err(source, &error, &mut program, &mut env);
 					}
-					Sourcedata(_,
+					Sourcedata(ref src,
 					           Coredata::Function(Function::Library(ref parameters,
 					                                                ref transfer))) => {
 						if let Some(arguments) = env.params.pop() {
 							if arguments.len() != parameters.len() {
 								err(
 									source,
-									&Some(arity_mismatch(
+									&Some((src.clone(), arity_mismatch(
 										parameters.len(),
 										parameters.len(),
 										arguments.len(),
-									)),
+									))),
 									&mut program,
 									&mut env,
 								);
@@ -106,7 +106,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					_ => {
 						err(
 							source,
-							&Some("element not callable".into()),
+							&Some((None, "element not callable".into())),
 							&mut program,
 							&mut env,
 						);
@@ -126,12 +126,12 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					program.push(first.clone());
 				}
 			}
-			Sourcedata(_, Coredata::Internal(Commands::Parameterize)) => {
+			Sourcedata(ref src, Coredata::Internal(Commands::Parameterize)) => {
 				let condition = if let Some(ref mut last) = env.params.last_mut() {
 					last.push(env.result.clone());
 					None
 				} else {
-					Some("parameter stack nonexistent".into())
+					Some((src.clone(), "parameter stack nonexistent".into()))
 				};
 				err(&None, &condition, &mut program, &mut env);
 			}
@@ -143,7 +143,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 							source,
 							Coredata::Internal(Commands::Call(env.result.clone())),
 						];
-						for argument in collect_cell_into_vec(arguments) {
+						for argument in collect_cell_into_revvec(arguments) {
 							ppush![None, Coredata::Internal(Commands::Parameterize)];
 							program.push(argument.clone());
 						}
@@ -167,10 +167,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						];
 						program.extend(code.iter().cloned());
 					}
-					_ => {
+					Sourcedata(ref src, ..) => {
 						err(
 							source,
-							&Some("element not callable".into()),
+							&Some((src.clone(), "element not callable".into())),
 							&mut program,
 							&mut env,
 						);
@@ -193,10 +193,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						} else {
 							// TODO what is an empty store entry doing here?
 							// Should we panic or yield some other error?
-							Some(not_found(string))
+							Some((source.clone(), not_found(string)))
 						}
 					} else {
-						Some(not_found(string))
+						Some((source.clone(), not_found(string)))
 					};
 					err(source, &error, &mut program, &mut env);
 				}

@@ -527,7 +527,7 @@ pub fn not_found(string: &str) -> String {
 }
 
 /// Maps a linked list of data into a vector of data.
-pub fn collect_cell_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
+pub fn collect_cell_into_revvec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
 	let mut to_return = vec![];
 	let mut current = data.clone();
 	loop {
@@ -544,19 +544,27 @@ pub fn collect_cell_into_vec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
 
 /// Maps a linked list of symbols into a vector of strings.
 pub fn collect_cell_of_symbols_into_vec_string(data: &Rc<Sourcedata>) -> Option<Vec<String>> {
-	let data = collect_cell_into_vec(data);
 	let mut ret = vec![];
-	for i in data {
-		match *i {
-			Sourcedata(_, Coredata::Symbol(ref string)) => {
+	let mut current = data.clone();
+	if let Coredata::Cell(..) = current.1 {
+		// Ok
+	} else if let Coredata::Null = current.1 {
+		// Ok
+	} else {
+		return None;
+	}
+	loop {
+		current = if let Sourcedata(_, Coredata::Cell(ref head, ref tail)) = *current {
+			if let Coredata::Symbol(ref string) = head.1 {
 				ret.push(string.clone());
-			}
-			_ => {
+				tail.clone()
+			} else {
 				return None;
 			}
+		} else {
+			break;
 		}
 	}
-	ret.reverse();
 	Some(ret)
 }
 
@@ -605,9 +613,13 @@ pub fn data_name(data: &Sourcedata) -> String {
 /// Mixes unwind and tracing from an error's invocation. Any time an unwind
 /// happens `env.result` will contain an error with a string containing the stack
 /// trace an addition to the error provided.
-pub fn err(source: &Option<Source>, error: &Option<String>, program: &mut Program, env: &mut Env) {
-	let error = if let Some(ref error) = *error {
-		program.push(rc(Sourcedata(source.clone(), Coredata::String(error.clone()))));
+pub fn err(source: &Option<Source>, error: &Option<(Option<Source>, String)>, program: &mut Program, env: &mut Env) {
+	let error = if let Some((ref src, ref error)) = *error {
+		if let None = *src {
+			program.push(rc(Sourcedata(source.clone(), Coredata::String(error.clone()))));
+		} else {
+			program.push(rc(Sourcedata(src.clone(), Coredata::String(error.clone()))));
+		}
 		let trace = internal_trace(program, env);
 		Some(trace)
 	} else {
@@ -723,7 +735,7 @@ pub fn rcs(rcs: Coredata) -> Rc<Sourcedata> {
 /// Unwinds the stack until first wind is encountered.
 ///
 /// Preserves stack consistency (pops parameters when necessary).
-pub fn unwind(program: &mut Program, env: &mut Env) -> Option<String> {
+pub fn unwind(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	if let Some(param) = env.params.last() {
 		if let Some(last) = param.last() {
 			env.result = last.clone();

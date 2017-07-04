@@ -4,7 +4,7 @@
 //! If you want to add a builtin function to the interpreter you need to create
 //! a function here and add it to the library table (also in this file).
 //!
-//! Each function/macro is of the form `fn(program: &mut Program, env: &mut Env) -> Option<String>`.
+//! Each function/macro is of the form `fn(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)>`.
 //! This gives virtually complete control over the system by allowing manipulation
 //! of the program stack and the environment.
 //!
@@ -31,7 +31,7 @@ use std::usize;
 // //////////////////////////////////////////////////////////
 // Internal data structures used by Teko
 // //////////////////////////////////////////////////////////
-use data_structures::{Boolean, Commands, Coredata, Env, Function, Macro, Program, Sourcedata};
+use data_structures::*;
 use utilities::*;
 
 // //////////////////////////////////////////////////////////
@@ -141,7 +141,7 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 // amount of heads that are inside.
 // Then there's the type of the arguments, which can also be specified, but I'll need
 // to do it in such a way that it also deconstructs the arguments, that would be very useful.
-// So for example: function!(myfunc(args : 0 => 4) [  Symbol(ref a) String(ref b) ... ] => code
+// So for example: teko_simple_function!(myfunc(args : 0 => 4) [  Symbol(ref a) String(ref b) ... ] => code
 // That'd be neat, we'd save so much on boilerplate code by doing that.
 // I'll need to make define and unwind/wind something internal though. It's fine :], I reckon
 // those are the only things to stay internal. If you REALLY want to hack you can still do it
@@ -156,13 +156,13 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 // So perhaps it's best to let a macro abstract itself over the core functions.
 // We get best of both worlds: low-level control when we need it, and high-level cleanliness
 // when requested :)
-macro_rules! function {
+macro_rules! teko_simple_function {
 	($name:ident $args:ident : $low:expr => $high:expr => $code:block) => {
 		#[allow(unused_comparisons)]
-		fn $name(_: &mut Program, env: &mut Env) -> Option<String> {
+		fn $name(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 			if let Some($args) = env.params.last() {
 				if $args.len() < $low || $args.len() > $high {
-					return Some(arity_mismatch($low, $high, $args.len()));
+					return Some((None, arity_mismatch($low, $high, $args.len())));
 				}
 				let result = (|| $code)();
 				match result {
@@ -170,17 +170,42 @@ macro_rules! function {
 						env.result = result;
 						None
 					}
-					Err(error) => Some(error),
+					Err(error) => Some((None, error)),
 				}
 			} else {
-				Some("fatal: parameter stack empty".into())
+				Some((None, "fatal: parameter stack empty".into()))
+			}
+		}
+	};
+}
+
+macro_rules! teko_simple_macro {
+	($name:ident $arg:ident : $low:expr => $high:expr => $code:block) => {
+		#[allow(unused_comparisons)]
+		fn $name(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
+			let $arg = env.result.clone();
+			let len = $arg.len();
+			if let Some(len) = len {
+				if len < $low || len > $high {
+					return Some((None, arity_mismatch($low, $high, len)));
+				}
+			} else {
+				return Some((None, "macro: input not Cell or Null".into()));
+			}
+			let result = (|| $code)();
+			match result {
+				Ok(result) => {
+					env.result = result;
+					None
+				}
+				Err(error) => Some((None, error)),
 			}
 		}
 	};
 }
 
 /// Logical AND.
-function!(and args : 0 => usize::MAX => {
+teko_simple_function!(and args : 0 => usize::MAX => {
 	for arg in args {
 		if let Coredata::Boolean(Boolean::False) = arg.1 {
 			return Ok(arg.clone());
@@ -192,14 +217,14 @@ function!(and args : 0 => usize::MAX => {
 });
 
 /// Count the stack size. Useful for checking if Tail Call Optimization works.
-fn at_program_count(program: &mut Program, env: &mut Env) -> Option<String> {
+fn at_program_count(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	let count = program.len();
 	env.result = rcs(Coredata::Integer(count.into()));
 	None
 }
 
 /// Count the amount of active variables in the program.
-fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<String> {
+fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	let mut count = 0;
 	for i in &env.params {
 		count += i.len();
@@ -212,7 +237,7 @@ fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<String> {
 }
 
 /// Find all active variables in the dynamic scope.
-fn at_variables(_: &mut Program, env: &mut Env) -> Option<String> {
+fn at_variables(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	env.result = rcs(Coredata::Null);
 	for key in env.store.keys() {
 		env.result = rcs(Coredata::Cell(rcs(Coredata::Symbol(key.clone())), env.result.clone()));
@@ -221,50 +246,38 @@ fn at_variables(_: &mut Program, env: &mut Env) -> Option<String> {
 }
 
 /// Used by define to perform the final step of assigning.
-fn define_internal(_: &mut Program, env: &mut Env) -> Option<String> {
+fn define_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	if let Some(args) = env.params.last() {
 		if let Some(symbol) = args.first() {
 			match **symbol {
 				Sourcedata(ref source, Coredata::String(ref string)) => {
 					if let Some(rhs) = args.get(1) {
 						if env.store.contains_key(string) {
-							if let Some(ref source) = *source {
-								return Some(format![
-									"can not define `{}', already exists, {}",
-									string,
-									source,
-								]);
-							} else {
-								return Some(format!["can not define `{}', already exists", string]);
-							}
+							return Some((source.clone(), format!["variable already exists: {}", string]));
 						}
 						env.store.insert(string.clone(), vec![rhs.clone()]);
 					} else {
-						return Some(arity_mismatch(2, 2, 1));
+						return Some((source.clone(), arity_mismatch(2, 2, 1)));
 					}
 				}
-				Sourcedata(Some(ref source), ..) => {
-					return Some(format![
-						"expected String but got {}, {}",
-						data_name(symbol),
-						source,
-					]);
-				}
-				_ => {
-					return Some(format!["expected String but got {}", data_name(symbol)]);
+				Sourcedata(ref source, ..) => {
+					return Some((source.clone(), format![
+						"expected String but got {}",
+						data_name(symbol)
+					]));
 				}
 			}
 		} else {
-			return Some(arity_mismatch(2, 2, 0));
+			return Some((None, arity_mismatch(2, 2, 0)));
 		}
 	} else {
-		return Some("no arg stack".into());
+		return Some((None, "no arg stack".into()));
 	}
 	None
 }
 
 /// Define a variable to be some value.
-fn define(program: &mut Program, env: &mut Env) -> Option<String> {
+fn define(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	{
 		let args = env.result.clone();
 		let sub =
@@ -277,14 +290,14 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 					     head.clone()]
 				}
 				Coredata::Null => {
-					return Some(arity_mismatch(2, 2, 1));
+					return Some((None, arity_mismatch(2, 2, 1)));
 				}
 				_ => {
-					return Some(format!["expecting Cell but got: {}", tail]);
+					return Some((None, format!["expecting Cell but got: {}", tail]));
 				}
 			}
 		} else {
-			return Some(arity_mismatch(2, 2, 0));
+			return Some((None, arity_mismatch(2, 2, 0)));
 		};
 		if let Some(head) = args.head() {
 			match *head {
@@ -296,19 +309,15 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 					)));
 					program.push(rc(Sourcedata(source.clone(), Coredata::String(string.clone()))));
 				}
-				Sourcedata(Some(ref source), ..) => {
-					return Some(format![
-						"{}, expected Symbol but got: {}",
-						source,
-						data_name(&*head),
-					]);
-				}
-				Sourcedata(None, ..) => {
-					return Some(format!["expected Symbol but got: {}", data_name(&*head)]);
+				Sourcedata(ref source, ..) => {
+					return Some((source.clone(), format![
+						"expected Symbol but got: {}",
+						data_name(&*head)
+					]));
 				}
 			}
 		} else {
-			return Some(arity_mismatch(2, 2, 1));
+			return Some((None, arity_mismatch(2, 2, 1)));
 		}
 	}
 	env.params.push(vec![]);
@@ -316,7 +325,7 @@ fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 }
 
 /// Mathematical division of integers.
-function!(divide args : 1 => usize::MAX => {
+teko_simple_function!(divide args : 1 => usize::MAX => {
 	let mut sum = one();
 	if args.len() == 1 {
 		for arg in args.iter() {
@@ -373,7 +382,7 @@ function!(divide args : 1 => usize::MAX => {
 });
 
 /// Retrieve the first statement of a function or macro.
-function!(doc args : 1 => 1 => {
+teko_simple_function!(doc args : 1 => 1 => {
 	let arg = args.first().expect("function macro ensures existence");
 	match arg.1 {
 		Coredata::Function(Function::Library(_, ref stats)) |
@@ -394,7 +403,7 @@ function!(doc args : 1 => 1 => {
 });
 
 /// Integer equality comparison.
-function!(eq args : 0 => usize::MAX => {
+teko_simple_function!(eq args : 0 => usize::MAX => {
 	let mut last = None;
 	let mut result = rcs(Coredata::Boolean(Boolean::True));
 	for arg in args.iter() {
@@ -430,7 +439,7 @@ function!(eq args : 0 => usize::MAX => {
 /// Error constructor.
 ///
 /// Error is its own type in Teko.
-function!(error args : 0 => 1 => {
+teko_simple_function!(error args : 0 => 1 => {
 	if let Some(arg) = args.first() {
 		Ok(rcs(Coredata::Error(arg.clone())))
 	} else {
@@ -439,23 +448,23 @@ function!(error args : 0 => 1 => {
 });
 
 /// Evaluates the argument as if it's a program.
-fn eval_expose(program: &mut Program, env: &mut Env) -> Option<String> {
+fn eval_expose(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
-			Some(arity_mismatch(1, 1, args.len()))
+			Some((None, arity_mismatch(1, 1, args.len())))
 		} else if let Some(arg) = args.first() {
 			program.push(arg.clone());
 			None
 		} else {
-			Some(arity_mismatch(1, 1, args.len()))
+			Some((None, arity_mismatch(1, 1, args.len())))
 		}
 	} else {
-		Some("no argument stack".into())
+		Some((None, "no argument stack".into()))
 	}
 }
 
 /// Exit the entire program.
-function!(exit args : 0 => 1 => {
+teko_simple_function!(exit args : 0 => 1 => {
 	use num::ToPrimitive;
 
 	if let Some(arg) = args.last() {
@@ -484,28 +493,26 @@ function!(exit args : 0 => 1 => {
 });
 
 /// Construct a function object with dynamic scope.
-fn function(_: &mut Program, env: &mut Env) -> Option<String> {
-	let args = env.result.clone();
-	let params = if let Some(ref args) = args.head() {
-		if let Some(params) = collect_cell_of_symbols_into_vec_string(args) {
+teko_simple_macro!(function args : 2 => usize::MAX => {
+	if let Some(head) = args.head() {
+		let params = if let Some(params) = collect_cell_of_symbols_into_vec_string(&head) {
 			params
 		} else {
-			return Some("parameter list contains non-symbols".into());
+			return Err("parameter list contains non-symbols".into());
+		};
+		if let Some(tail) = args.tail() {
+			let code = collect_cell_into_revvec(&tail);
+			Ok(rcs(Coredata::Function(Function::Library(params, code))))
+		} else {
+			Err("tail is empty".into())
 		}
 	} else {
-		return Some(arity_mismatch(2, 2, 0));
-	};
-	let code = if let Some(ref code) = args.tail() {
-		collect_cell_into_vec(code)
-	} else {
-		return Some(arity_mismatch(2, 2, 0));
-	};
-	env.result = rcs(Coredata::Function(Function::Library(params, code)));
-	None
-}
+		Err("parameter list is not a list".into())
+	}
+});
 
 /// The greater-than function for comparing integers.
-function!(gt args : 0 => usize::MAX => {
+teko_simple_function!(gt args : 0 => usize::MAX => {
 	let mut last = None;
 	let mut result = rcs(Coredata::Boolean(Boolean::True));
 	for arg in args.iter() {
@@ -542,7 +549,7 @@ function!(gt args : 0 => usize::MAX => {
 ///
 /// If the argument is not a cell then this will unwind with
 /// an error.
-function!(head args : 1 => 1 => {
+teko_simple_function!(head args : 1 => 1 => {
 	let arg = args.first().unwrap();
 	if let Some(head) = arg.head() {
 		Ok(head.clone())
@@ -558,7 +565,7 @@ function!(head args : 1 => 1 => {
 });
 
 /// Conditional branching primitive.
-fn if_conditional(program: &mut Program, env: &mut Env) -> Option<String> {
+fn if_conditional(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	let arg = env.result.clone();
 	if let Some(head) = arg.head() {
 		if let Some(tail) = arg.tail() {
@@ -571,24 +578,24 @@ fn if_conditional(program: &mut Program, env: &mut Env) -> Option<String> {
 						program.push(head);
 						return None;
 					} else {
-						Some(arity_mismatch(3, 3, 2))
+						Some((None, arity_mismatch(3, 3, 2)))
 					}
 				} else {
-					Some(arity_mismatch(3, 3, 1))
+					Some((None, arity_mismatch(3, 3, 1)))
 				}
 			} else {
-				Some(arity_mismatch(3, 3, 1))
+				Some((None, arity_mismatch(3, 3, 1)))
 			}
 		} else {
-			Some(arity_mismatch(3, 3, 1))
+			Some((None, arity_mismatch(3, 3, 1)))
 		}
 	} else {
-		Some(arity_mismatch(3, 3, 0))
+		Some((None, arity_mismatch(3, 3, 0)))
 	}
 }
 
 /// Check if data is the same.
-function!(is_data_eq args : 0 => usize::MAX => {
+teko_simple_function!(is_data_eq args : 0 => usize::MAX => {
 	let mut last = None;
 	let mut result = rcs(Coredata::Boolean(Boolean::True));
 	for arg in args.iter() {
@@ -609,7 +616,7 @@ function!(is_data_eq args : 0 => usize::MAX => {
 });
 
 /// Check if a value is an error type.
-function!(is_error args : 1 => 1 => {
+teko_simple_function!(is_error args : 1 => 1 => {
 	let arg = args.first().unwrap();
 	if let Coredata::Error(_) = arg.1 {
 		Ok(rcs(Coredata::Boolean(Boolean::True)))
@@ -619,7 +626,7 @@ function!(is_error args : 1 => 1 => {
 });
 
 /// Check if the value is a cell type.
-function!(is_cell args : 1 => 1 => {
+teko_simple_function!(is_cell args : 1 => 1 => {
 	let arg = args.first().unwrap();
 	if let Coredata::Cell(..) = arg.1 {
 		Ok(rcs(Coredata::Boolean(Boolean::True)))
@@ -629,7 +636,7 @@ function!(is_cell args : 1 => 1 => {
 });
 
 /// Check if the value is a symbol.
-function!(is_symbol args : 1 => 1 => {
+teko_simple_function!(is_symbol args : 1 => 1 => {
 	let arg = args.first().unwrap();
 	if let Coredata::Symbol(_) = arg.1 {
 		Ok(rcs(Coredata::Boolean(Boolean::True)))
@@ -639,7 +646,7 @@ function!(is_symbol args : 1 => 1 => {
 });
 
 /// Compute the length of a list.
-function!(list_length args : 1 => 1 => {
+teko_simple_function!(list_length args : 1 => 1 => {
 	let arg = args.first().unwrap();
 	if let Some(len) = arg.len() {
 		Ok(rcs(Coredata::Integer(len.into())))
@@ -652,7 +659,7 @@ function!(list_length args : 1 => 1 => {
 });
 
 /// Construct a list (nested cell) of items.
-function!(list args : 0 => usize::MAX => {
+teko_simple_function!(list args : 0 => usize::MAX => {
 	let mut result = rcs(Coredata::Null);
 	for arg in args.iter().rev() {
 		result = rcs(Coredata::Cell(arg.clone(), result));
@@ -661,7 +668,7 @@ function!(list args : 0 => usize::MAX => {
 });
 
 /// The less-than function for comparing integers.
-function!(lt args : 0 => usize::MAX => {
+teko_simple_function!(lt args : 0 => usize::MAX => {
 	let mut last = None;
 	let mut result = rcs(Coredata::Boolean(Boolean::True));
 	for arg in args.iter() {
@@ -695,33 +702,28 @@ function!(lt args : 0 => usize::MAX => {
 });
 
 /// The macro value constructor.
-fn make_macro(_: &mut Program, env: &mut Env) -> Option<String> {
-	let arg = env.result.clone();
-	if let Some(head) = arg.head() {
-		if let Some(tail) = arg.tail() {
-			let params = match *head {
-				Sourcedata(_, Coredata::Symbol(ref string)) => string.clone(),
-				Sourcedata(Some(ref source), ..) => {
-					return Some(format![
-						"expected Symbol but got {}, {}",
-						data_name(&*head),
-						source,
-					]);
-				}
-				_ => {
-					return Some(format!["expected Symbol but got {}", data_name(&*head)]);
-				}
-			};
-			let code = collect_cell_into_vec(&tail);
-			env.result = rcs(Coredata::Macro(Macro::Library(params, code)));
-			return None;
+teko_simple_macro!(make_macro args : 2 => usize::MAX => {
+	let head = args.head().unwrap();
+	let tail = args.tail().unwrap();
+	let params = match *head {
+		Sourcedata(_, Coredata::Symbol(ref string)) => string.clone(),
+		Sourcedata(Some(ref source), ..) => {
+			return Err(format![
+				"expected Symbol but got {}, {}",
+				data_name(&*head),
+				source,
+			]);
 		}
-	}
-	Some(arity_mismatch(2, 2, 0))
-}
+		_ => {
+			return Err(format!["expected Symbol but got {}", data_name(&*head)]);
+		}
+	};
+	let code = collect_cell_into_revvec(&tail);
+	Ok(rcs(Coredata::Macro(Macro::Library(params, code))))
+});
 
 /// Integer multiplication.
-function!(multiply args : 0 => usize::MAX => {
+teko_simple_function!(multiply args : 0 => usize::MAX => {
 	let mut sum = one();
 	for arg in args.iter() {
 		match **arg {
@@ -744,7 +746,7 @@ function!(multiply args : 0 => usize::MAX => {
 });
 
 /// Boolean NOT.
-function!(not args : 1 => 1 => {
+teko_simple_function!(not args : 1 => 1 => {
 	let arg = args.first().unwrap();
 	if let Coredata::Boolean(Boolean::False) = arg.1 {
 		Ok(rcs(Coredata::Boolean(Boolean::True)))
@@ -754,7 +756,7 @@ function!(not args : 1 => 1 => {
 });
 
 /// Boolean (inclusive) OR.
-function!(or args : 0 => usize::MAX => {
+teko_simple_function!(or args : 0 => usize::MAX => {
 	for arg in args {
 		if let Coredata::Boolean(Boolean::False) = arg.1 {
 			continue;
@@ -769,7 +771,7 @@ function!(or args : 0 => usize::MAX => {
 ///
 /// The second argument must be a `Cell` or `Null`, else it will
 /// unwind with an error.
-function!(cell args : 2 => 2 => {
+teko_simple_function!(cell args : 2 => 2 => {
 	let arg1 = args.first().unwrap();
 	let arg2 = args.get(1).unwrap();
 	if let Coredata::Cell(..) = arg2.1 {
@@ -789,7 +791,7 @@ function!(cell args : 2 => 2 => {
 });
 
 /// Integer addition. `(+ Integer*) => Integer`
-function!(plus args : 0 => usize::MAX => {
+teko_simple_function!(plus args : 0 => usize::MAX => {
 	let mut sum = zero();
 	for arg in args.iter() {
 		match **arg {
@@ -815,7 +817,7 @@ function!(plus args : 0 => usize::MAX => {
 ///
 /// Does not put strings on the write form, however,
 /// strings inside structures are still printed in their written form: (" X).
-function!(print args : 1 => usize::MAX => {
+teko_simple_function!(print args : 1 => usize::MAX => {
 	for arg in args {
 		if let Coredata::String(ref value) = arg.1 {
 			println!["{}", value];
@@ -830,11 +832,11 @@ function!(print args : 1 => usize::MAX => {
 ///
 /// A builtin macro always stores the tail of the invocation inside `env.result`, so this macro is
 /// empty; it doesn't need to do anything.
-fn quote(_: &mut Program, _: &mut Env) -> Option<String> {
+fn quote(_: &mut Program, _: &mut Env) -> Option<(Option<Source>, String)> {
 	None
 }
 
-fn read(_: &mut Program, env: &mut Env) -> Option<String> {
+fn read(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	use data_structures::ParseState;
 	use parse::*;
 	let mut parser = ParseState::from("tty");
@@ -842,9 +844,9 @@ fn read(_: &mut Program, env: &mut Env) -> Option<String> {
 		if let Ok(ch) = ch {
 			if let Err(state) = parse_character(ch as char, &mut parser) {
 				if let Some(error) = state.error {
-					return Some(format!["parse error: {}", error]);
+					return Some((None, format!["parse error: {}", error]));
 				} else {
-					return Some(format!["parse error"]);
+					return Some((None, format!["parse error"]));
 				}
 			}
 			if is_ready_to_finish(&parser) {
@@ -852,63 +854,54 @@ fn read(_: &mut Program, env: &mut Env) -> Option<String> {
 				if let Ok(tree) = result {
 					match tree.first() {
 						Some(tree) => env.result = tree.clone(),
-						None => return Some("parse error: ".into()),
+						None => return Some((None, "parse error: ".into())),
 					}
 				}
 				break;
 			}
 		} else {
-			return Some("unable to read standard input".into());
+			return Some((None, "unable to read standard input".into()));
 		}
 	}
 	None
 }
 
 /// Used by set internall to set variables.
-fn set_internal(_: &mut Program, env: &mut Env) -> Option<String> {
+fn set_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	if let Some(args) = env.params.last() {
 		if let Some(symbol) = args.first() {
 			match **symbol {
 				Sourcedata(ref source, Coredata::String(ref string)) => {
 					if let Some(rhs) = args.get(1) {
 						if !env.store.contains_key(string) {
-							if let Some(ref source) = *source {
-								return Some(format![
-									"can not set! `{}', does not exist, {}",
-									string,
-									source,
-								]);
-							} else {
-								return Some(format!["can not set! `{}', does not exist", string]);
-							}
+							return Some((source.clone(), format![
+								"variable does not exist, {}",
+								string
+							]));
 						}
 						env.store.insert(string.clone(), vec![rhs.clone()]);
 					} else {
-						return Some(arity_mismatch(2, 2, 1));
+						return Some((None, arity_mismatch(2, 2, 1)));
 					}
 				}
-				Sourcedata(Some(ref source), ..) => {
-					return Some(format![
-						"expected String but got {}, {}",
-						data_name(symbol),
-						source,
-					]);
-				}
-				_ => {
-					return Some(format!["expected String but got {}", data_name(symbol)]);
+				Sourcedata(ref src, ..) => {
+					return Some((src.clone(), format![
+						"expected String but got {}",
+						data_name(symbol)
+					]));
 				}
 			}
 		} else {
-			return Some(arity_mismatch(2, 2, 0));
+			return Some((None, arity_mismatch(2, 2, 0)));
 		}
 	} else {
-		return Some("no arg stack".into());
+		return Some((None, "no arg stack".into()));
 	}
 	None
 }
 
 /// Set a variable in the environment.
-fn set(program: &mut Program, env: &mut Env) -> Option<String> {
+fn set(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	{
 		let args = env.result.clone();
 		let sub = rcs(Coredata::Function(Function::Builtin(set_internal, "@set-internal".into())));
@@ -920,14 +913,14 @@ fn set(program: &mut Program, env: &mut Env) -> Option<String> {
 					program.push(heado.clone());
 				}
 				Coredata::Null => {
-					return Some(arity_mismatch(2, 2, 0));
+					return Some((None, arity_mismatch(2, 2, 0)));
 				}
 				_ => {
-					return Some(format!["expected Cell but got {}", tail]);
+					return Some((None, format!["expected Cell but got {}", tail]));
 				}
 			}
 		} else {
-			return Some(arity_mismatch(2, 2, 0));
+			return Some((None, arity_mismatch(2, 2, 0)));
 		}
 		program.push(rcs(Coredata::Internal(Commands::Parameterize)));
 		if let Some(head) = args.head() {
@@ -936,12 +929,12 @@ fn set(program: &mut Program, env: &mut Env) -> Option<String> {
 					program
 						.push(Rc::new(Sourcedata(source.clone(), Coredata::String(string.clone()))));
 				}
-				_ => {
-					return Some(format!["expected Cell but got {}", head]);
+				Sourcedata(ref source, ..) => {
+					return Some((source.clone(), format!["expected Cell but got {}", head]));
 				}
 			}
 		} else {
-			return Some(arity_mismatch(2, 2, 1));
+			return Some((None, arity_mismatch(2, 2, 1)));
 		}
 	}
 	env.params.push(vec![]);
@@ -949,7 +942,7 @@ fn set(program: &mut Program, env: &mut Env) -> Option<String> {
 }
 
 /// Sleep for a given number of milliseconds.
-function!(msleep args : 1 => 1 => {
+teko_simple_function!(msleep args : 1 => 1 => {
 	use std::{thread, time};
 	use num::ToPrimitive;
 	let arg = args.first().unwrap();
@@ -978,9 +971,9 @@ function!(msleep args : 1 => 1 => {
 /// Create a string
 ///
 /// Creates a string from the given symbols by inserting single spaces inbetween each symbol.
-fn string(_: &mut Program, env: &mut Env) -> Option<String> {
+teko_simple_macro!(string arg : 0 => usize::MAX => {
 	let data = {
-		let mut data = collect_cell_into_vec(&env.result);
+		let mut data = collect_cell_into_revvec(&arg);
 		data.reverse();
 		data
 	};
@@ -1004,21 +997,21 @@ fn string(_: &mut Program, env: &mut Env) -> Option<String> {
 						if let Ok(code) = code {
 							code
 						} else {
-							return Some(format![
+							return Err(format![
 								"{}, unable to parse value to unsigned 32-bit integer: {}",
 								optional_source(source),
 								value,
 							]);
 						}
 					} else {
-						return Some(format![
+						return Err(format![
 							"{}, tail is not a cell: {}",
 							optional_source(source),
 							tail,
 						]);
 					}
 				} else {
-					return Some("string character only accepts a one or two arguments".into());
+					return Err("string character only accepts a one or two arguments".into());
 				};
 				if let Coredata::Symbol(ref value) = head.1 {
 					let code = value.parse::<u32>();
@@ -1028,25 +1021,24 @@ fn string(_: &mut Program, env: &mut Env) -> Option<String> {
 								ret.push(code);
 							}
 						} else {
-							return Some("value is not a valid character value".into());
+							return Err("value is not a valid character value".into());
 						}
 					} else {
-						return Some("value is not an unsigned 32-bit value".into());
+						return Err("value is not an unsigned 32-bit value".into());
 					}
 				}
 				last_symbol = false;
 			}
 			_ => {
-				return None;
+				return Err("unable to parse input".into());
 			}
 		}
 	}
-	env.result = rcs(Coredata::String(ret));
-	None
-}
+	Ok(rcs(Coredata::String(ret)))
+});
 
 /// Integer subtraction.
-function!(subtract args : 1 => usize::MAX => {
+teko_simple_function!(subtract args : 1 => usize::MAX => {
 	let mut sum = zero();
 	if args.len() == 1 {
 		for arg in args.iter() {
@@ -1099,7 +1091,7 @@ function!(subtract args : 1 => usize::MAX => {
 /// Take the tail of a cell.
 ///
 /// If the argument is not a cell, then an error will be unwound.
-function!(tail args : 1 => 1 => {
+teko_simple_function!(tail args : 1 => 1 => {
 	let arg = args.first().unwrap();
 	if let Some(tail) = arg.tail() {
 		Ok(tail.clone())
@@ -1115,7 +1107,7 @@ function!(tail args : 1 => 1 => {
 });
 
 /// Convert data structures to a string.
-function!(to_string args : 1 => 1 => {
+teko_simple_function!(to_string args : 1 => 1 => {
 	let arg = args.first().unwrap();
 	Ok(rcs(Coredata::String(format!["{}", arg])))
 });
@@ -1126,15 +1118,15 @@ function!(to_string args : 1 => 1 => {
 /// be some calls missing here. Since the requirement is for the program
 /// to be unbounded in the amount of tail calls, there's no way to definitively
 /// store all calls.
-fn trace(program: &mut Program, env: &mut Env) -> Option<String> {
+fn trace(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	env.result = internal_trace(program, env);
 	None
 }
 
 /// Set up a "catch-all" that catches all errors
-fn wind(program: &mut Program, env: &mut Env) -> Option<String> {
+fn wind(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	let args = env.result.clone();
-	let code = collect_cell_into_vec(&args);
+	let code = collect_cell_into_revvec(&args);
 	program.push(rcs(Coredata::Internal(Commands::Wind)));
 	program.extend(code.iter().cloned());
 	None
@@ -1147,7 +1139,7 @@ fn wind(program: &mut Program, env: &mut Env) -> Option<String> {
 /// object, although it may be necessary to explicitly eval parts of the
 /// object, the representation will always stay intact regardless of how
 /// many reads and writes you apply to it.
-function!(write args : 1 => usize::MAX => {
+teko_simple_function!(write args : 1 => usize::MAX => {
 	for arg in args {
 		println!["{}", arg];
 	}
