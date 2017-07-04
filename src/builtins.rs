@@ -216,46 +216,39 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<String> {
 fn define(program: &mut Program, env: &mut Env) -> Option<String> {
 	{
 		let args = env.result.clone();
-		let sub = Rc::new(Sourcedata(
-			None,
-			Coredata::Function(Function::Builtin(
-				define_internal,
-				"@define-internal".into(),
-			)),
-		));
-		if let Some(ref tail) = args.tail() {
+		let sub = rcs(Coredata::Function(Function::Builtin(
+		define_internal, "@define-internal".into())));
+		let push = if let Some(ref tail) = args.tail() {
 			match tail.1 {
 				Coredata::Cell(ref heado, _) => {
-					program.push(Rc::new(
-						Sourcedata(None, Coredata::Internal(Commands::Call(sub))),
-					));
-					program.push(Rc::new(
-						Sourcedata(None, Coredata::Internal(Commands::Parameterize)),
-					));
-					program.push(heado.clone());
+					vec![
+						rcs(Coredata::Internal(Commands::Call(sub))),
+						rcs(Coredata::Internal(Commands::Parameterize)),
+						heado.clone(),
+					]
 				}
 				Coredata::Null => {
-					return Some("arity mismatch, expecting 2 but got 0".into());
+					return Some("arity mismatch, expecting 2 but got 1".into());
 				}
 				_ => {
-					return Some(format!["expected Cell but got {}", tail]);
+					return Some(format!["expecting Cell but got: {}", tail]);
 				}
 			}
 		} else {
-			return Some("arity mismatch, expecting 2 but got 0".into());
-		}
-		program.push(Rc::new(
-			Sourcedata(None, Coredata::Internal(Commands::Parameterize)),
-		));
+			return Some("arity mismatch, expecting 2 but got 1".into());
+		};
 		if let Some(head) = args.head() {
 			match *head {
 				Sourcedata(ref source, Coredata::Symbol(ref string)) => {
-					program.push(Rc::new(
-						Sourcedata(source.clone(), Coredata::String(string.clone())),
-					));
+					program.extend(push);
+					program.push(rc(Sourcedata(source.clone(), Coredata::Internal(Commands::Parameterize))));
+					program.push(rc(Sourcedata(source.clone(), Coredata::String(string.clone()))));
 				}
-				_ => {
-					return Some(format!["expected Cell but got {}", head]);
+				Sourcedata(Some(ref source), ..) => {
+					return Some(format!["{}, expected Symbol but got: {}", source, data_name(&*head)]);
+				}
+				Sourcedata(None, ..) => {
+					return Some(format!["expected Symbol but got: {}", data_name(&*head)]);
 				}
 			}
 		} else {
