@@ -155,7 +155,7 @@ fn left_parenthesis(state: &mut ParseState) {
 fn right_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
 	move_token_to_stack_if_nonempty(state);
 	pop_previous_opening_parenthesis(state)?;
-	let mut active = Rc::new(Sourcedata(Some(state.current_read_position.clone()), Coredata::Null));
+	let mut active = Rc::new(Sourcedata(Some(state.current_read_position.clone()), Coredata::Null()));
 	let mut source = None;
 	while let Some(top) = state.stack.pop() {
 		match *top {

@@ -74,7 +74,7 @@ pub enum Coredata {
 	/// Macro types
 	Macro(Macro),
 	/// Null (an empty list)
-	Null,
+	Null(),
 	/// String type
 	String(String),
 	/// Symbol type

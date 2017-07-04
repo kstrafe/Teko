@@ -220,7 +220,7 @@ pub fn initialize_environment_with_standard_library() -> Env {
 	Env {
 		store: create_builtin_library_table(),
 		params: Vec::with_capacity(VEC_CAPACITY),
-		result: rc(Sourcedata(None, Coredata::Null)),
+		result: rc(Sourcedata(None, Coredata::Null())),
 	}
 }
 

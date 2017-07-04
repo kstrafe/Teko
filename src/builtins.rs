@@ -190,7 +190,7 @@ macro_rules! teko_simple_macro {
 					return Some((None, arity_mismatch($low, $high, len)));
 				}
 			} else {
-				return Some((None, "macro: input not Cell or Null".into()));
+				return Some((None, "macro: input not Cell or Null()".into()));
 			}
 			let result = (|| $code)();
 			match result {
@@ -200,6 +200,19 @@ macro_rules! teko_simple_macro {
 				}
 				Err((source, error)) => Some((source, error)),
 			}
+		}
+	};
+}
+
+macro_rules! extype {
+	($src:expr, $($expected:ident);*, $data:expr) => {
+		{
+			$(
+				if let Sourcedata(_, Coredata::$expected(..)) = *$data.clone() {
+					assert![false];
+				}
+			)*
+			($src.clone(), format!["expected {} but got {}", stringify![$($expected);*], data_name(&$data)])
 		}
 	};
 }
@@ -238,7 +251,7 @@ fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, 
 
 /// Find all active variables in the dynamic scope.
 fn at_variables(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
-	env.result = rcs(Coredata::Null);
+	env.result = rcs(Coredata::Null());
 	for key in env.store.keys() {
 		env.result = rcs(Coredata::Cell(rcs(Coredata::Symbol(key.clone())), env.result.clone()));
 	}
@@ -261,10 +274,7 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, St
 					}
 				}
 				Sourcedata(ref source, ..) => {
-					return Some((source.clone(), format![
-						"expected String but got {}",
-						data_name(symbol)
-					]));
+					return Some(extype![source, String, symbol]);
 				}
 			}
 		} else {
@@ -289,7 +299,7 @@ fn define(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 					     rcs(Coredata::Internal(Commands::Parameterize)),
 					     head.clone()]
 				}
-				Coredata::Null => {
+				Coredata::Null() => {
 					return Some((None, arity_mismatch(2, 2, 1)));
 				}
 				_ => {
@@ -310,10 +320,7 @@ fn define(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 					program.push(rc(Sourcedata(source.clone(), Coredata::String(string.clone()))));
 				}
 				Sourcedata(ref source, ..) => {
-					return Some((source.clone(), format![
-						"expected Symbol but got: {}",
-						data_name(&*head)
-					]));
+					return Some(extype![source, Symbol, head]);
 				}
 			}
 		} else {
@@ -337,10 +344,7 @@ teko_simple_function!(divide args : 1 => usize::MAX => {
 					sum = sum / value;
 				}
 				Sourcedata(ref src, ..) => {
-					return Err((src.clone(), format![
-						"expected Integer but got {}",
-						data_name(arg),
-					]));
+					return Err(extype![src, Integer, arg]);
 				}
 			}
 		}
@@ -359,7 +363,7 @@ teko_simple_function!(divide args : 1 => usize::MAX => {
 					}
 				}
 				Sourcedata(ref src, ..) => {
-					return Err((src.clone(), format!["expected Integer but got {}", data_name(arg)]));
+					return Err(extype![src, Integer, arg]);
 				}
 			}
 			first = false;
@@ -375,16 +379,13 @@ teko_simple_function!(doc args : 1 => 1 => {
 		Sourcedata(_, Coredata::Function(Function::Library(_, ref stats))) |
 		Sourcedata(_, Coredata::Macro(Macro::Library(_, ref stats))) => {
 			if stats.is_empty() {
-				Ok(rcs(Coredata::Null))
+				Ok(rcs(Coredata::Null()))
 			} else {
 				Ok(stats.last().unwrap().clone())
 			}
 		}
 		Sourcedata(ref src, ..) => {
-			Err((src.clone(), format![
-				"expected Function or Macro but got {}",
-				data_name(arg),
-			]))
+			Err(extype![src, Function, arg])
 		}
 	}
 });
@@ -409,7 +410,7 @@ teko_simple_function!(eq args : 0 => usize::MAX => {
 				}
 			}
 			Sourcedata(ref src, ..) => {
-				return Err((src.clone(), format!["expected Integer but got {}", data_name(arg)]));
+				return Err(extype![src, Integer, arg])
 			}
 		}
 	}
@@ -423,7 +424,7 @@ teko_simple_function!(error args : 0 => 1 => {
 	if let Some(arg) = args.first() {
 		Ok(rcs(Coredata::Error(arg.clone())))
 	} else {
-		Ok(rcs(Coredata::Error(rcs(Coredata::Null))))
+		Ok(rcs(Coredata::Error(rcs(Coredata::Null()))))
 	}
 });
 
@@ -457,10 +458,7 @@ teko_simple_function!(exit args : 0 => 1 => {
 				}
 			}
 			Sourcedata(ref src, ..) => {
-				Err((src.clone(), format![
-					"expected Integer but got {}",
-					data_name(arg)
-				]))
+				Err(extype![src, Integer, arg])
 			}
 		}
 	} else {
@@ -507,10 +505,7 @@ teko_simple_function!(gt args : 0 => usize::MAX => {
 				}
 			}
 			Sourcedata(ref src, ..) => {
-				return Err((src.clone(), format![
-					"expected Integer but got {}",
-					data_name(arg)
-				]));
+				return Err(extype![src, Integer, arg]);
 			}
 		}
 	}
@@ -526,13 +521,7 @@ teko_simple_function!(head args : 1 => 1 => {
 	if let Some(head) = arg.head() {
 		Ok(head.clone())
 	} else {
-		match **arg {
-			Sourcedata(ref src, ..) =>
-				Err((src.clone(), format![
-					"expected Cell but got {}",
-					data_name(arg),
-				]))
-		}
+		return Err(extype![arg.0, Cell, arg]);
 	}
 });
 
@@ -623,16 +612,13 @@ teko_simple_function!(list_length args : 1 => 1 => {
 	if let Some(len) = arg.len() {
 		Ok(rcs(Coredata::Integer(len.into())))
 	} else {
-		Err((None, format![
-			"expected Cell or String but got {}",
-			data_name(arg),
-		]))
+		Err(extype![arg.0, String; Cell, arg])
 	}
 });
 
 /// Construct a list (nested cell) of items.
 teko_simple_function!(list args : 0 => usize::MAX => {
-	let mut result = rcs(Coredata::Null);
+	let mut result = rcs(Coredata::Null());
 	for arg in args.iter().rev() {
 		result = rcs(Coredata::Cell(arg.clone(), result));
 	}
@@ -658,11 +644,8 @@ teko_simple_function!(lt args : 0 => usize::MAX => {
 					last = Some(integer);
 				}
 			}
-			Sourcedata(ref src, ..) => {
-				return Err((src.clone(), format![
-					"expected Integer but got {}",
-					data_name(arg)
-				]));
+			_ => {
+				return Err(extype![arg.0, Integer, arg]);
 			}
 		}
 	}
@@ -675,11 +658,8 @@ teko_simple_macro!(make_macro args : 2 => usize::MAX => {
 	let tail = args.tail().unwrap();
 	let params = match *head {
 		Sourcedata(_, Coredata::Symbol(ref string)) => string.clone(),
-		Sourcedata(ref src, ..) => {
-			return Err((src.clone(), format![
-				"expected Symbol but got {}",
-				data_name(&*head),
-			]));
+		_ => {
+			return Err(extype![head.0, Symbol, head]);
 		}
 	};
 	let code = collect_cell_into_revvec(&tail);
@@ -694,11 +674,8 @@ teko_simple_function!(multiply args : 0 => usize::MAX => {
 			Sourcedata(_, Coredata::Integer(ref value)) => {
 				sum = sum * value;
 			}
-			Sourcedata(ref src, ..) => {
-				return Err((src.clone(), format![
-					"expected Integer but got {}",
-					data_name(&*arg)
-				]));
+			_ => {
+				return Err(extype![arg.0, Integer, arg]);
 			}
 		}
 	}
@@ -729,20 +706,17 @@ teko_simple_function!(or args : 0 => usize::MAX => {
 
 /// Cell value constructor.
 ///
-/// The second argument must be a `Cell` or `Null`, else it will
+/// The second argument must be a `Cell` or `Null()`, else it will
 /// unwind with an error.
 teko_simple_function!(cell args : 2 => 2 => {
 	let arg1 = args.first().unwrap();
 	let arg2 = args.get(1).unwrap();
 	if let Coredata::Cell(..) = arg2.1 {
 		// Ok TODO replace with check is_cell_or_null(...)
-	} else if let Coredata::Null = arg2.1 {
+	} else if let Coredata::Null(..) = arg2.1 {
 		// Ok
 	} else {
-		return Err((arg2.0.clone(), format![
-			"expected Cell or Null but got {}",
-			data_name(arg2)
-		]));
+		return Err(extype![arg2.0, Cell; Null, arg2]);
 	}
 	Ok(rcs(Coredata::Cell(arg1.clone(), arg2.clone())))
 });
@@ -755,11 +729,8 @@ teko_simple_function!(plus args : 0 => usize::MAX => {
 			Sourcedata(_, Coredata::Integer(ref value)) => {
 				sum = sum + value;
 			}
-			Sourcedata(ref src, ..) => {
-				return Err((src.clone(), format![
-					"expected Integer but got {}",
-					data_name(&**arg)
-				]));
+			_ => {
+				return Err(extype![arg.0, Integer, arg]);
 			}
 		}
 	}
@@ -837,11 +808,8 @@ fn set_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 						return Some((None, arity_mismatch(2, 2, 1)));
 					}
 				}
-				Sourcedata(ref src, ..) => {
-					return Some((src.clone(), format![
-						"expected String but got {}",
-						data_name(symbol)
-					]));
+				_ => {
+					return Some(extype![symbol.0, String, symbol]);
 				}
 			}
 		} else {
@@ -865,11 +833,11 @@ fn set(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)>
 					program.push(rcs(Coredata::Internal(Commands::Parameterize)));
 					program.push(heado.clone());
 				}
-				Coredata::Null => {
+				Coredata::Null() => {
 					return Some((None, arity_mismatch(2, 2, 0)));
 				}
 				_ => {
-					return Some((None, format!["expected Cell but got {}", tail]));
+					return Some(extype![tail.0, Cell, tail]);
 				}
 			}
 		} else {
@@ -882,8 +850,8 @@ fn set(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)>
 					program
 						.push(Rc::new(Sourcedata(source.clone(), Coredata::String(string.clone()))));
 				}
-				Sourcedata(ref source, ..) => {
-					return Some((source.clone(), format!["expected Cell but got {}", head]));
+				_ => {
+					return Some(extype![head.0, Cell, head]);
 				}
 			}
 		} else {
@@ -907,11 +875,8 @@ teko_simple_function!(msleep args : 1 => 1 => {
 				return Err((src.clone(), "unable to convert number to value".into()));
 			}
 		}
-		Sourcedata(ref src, ..) => {
-			return Err((src.clone(), format![
-				"expected Integer but got {}",
-				data_name(arg)
-			]));
+		_ => {
+			return Err(extype![arg.0, Integer, arg]);
 		}
 	}
 	Ok(arg.clone())
@@ -938,7 +903,7 @@ teko_simple_macro!(string arg : 0 => usize::MAX => {
 				last_symbol = true;
 			}
 			Sourcedata(ref src, Coredata::Cell(ref head, ref tail)) => {
-				let repeats = if let Coredata::Null = tail.1 {
+				let repeats = if let Coredata::Null() = tail.1 {
 					1
 				} else if let Sourcedata(ref src, Coredata::Cell(ref head, ref tail)) = **tail {
 					if let Sourcedata(ref src, Coredata::Symbol(ref value)) = **head {
@@ -993,11 +958,8 @@ teko_simple_function!(subtract args : 1 => usize::MAX => {
 				Sourcedata(_, Coredata::Integer(ref value)) => {
 					sum = sum - value;
 				}
-				Sourcedata(ref src, ..) => {
-					return Err((src.clone(), format![
-						"expected Integer but got {}",
-						data_name(arg),
-					]));
+				_ => {
+					return Err(extype![arg.0, Integer, arg]);
 				}
 			}
 		}
@@ -1012,11 +974,8 @@ teko_simple_function!(subtract args : 1 => usize::MAX => {
 						sum = sum - value;
 					}
 				}
-				Sourcedata(ref src, ..) => {
-					return Err((src.clone(), format![
-						"expected Integer but got {}",
-						data_name(arg),
-					]));
+				_ => {
+					return Err(extype![arg.0, Integer, arg]);
 				}
 			}
 			first = false;
@@ -1035,10 +994,7 @@ teko_simple_function!(tail args : 1 => 1 => {
 	if let Some(tail) = arg.tail() {
 		Ok(tail.clone())
 	} else {
-		Err((arg.0.clone(), format![
-			"expected Cell but got {}",
-			data_name(arg),
-		]))
+		return Err(extype![arg.0, Cell, arg]);
 	}
 });
 

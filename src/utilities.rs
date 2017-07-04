@@ -84,8 +84,8 @@ impl cmp::PartialEq for Coredata {
 					false
 				}
 			}
-			Coredata::Null => {
-				if let Coredata::Null = *other {
+			Coredata::Null() => {
+				if let Coredata::Null() = *other {
 					true
 				} else {
 					false
@@ -184,7 +184,7 @@ impl fmt::Display for Sourcedata {
 		use data_structures::Commands::*;
 		use data_structures::Coredata::*;
 		let mut first = true;
-		let null = &Sourcedata(None, Coredata::Null);
+		let null = &Sourcedata(None, Coredata::Null());
 		let mut queue = Vec::with_capacity(VEC_CAPACITY);
 		let mut spacer = false;
 		queue.push(self);
@@ -213,7 +213,7 @@ impl fmt::Display for Sourcedata {
 						write![f, " ("]?;
 						queue.push(arg);
 						spacer = false;
-					} else if let Coredata::Null = arg.1 {
+					} else if let Coredata::Null() = arg.1 {
 						write![f, ")"]?;
 						spacer = true;
 					} else {
@@ -297,7 +297,7 @@ impl fmt::Display for Sourcedata {
 					write![f, ")"]?;
 					spacer = true;
 				}
-				Null => {
+				Null() => {
 					if first {
 						write![f, "()"]?;
 					} else {
@@ -316,7 +316,7 @@ impl fmt::Display for Sourcedata {
 						write![f, "("]?;
 						queue.push(head);
 						spacer = false;
-					} else if let Coredata::Null = head.1 {
+					} else if let Coredata::Null() = head.1 {
 						write![f, "()"]?;
 						spacer = true;
 					} else {
@@ -420,7 +420,7 @@ impl Sourcedata {
 					length += 1;
 					current = &*tail;
 				}
-				Coredata::Null => {
+				Coredata::Null() => {
 					return Some(length);
 				}
 				_ => {
@@ -454,7 +454,7 @@ impl<'a> convert::From<&'a Source> for Rc<Sourcedata> {
 			rcs(Integer(src.line.into())),
 			rcs(Cell(
 				rcs(Integer(src.column.into())),
-				rcs(Cell(rcs(String(src.source.clone())), rcs(Null))),
+				rcs(Cell(rcs(String(src.source.clone())), rcs(Null()))),
 			)),
 		))
 	}
@@ -548,7 +548,7 @@ pub fn collect_cell_of_symbols_into_vec_string(data: &Rc<Sourcedata>) -> Option<
 	let mut current = data.clone();
 	if let Coredata::Cell(..) = current.1 {
 		// Ok
-	} else if let Coredata::Null = current.1 {
+	} else if let Coredata::Null() = current.1 {
 		// Ok
 	} else {
 		return None;
@@ -601,7 +601,7 @@ pub fn data_name(data: &Sourcedata) -> String {
 		Integer(..) => "Integer",
 		Internal(..) => "Internal",
 		Macro(..) => "Macro",
-		Null => "Null",
+		Null(..) => "Null",
 		String(..) => "String",
 		Symbol(..) => "Symbol",
 		User(ref user) => user_data_name(user),
@@ -637,17 +637,17 @@ pub fn err(source: &Option<Source>, error: &Option<(Option<Source>, String)>, pr
 /// Create a string of the entire program stack.
 pub fn internal_trace(program: &mut Program, _: &mut Env) -> Rc<Sourcedata> {
 	use data_structures::Coredata::*;
-	let null = rcs(Coredata::Null);
+	let null = rcs(Coredata::Null());
 	let mut lst = null.clone();
 	for i in program.iter().rev() {
 		if let Sourcedata(Some(ref source), ..) = **i {
 			lst = rcs(Cell(
-				rcs(Cell(source.into(), rcs(Cell(i.clone(), rcs(Null))))),
+				rcs(Cell(source.into(), rcs(Cell(i.clone(), rcs(Null()))))),
 				lst.clone(),
 			));
 		} else {
 			lst = rcs(Cell(
-				rcs(Cell(rcs(Null), rcs(Cell(i.clone(), rcs(Null))))),
+				rcs(Cell(rcs(Null()), rcs(Cell(i.clone(), rcs(Null()))))),
 				lst.clone(),
 			));
 		}
