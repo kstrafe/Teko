@@ -12,13 +12,15 @@ use user::Userdata;
 /// When put on the stack these values have different effects on the interpreter.
 #[derive(Debug, PartialEq)]
 pub enum Commands {
-	Call(Statement),
-	Prepare(Statement),
-	Parameterize,
-	Deparameterize(Vec<String>),
+	Call(Statement), // Should this be arbitrary data? Change to Transfer or macro!
+	// Cmo(Macro),
+	// Cfn(Function),
+	Prepare(Statement), // Should be arbitrary data! But shorten to Prep
+	Parameterize, // Shorten to Par
+	Deparameterize(Vec<String>), // Shorten to Depar
 	If(Statement, Statement),
 	Wind,
-	Evaluate,
+	Evaluate, // Shorten to Eval
 	Empty,
 }
 

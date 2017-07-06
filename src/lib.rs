@@ -126,7 +126,7 @@
 //   Pretty printing
 //   Colorize errors
 //   Create extension interface (not sure if feasible atm)
-//   Reconsider access to program stack
+// ✓ Reconsider access to program stack
 //   Split project - user a subtree
 //   Flesh out specification
 // ✓ Make builtins more declarative (specify arg count etc)

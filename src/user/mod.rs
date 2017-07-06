@@ -3,7 +3,7 @@ use std::fmt;
 macro_rules! make_user_data {
 	($($i:ident $t:tt),*,) => { make_user_data![$($i $t),*]; };
 	($($i:ident $t:tt),*) => {
-		#[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+		#[derive(Debug, Eq, Hash, PartialEq)]
 		pub enum Userdata {
 			$($i $t),*
 		}

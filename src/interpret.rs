@@ -18,7 +18,10 @@
 //! }
 //! ```
 use builtins::*;
-use data_structures::{Boolean, Commands, Env, Program, Sourcedata, Coredata, Macro, Function};
+use data_structures::*;
+use data_structures::Sourcedata as Srcdata;
+use data_structures::Coredata as Core;
+use data_structures::Commands as Cmds;
 use super::VEC_CAPACITY;
 use utilities::*;
 
@@ -52,26 +55,57 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 	macro_rules! ppush {
 		($source:expr, $data:expr,) => { ppush![$source, $data] };
 		($source:expr, $data:expr) => {
-			program.push(rc(Sourcedata($source.clone(), $data)))
+			program.push(rc(Srcdata($source.clone(), $data)))
 		};
 	}
 	while let Some(top) = program.pop() {
-		match *top {
-			// Source refers to the head of the cell from which the call originated
-			Sourcedata(ref source, Coredata::Internal(Commands::Call(ref statement))) => {
+		// This part requires some explanation. The program is simply a Vec containing
+		// Rc<Srcdata>. The top element is interpreted and matches one of the cases in
+		// this code. For expressions we want to expand the top of the stack like so:
+		//
+		// (a b c)  =>  b param c param call(a) deparam(b c)
+		//
+		// param pushes the last evaluation onto the 'parameter stack', so b followed by
+		// param puts the result of 'b' on the parameter stack. Likewise for c.
+		// Then we have (call a) which is of type Cmds::Call and will call the function.
+		// A change to the variable a from expression b or c DOES NOT MATTER, because
+		// call(a) stores the actual function, not a variable referencing the function!
+		//
+		// deparam removes the references from the store. Now the store is actually a
+		// Map<String, Vec<_>>, where _ is any data. So when we call a function, we push
+		// a variable onto the Vec in the store, and when we do a deparam we remove it.
+		//
+		// TCO is implemented by looking at the top when expanding a call:
+		// suppose a calls (d b e) at its tail:
+		//
+		// b param e param call(d) deparam(b e) deparam(b c)
+		//
+		// Note how the deparams can be merged:
+		//
+		// b param e param call(d) deparam(b c e)
+		//
+		// This is the method by which TCO is implemented. Note that merging ensures that
+		// the correct number of variables are popped from the store.
+		let src = &top.0;
+		match top.1 {
+			// This is where a call of a function happens, remember (a b c) => b param c param call(a) deparam(b c)
+			// Right now we're at the call stage: call(a) deparam(b c)
+			// We check if the function is builtin or user-defined, and call it.
+			Core::Internal(Cmds::Call(ref statement)) => {
+				// This nesting should not be necessary, make call hold valid data!
 				match **statement {
-					Sourcedata(_, Coredata::Function(Function::Builtin(ref transfer, ..))) => {
+					Srcdata(_, Core::Function(Function::Builtin(ref transfer, ..))) => {
 						let error = transfer(&mut program, &mut env);
 						env.params.pop();
-						err(source, &error, &mut program, &mut env);
+						err(src, &error, &mut program, &mut env);
 					}
-					Sourcedata(ref src,
-					           Coredata::Function(Function::Library(ref parameters,
+					Srcdata(ref source,
+					           Core::Function(Function::Library(ref parameters,
 					                                                ref transfer))) => {
 						if let Some(arguments) = env.params.pop() {
 							if arguments.len() != parameters.len() {
 								err(
-									source,
+									src,
 									&Some((src.clone(), arity_mismatch(
 										parameters.len(),
 										parameters.len(),
@@ -82,10 +116,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 								);
 							} else {
 								let cmd =
-									Commands::Deparameterize(
+									Cmds::Deparameterize(
 										optimize_tail_call(&mut program, &mut env, parameters),
 									);
-								ppush![source, Coredata::Internal(cmd)];
+								ppush![src, Core::Internal(cmd)];
 								for (counter, parameter) in parameters.iter().enumerate() {
 									if env.store.contains_key(parameter) {
 										env.store
@@ -103,9 +137,11 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 							}
 						}
 					}
+					// Can't actually happen, prepare checks it
+					// The type system ought to reflect this
 					_ => {
 						err(
-							source,
+							src,
 							&Some((None, "element not callable".into())),
 							&mut program,
 							&mut env,
@@ -113,20 +149,20 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					}
 				}
 			}
-			Sourcedata(_, Coredata::Internal(Commands::Deparameterize(ref arguments))) => {
+			Core::Internal(Cmds::Deparameterize(ref arguments)) => {
 				pop_parameters(&mut program, &mut env, arguments);
 			}
-			Sourcedata(_, Coredata::Internal(Commands::Evaluate)) => {
+			Core::Internal(Cmds::Evaluate) => {
 				program.push(env.result.clone());
 			}
-			Sourcedata(_, Coredata::Internal(Commands::If(ref first, ref second))) => {
-				if let Coredata::Boolean(Boolean::False) = env.result.1 {
+			Core::Internal(Cmds::If(ref first, ref second)) => {
+				if let Core::Boolean(Boolean::False) = env.result.1 {
 					program.push(second.clone());
 				} else {
 					program.push(first.clone());
 				}
 			}
-			Sourcedata(ref src, Coredata::Internal(Commands::Parameterize)) => {
+			Core::Internal(Cmds::Parameterize) => {
 				let condition = if let Some(ref mut last) = env.params.last_mut() {
 					last.push(env.result.clone());
 					None
@@ -135,26 +171,26 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				};
 				err(&None, &condition, &mut program, &mut env);
 			}
-			Sourcedata(ref source, Coredata::Internal(Commands::Prepare(ref arguments))) => {
+			Core::Internal(Cmds::Prepare(ref arguments)) => {
 				match *env.result.clone() {
-					Sourcedata(_, Coredata::Function(..)) => {
+					Srcdata(_, Core::Function(..)) => {
 						env.params.push(vec![]);
 						ppush![
-							source,
-							Coredata::Internal(Commands::Call(env.result.clone())),
+							src,
+							Core::Internal(Cmds::Call(env.result.clone())),
 						];
 						for argument in collect_cell_into_revvec(arguments) {
-							ppush![None, Coredata::Internal(Commands::Parameterize)];
+							ppush![None, Core::Internal(Cmds::Parameterize)];
 							program.push(argument.clone());
 						}
 					}
-					Sourcedata(_, Coredata::Macro(Macro::Builtin(ref transfer, ..))) => {
+					Srcdata(_, Core::Macro(Macro::Builtin(ref transfer, ..))) => {
 						env.result = arguments.clone();
 						let error = transfer(&mut program, &mut env);
-						err(source, &error, &mut program, &mut env);
+						err(src, &error, &mut program, &mut env);
 					}
-					Sourcedata(_, Coredata::Macro(Macro::Library(ref bound, ref code))) => {
-						ppush![None, Coredata::Internal(Commands::Evaluate)];
+					Srcdata(_, Core::Macro(Macro::Library(ref bound, ref code))) => {
+						ppush![None, Core::Internal(Cmds::Evaluate)];
 						let command = optimize_tail_call(&mut program, &mut env, &[bound.clone()]);
 						if env.store.contains_key(bound) {
 							env.store.get_mut(bound).unwrap().push(arguments.clone());
@@ -162,29 +198,32 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 							env.store.insert(bound.clone(), vec![arguments.clone()]);
 						}
 						ppush![
-							source,
-							Coredata::Internal(Commands::Deparameterize(command)),
+							src,
+							Core::Internal(Cmds::Deparameterize(command)),
 						];
 						program.extend(code.iter().cloned());
 					}
-					Sourcedata(ref src, ..) => {
+					Srcdata(ref source, ..) => {
 						err(
-							source,
-							&Some((src.clone(), "element not callable".into())),
+							src,
+							&Some((source.clone(), "element not callable".into())),
 							&mut program,
 							&mut env,
 						);
 					}
 				}
 			}
-			Sourcedata(_, Coredata::Internal(Commands::Wind)) => {}
-			Sourcedata(_, Coredata::Cell(ref head, ref tail)) => {
-				ppush![head.0, Coredata::Internal(Commands::Prepare(tail.clone()))];
+			Core::Internal(Cmds::Wind) => {}
+			Core::Cell(ref head, ref tail) => {
+				// (a b c) => a prep(b c), so if 'a' is a call then it also works:
+				// ((a) b c) => (a) prep(b c)
+				// In fact, this works for arbitrary expressions 'a'
+				ppush![head.0, Core::Internal(Cmds::Prepare(tail.clone()))];
 				program.push(head.clone());
 			}
-			Sourcedata(ref source, Coredata::Symbol(ref string)) => {
+			Core::Symbol(ref string) => {
 				if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
-					env.result = rc(Sourcedata(source.clone(), Coredata::Integer(number)));
+					env.result = rc(Srcdata(src.clone(), Core::Integer(number)));
 				} else {
 					let error = if let Some(value) = env.store.get(string) {
 						if let Some(value) = value.last() {
@@ -193,12 +232,12 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						} else {
 							// TODO what is an empty store entry doing here?
 							// Should we panic or yield some other error?
-							Some((source.clone(), not_found(string)))
+							Some((src.clone(), not_found(string)))
 						}
 					} else {
-						Some((source.clone(), not_found(string)))
+						Some((src.clone(), not_found(string)))
 					};
-					err(source, &error, &mut program, &mut env);
+					err(src, &error, &mut program, &mut env);
 				}
 			}
 			_ => {
@@ -220,7 +259,7 @@ pub fn initialize_environment_with_standard_library() -> Env {
 	Env {
 		store: create_builtin_library_table(),
 		params: Vec::with_capacity(VEC_CAPACITY),
-		result: rc(Sourcedata(None, Coredata::Null())),
+		result: rc(Srcdata(None, Core::Null())),
 	}
 }
 
