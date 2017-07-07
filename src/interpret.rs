@@ -27,7 +27,7 @@ use utilities::*;
 
 use num::BigInt;
 
-/// Evaluates a program with a given environment.
+/// Evals a program with a given environment.
 ///
 /// The `program` is considered completely evaluated when it is empty. The result of the program
 /// is stored in `env.result`. This function is mainly used to evaluate a program in some
@@ -93,20 +93,19 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			// We check if the function is builtin or user-defined, and call it.
 			Core::Internal(Cmds::Call(ref statement)) => {
 				// This nesting should not be necessary, make call hold valid data!
-				match **statement {
-					Srcdata(_, Core::Function(Function::Builtin(ref transfer, ..))) => {
+				let source = &statement.0;
+				match statement.1 {
+					Core::Function(Function::Builtin(ref transfer, ..)) => {
 						let error = transfer(&mut program, &mut env);
 						env.params.pop();
 						err(src, &error, &mut program, &mut env);
 					}
-					Srcdata(ref source,
-					           Core::Function(Function::Library(ref parameters,
-					                                                ref transfer))) => {
+					Core::Function(Function::Library(ref parameters, ref transfer)) => {
 						if let Some(arguments) = env.params.pop() {
 							if arguments.len() != parameters.len() {
 								err(
 									src,
-									&Some((src.clone(), arity_mismatch(
+									&Some((source.clone(), arity_mismatch(
 										parameters.len(),
 										parameters.len(),
 										arguments.len(),
@@ -116,7 +115,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 								);
 							} else {
 								let cmd =
-									Cmds::Deparameterize(
+									Cmds::Depar(
 										optimize_tail_call(&mut program, &mut env, parameters),
 									);
 								ppush![src, Core::Internal(cmd)];
@@ -149,10 +148,10 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					}
 				}
 			}
-			Core::Internal(Cmds::Deparameterize(ref arguments)) => {
+			Core::Internal(Cmds::Depar(ref arguments)) => {
 				pop_parameters(&mut program, &mut env, arguments);
 			}
-			Core::Internal(Cmds::Evaluate) => {
+			Core::Internal(Cmds::Eval) => {
 				program.push(env.result.clone());
 			}
 			Core::Internal(Cmds::If(ref first, ref second)) => {
@@ -162,7 +161,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					program.push(first.clone());
 				}
 			}
-			Core::Internal(Cmds::Parameterize) => {
+			Core::Internal(Cmds::Param) => {
 				let condition = if let Some(ref mut last) = env.params.last_mut() {
 					last.push(env.result.clone());
 					None
@@ -171,26 +170,27 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				};
 				err(&None, &condition, &mut program, &mut env);
 			}
-			Core::Internal(Cmds::Prepare(ref arguments)) => {
-				match *env.result.clone() {
-					Srcdata(_, Core::Function(..)) => {
+			Core::Internal(Cmds::Prep(ref arguments)) => {
+				let source = &env.result.clone().0;
+				match env.result.clone().1 {
+					Core::Function(..) => {
 						env.params.push(vec![]);
 						ppush![
 							src,
 							Core::Internal(Cmds::Call(env.result.clone())),
 						];
 						for argument in collect_cell_into_revvec(arguments) {
-							ppush![None, Core::Internal(Cmds::Parameterize)];
+							ppush![None, Core::Internal(Cmds::Param)];
 							program.push(argument.clone());
 						}
 					}
-					Srcdata(_, Core::Macro(Macro::Builtin(ref transfer, ..))) => {
+					Core::Macro(Macro::Builtin(ref transfer, ..)) => {
 						env.result = arguments.clone();
 						let error = transfer(&mut program, &mut env);
 						err(src, &error, &mut program, &mut env);
 					}
-					Srcdata(_, Core::Macro(Macro::Library(ref bound, ref code))) => {
-						ppush![None, Core::Internal(Cmds::Evaluate)];
+					Core::Macro(Macro::Library(ref bound, ref code)) => {
+						ppush![None, Core::Internal(Cmds::Eval)];
 						let command = optimize_tail_call(&mut program, &mut env, &[bound.clone()]);
 						if env.store.contains_key(bound) {
 							env.store.get_mut(bound).unwrap().push(arguments.clone());
@@ -199,11 +199,11 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						}
 						ppush![
 							src,
-							Core::Internal(Cmds::Deparameterize(command)),
+							Core::Internal(Cmds::Depar(command)),
 						];
 						program.extend(code.iter().cloned());
 					}
-					Srcdata(ref source, ..) => {
+					_ => {
 						err(
 							src,
 							&Some((source.clone(), "element not callable".into())),
@@ -213,12 +213,14 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					}
 				}
 			}
-			Core::Internal(Cmds::Wind) => {}
+			Core::Internal(Cmds::Wind) => {
+				// Wind is used only as a marker when unwinding.
+			}
 			Core::Cell(ref head, ref tail) => {
 				// (a b c) => a prep(b c), so if 'a' is a call then it also works:
 				// ((a) b c) => (a) prep(b c)
 				// In fact, this works for arbitrary expressions 'a'
-				ppush![head.0, Core::Internal(Cmds::Prepare(tail.clone()))];
+				ppush![head.0, Core::Internal(Cmds::Prep(tail.clone()))];
 				program.push(head.clone());
 			}
 			Core::Symbol(ref string) => {

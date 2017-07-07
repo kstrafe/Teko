@@ -15,12 +15,12 @@ pub enum Commands {
 	Call(Statement), // Should this be arbitrary data? Change to Transfer or macro!
 	// Cmo(Macro),
 	// Cfn(Function),
-	Prepare(Statement), // Should be arbitrary data! But shorten to Prep
-	Parameterize, // Shorten to Par
-	Deparameterize(Vec<String>), // Shorten to Depar
+	Prep(Statement), // Should be arbitrary data! But shorten to Prep
+	Param, // Shorten to Param
+	Depar(Vec<String>), // Shorten to Depar
 	If(Statement, Statement),
 	Wind,
-	Evaluate, // Shorten to Eval
+	Eval, // Shorten to Eval
 	Empty,
 }
 

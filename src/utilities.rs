@@ -263,9 +263,9 @@ impl fmt::Display for Sourcedata {
 					}
 					match *arg {
 						Call(ref callee) => write![f, "(@call {})", callee]?,
-						Prepare(ref callee) => write![f, "(@prepare {})", callee]?,
-						Parameterize => write![f, "(@parameterize)"]?,
-						Deparameterize(ref params) => {
+						Prep(ref callee) => write![f, "(@prepare {})", callee]?,
+						Param => write![f, "(@parameterize)"]?,
+						Depar(ref params) => {
 							write![f, "(@deparameterize"]?;
 							for i in params.iter().rev() {
 								write![f, " {}", i]?;
@@ -274,7 +274,7 @@ impl fmt::Display for Sourcedata {
 						}
 						If(ref former, ref latter) => write![f, "(@if {} {})", former, latter]?,
 						Wind => write![f, "(@wind)"]?,
-						Evaluate => write![f, "(@evaluate)"]?,
+						Eval => write![f, "(@evaluate)"]?,
 						Empty => write![f, "(@empty)"]?,
 					}
 					spacer = true;
@@ -660,12 +660,12 @@ pub fn internal_trace(program: &mut Program, _: &mut Env) -> Rc<Sourcedata> {
 
 /// Optimizes tail calls by seeing if the current `params` can be merged with the top of the stack.
 ///
-/// If the top of the stack contains `Commands::Deparameterize`, then the variables to be popped
+/// If the top of the stack contains `Commands::Depar`, then the variables to be popped
 /// are merged into that [top] object. This is all that's needed to optimize tail calls.
 pub fn optimize_tail_call(program: &mut Program, env: &mut Env, params: &[String]) -> Vec<String> {
 	if let Some(top) = program.pop() {
 		match top.1 {
-			Coredata::Internal(Commands::Deparameterize(ref content)) => {
+			Coredata::Internal(Commands::Depar(ref content)) => {
 				for i in compute_intersection(content, params) {
 					if let Some(ref mut entry) = env.store.get_mut(i) {
 						if entry.pop().is_some() {
@@ -746,7 +746,7 @@ pub fn unwind(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, S
 	}
 	while let Some(top) = program.pop() {
 		match top.1 {
-			Coredata::Internal(Commands::Deparameterize(ref arguments)) => {
+			Coredata::Internal(Commands::Depar(ref arguments)) => {
 				pop_parameters(program, env, arguments);
 			}
 			Coredata::Internal(Commands::Call(..)) => {

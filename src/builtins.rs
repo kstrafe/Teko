@@ -265,7 +265,7 @@ fn define(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 			match tail.1 {
 				Coredata::Cell(ref head, _) => {
 					vec![rcs(Coredata::Internal(Commands::Call(sub))),
-					     rcs(Coredata::Internal(Commands::Parameterize)),
+					     rcs(Coredata::Internal(Commands::Param)),
 					     head.clone()]
 				}
 				Coredata::Null() => {
@@ -284,7 +284,7 @@ fn define(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 					program.extend(push);
 					program.push(rc(Sourcedata(
 						source.clone(),
-						Coredata::Internal(Commands::Parameterize),
+						Coredata::Internal(Commands::Param),
 					)));
 					program.push(rc(Sourcedata(source.clone(), Coredata::String(string.clone()))));
 				}
@@ -397,7 +397,7 @@ teko_simple_function!(error args : 0 => 1 => {
 	}
 });
 
-/// Evaluates the argument as if it's a program.
+/// Evals the argument as if it's a program.
 fn eval_expose(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	if let Some(args) = env.params.last() {
 		if args.len() != 1 {
@@ -796,7 +796,7 @@ fn set(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)>
 			match tail.1 {
 				Coredata::Cell(ref heado, _) => {
 					program.push(rcs(Coredata::Internal(Commands::Call(sub))));
-					program.push(rcs(Coredata::Internal(Commands::Parameterize)));
+					program.push(rcs(Coredata::Internal(Commands::Param)));
 					program.push(heado.clone());
 				}
 				Coredata::Null() => {
@@ -809,7 +809,7 @@ fn set(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)>
 		} else {
 			return Some((None, arity_mismatch(2, 2, 0)));
 		}
-		program.push(rcs(Coredata::Internal(Commands::Parameterize)));
+		program.push(rcs(Coredata::Internal(Commands::Param)));
 		if let Some(head) = args.head() {
 			match *head {
 				Sourcedata(ref source, Coredata::Symbol(ref string)) => {

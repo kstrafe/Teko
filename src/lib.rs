@@ -9,7 +9,7 @@
 //! easy to implement yet useful. Comparing Teko to other Lisps reveals the core motivation:
 //! to implement a super-minimal Lisp capable of being a fully fledged programming language.
 //!
-//! Teko is has the property that it's **strictly evaluated** yet lacks **interior mutability**.
+//! Teko has the property that it's **strictly evaluated** yet lacks **interior mutability**.
 //! This allows
 //! the implementation to opt for **reference counted** garbage collection - because cycles can't
 //! be created - which is desirable in real-time applications as it doesn't cause unforeseen
