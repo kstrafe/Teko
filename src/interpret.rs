@@ -105,26 +105,28 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 							if arguments.len() != parameters.len() {
 								err(
 									src,
-									&Some((source.clone(), arity_mismatch(
-										parameters.len(),
-										parameters.len(),
-										arguments.len(),
-									))),
+									&Some((
+										source.clone(),
+										arity_mismatch(
+											parameters.len(),
+											parameters.len(),
+											arguments.len(),
+										),
+									)),
 									&mut program,
 									&mut env,
 								);
 							} else {
-								let cmd =
-									Cmds::Depar(
-										optimize_tail_call(&mut program, &mut env, parameters),
-									);
+								let cmd = Cmds::Depar(
+									optimize_tail_call(&mut program, &mut env, parameters),
+								);
 								ppush![src, Core::Internal(cmd)];
 								for (counter, parameter) in parameters.iter().enumerate() {
 									if env.store.contains_key(parameter) {
-										env.store
-											.get_mut(parameter)
-											.unwrap()
-											.push(arguments[counter].clone());
+										env.store.get_mut(parameter).unwrap().push(
+											arguments[counter]
+												.clone(),
+										);
 									} else {
 										env.store.insert(
 											parameter.clone(),

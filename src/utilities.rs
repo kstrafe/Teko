@@ -612,13 +612,23 @@ pub fn data_name(data: &Sourcedata) -> String {
 /// Mixes unwind and tracing from an error's invocation. Any time an unwind
 /// happens `env.result` will contain an error with a string containing the stack
 /// trace an addition to the error provided.
-pub fn err(source: &Option<Source>, error: &Option<(Option<Source>, String)>, program: &mut Program, env: &mut Env) {
+pub fn err(
+	source: &Option<Source>,
+	error: &Option<(Option<Source>, String)>,
+	program: &mut Program,
+	env: &mut Env,
+) {
 	let error = if let Some((ref src, ref error)) = *error {
 		if src.is_none() {
-			program.push(rc(Sourcedata(source.clone(), Coredata::String(error.clone()))));
+			program.push(rc(
+				Sourcedata(source.clone(), Coredata::String(error.clone())),
+			));
 		} else {
 			if source != src {
-				program.push(rc(Sourcedata(source.clone(), Coredata::String("called from here".into()))));
+				program.push(rc(Sourcedata(
+					source.clone(),
+					Coredata::String("called from here".into()),
+				)));
 			}
 			program.push(rc(Sourcedata(src.clone(), Coredata::String(error.clone()))));
 		}

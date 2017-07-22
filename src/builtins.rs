@@ -222,7 +222,10 @@ fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, 
 fn at_variables(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	env.result = rcs(Coredata::Null());
 	for key in env.store.keys() {
-		env.result = rcs(Coredata::Cell(rcs(Coredata::Symbol(key.clone())), env.result.clone()));
+		env.result = rcs(Coredata::Cell(
+			rcs(Coredata::Symbol(key.clone())),
+			env.result.clone(),
+		));
 	}
 	None
 }
@@ -235,7 +238,10 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, St
 				Sourcedata(ref source, Coredata::String(ref string)) => {
 					if let Some(rhs) = args.get(1) {
 						if env.store.contains_key(string) {
-							return Some((source.clone(), format!["variable already exists: {}", string]));
+							return Some((
+								source.clone(),
+								format!["variable already exists: {}", string],
+							));
 						}
 						env.store.insert(string.clone(), vec![rhs.clone()]);
 					} else {
@@ -259,14 +265,18 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, St
 fn define(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	{
 		let args = env.result.clone();
-		let sub =
-			rcs(Coredata::Function(Function::Builtin(define_internal, "@define-internal".into())));
+		let sub = rcs(Coredata::Function(Function::Builtin(
+			define_internal,
+			"@define-internal".into(),
+		)));
 		let push = if let Some(ref tail) = args.tail() {
 			match tail.1 {
 				Coredata::Cell(ref head, _) => {
-					vec![rcs(Coredata::Internal(Commands::Call(sub))),
-					     rcs(Coredata::Internal(Commands::Param)),
-					     head.clone()]
+					vec![
+						rcs(Coredata::Internal(Commands::Call(sub))),
+						rcs(Coredata::Internal(Commands::Param)),
+						head.clone(),
+					]
 				}
 				Coredata::Null() => {
 					return Some((None, arity_mismatch(2, 2, 1)));
@@ -286,7 +296,9 @@ fn define(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 						source.clone(),
 						Coredata::Internal(Commands::Param),
 					)));
-					program.push(rc(Sourcedata(source.clone(), Coredata::String(string.clone()))));
+					program.push(rc(
+						Sourcedata(source.clone(), Coredata::String(string.clone())),
+					));
 				}
 				Sourcedata(ref source, ..) => {
 					return Some(extype![source, Symbol, head]);
@@ -764,10 +776,10 @@ fn set_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 				Sourcedata(ref source, Coredata::String(ref string)) => {
 					if let Some(rhs) = args.get(1) {
 						if !env.store.contains_key(string) {
-							return Some((source.clone(), format![
-								"variable does not exist, {}",
-								string
-							]));
+							return Some((
+								source.clone(),
+								format!["variable does not exist, {}", string],
+							));
 						}
 						env.store.insert(string.clone(), vec![rhs.clone()]);
 					} else {
@@ -791,7 +803,9 @@ fn set_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 fn set(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	{
 		let args = env.result.clone();
-		let sub = rcs(Coredata::Function(Function::Builtin(set_internal, "@set-internal".into())));
+		let sub = rcs(Coredata::Function(
+			Function::Builtin(set_internal, "@set-internal".into()),
+		));
 		if let Some(ref tail) = args.tail() {
 			match tail.1 {
 				Coredata::Cell(ref heado, _) => {
@@ -813,8 +827,9 @@ fn set(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)>
 		if let Some(head) = args.head() {
 			match *head {
 				Sourcedata(ref source, Coredata::Symbol(ref string)) => {
-					program
-						.push(Rc::new(Sourcedata(source.clone(), Coredata::String(string.clone()))));
+					program.push(Rc::new(
+						Sourcedata(source.clone(), Coredata::String(string.clone())),
+					));
 				}
 				_ => {
 					return Some(extype![head.0, Cell, head]);

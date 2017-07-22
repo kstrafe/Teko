@@ -89,7 +89,7 @@ pub fn finish_parsing_characters(mut state: ParseState) -> Result<Program, Parse
 /// the result into the interpreter with the same effect.
 pub fn is_ready_to_finish(state: &ParseState) -> bool {
 	state.unmatched_opening_parentheses.is_empty() && state.token.is_empty() &&
-	!state.stack.last().unwrap().is_empty()
+		!state.stack.last().unwrap().is_empty()
 }
 
 /// Check if the parser is empty.
@@ -163,7 +163,10 @@ fn right_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
 	};
 	let mut active = Rc::new(Sourcedata(Some(source), Coredata::Null()));
 	for top in top.iter().rev() {
-		active = Rc::new(Sourcedata(top.0.clone(), Coredata::Cell(top.clone(), active)));
+		active = Rc::new(Sourcedata(
+			top.0.clone(),
+			Coredata::Cell(top.clone(), active),
+		));
 	}
 
 	if let Some(ref mut stack) = state.stack.last_mut() {
@@ -187,10 +190,9 @@ fn move_token_to_stack_if_nonempty(state: &mut ParseState) {
 		let currlex = state.start_of_current_lexeme.clone();
 		let currtok = state.token.clone();
 		if let Some(ref mut stack) = state.stack.last_mut() {
-			stack.push(Rc::new(Sourcedata(
-				Some(currlex),
-				Coredata::Symbol(currtok),
-			)));
+			stack.push(Rc::new(
+				Sourcedata(Some(currlex), Coredata::Symbol(currtok)),
+			));
 		}
 		clear_token(state);
 	}
@@ -206,9 +208,11 @@ fn set_error(state: &mut ParseState, message: &str) -> ParseState {
 }
 
 fn copy_current_read_position_to_unmatched_opening_parentheses(state: &mut ParseState) {
-	state
-		.unmatched_opening_parentheses
-		.push(state.current_read_position.clone());
+	state.unmatched_opening_parentheses.push(
+		state
+			.current_read_position
+			.clone(),
+	);
 }
 
 fn pop_previous_opening_parenthesis(state: &mut ParseState) -> Result<Source, ParseState> {

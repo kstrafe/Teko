@@ -84,6 +84,12 @@ pub enum Coredata {
 	User(Userdata),
 }
 
+#[derive(Debug)]
+pub enum Nore {
+	Pair(Rc<Sourcedata>, Rc<Nore>),
+	Null(),
+}
+
 /// Environment used by the implementation
 pub struct Env {
 	/// Maps variables to stacks of variables (Program)
