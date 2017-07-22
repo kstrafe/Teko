@@ -21,7 +21,6 @@ pub enum Commands {
 	If(Statement, Statement),
 	Wind,
 	Eval, // Shorten to Eval
-	Empty,
 }
 
 /// Top level data structure used by the parser and interpreter
@@ -106,8 +105,8 @@ pub struct ParseState {
 	pub unmatched_opening_parentheses: Vec<Source>,
 	/// The current lexeme being built into a token
 	pub token: String,
-	/// The output program
-	pub stack: Program,
+	/// The stack of lists being built.
+	pub stack: Vec<Program>,
 	/// Error container, set to Some if the parser fails
 	pub error: Option<String>,
 }

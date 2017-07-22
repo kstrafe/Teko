@@ -275,7 +275,6 @@ impl fmt::Display for Sourcedata {
 						If(ref former, ref latter) => write![f, "(@if {} {})", former, latter]?,
 						Wind => write![f, "(@wind)"]?,
 						Eval => write![f, "(@evaluate)"]?,
-						Empty => write![f, "(@empty)"]?,
 					}
 					spacer = true;
 				}
@@ -467,7 +466,7 @@ impl Default for ParseState {
 			start_of_current_lexeme: Source::default(),
 			unmatched_opening_parentheses: Vec::with_capacity(VEC_CAPACITY),
 			token: String::from(""),
-			stack: Vec::with_capacity(VEC_CAPACITY),
+			stack: vec![vec![]],
 			error: None,
 		}
 	}
