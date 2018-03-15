@@ -14,6 +14,47 @@ use data_structures::{Commands, Coredata, ParseState, Program, Sourcedata, Sourc
 
 
 // //////////////////////////////////////////////////////////
+// # Implementation Details #
+//
+// This file contains a simple LL(1) parser for Teko. Here are
+// the implementation details in simplified form.
+//
+// ## The Parser ##
+//
+// The parser starts out with the state (token, stack), and they
+// look like this ("", [[]]).
+//
+// The lists inside the stack are called substacks.
+//
+// Upon encountering any character, it appends to the token. Suppose
+// the character "a" is encountered, then the state becomes:
+// ("", [[]]) :a:-> ("a", [[]])
+//
+// If the character is '(', ')', or any whitespace, the token is added
+// to the last substack:
+// ("a", [[]]) : :-> ("", [["a"]])
+//
+// When a left-parenthesis is spotted, a new substack is appended to the stack:
+// ("", [["a"]]) :(:-> ("", [["a"], []])
+//
+// Now, when tokens are to be appended, they are moved to the last substack:
+// ("", [["a"], []]) :b:-> ("", [["a"], ["b"]])
+// ("", [["a"], ["b"]]) :c:-> ("", [["a"], ["b", "c"]])
+//
+// Finally, a right parenthesis moves the last substack into the end of the second to last substack:
+// ("", [["a"], ["b", "c"]]) :):-> ("", [["a", ["b", "c"]]])
+//
+// Additionally, the parser keeps track of the location of the parsed code in the
+// source using line and column numbers.
+//
+// ## Error Handling ##
+//
+// Errors are handled by returning `Result<Program, ParseState>`. Having the `ParseState`
+// represent an error allows us to inspect exactly what went wrong where. The `ParseState`
+// struct contains the variable `error` of type `Option<String>`, which describes the
+// error.
+//
+// //////////////////////////////////////////////////////////
 
 /// Parse a `File` into a `Program`
 ///
