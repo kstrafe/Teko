@@ -9,9 +9,9 @@ repository = "https://github.com/BourgondAries/teko"
 keywords = ["programming", "language", "teko"]
 
 [dependencies]
-clippy = {version = "0.0.140", optional = true}
-num = "0.1.37"
-num-traits = "0.1.37"
+clippy = {version = "0.0.187", optional = true}
+num = "0.1.42"
+num-traits = "0.2.1"
 
 [features]
 default = []

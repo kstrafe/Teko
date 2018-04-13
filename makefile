@@ -2,13 +2,13 @@ ta=cat
 flame=FlameGraph/
 .PHONY:
 test:
-	(cargo test test_interpreter --color=always -- --nocapture 2>&1 | ${ta} >> pipe) &
+	local-pipe cargo test test_interpreter --color=always -- --nocapture &
 .PHONY:
 2:
 	(cargo build --color=always --features clippy 2>&1 | ${ta} >> pipe) &
 .PHONY:
 3:
-	(cargo test --color=always -- --nocapture 2>&1 | ${ta} >> pipe) &
+	local-pipe cargo test --color=always -- --nocapture &
 .PHONY:
 4:
 	(cargo doc --open 2>&1 | ${ta} > /dev/null) &

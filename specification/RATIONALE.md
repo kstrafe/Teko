@@ -7,7 +7,7 @@ The lambda calculus is a beautiful foundation of functional programming, but it 
 
 ## Example of Unergonomic Lambda Calculus ##
 
-No macro facility makes it impossible to create syntax-aware transformations:
+Not having a macro facility makes it impossible to create syntax-aware transformations:
 `log (add 1 2)` can transform into the string `"log (add 1 2) = 3"` only using macros.
 Being forced to instead write `log "(add 1 2)" (add 1 2)` ought to be criminal.
 
