@@ -82,9 +82,6 @@ pub enum Coredata {
 	String(String),
 	/// Symbol type
 	Symbol(String),
-
-	/// User defined data
-	User(Userdata), // Should remove this, unnecessary. All other data can be represented here
 }
 
 /// Environment used by the implementation

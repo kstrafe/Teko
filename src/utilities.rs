@@ -112,13 +112,6 @@ impl cmp::PartialEq for Coredata {
 					false
 				}
 			}
-			Coredata::User(ref lhs) => {
-				if let Coredata::User(ref rhs) = *other {
-					lhs == rhs
-				} else {
-					false
-				}
-			}
 		}
 	}
 }
@@ -351,11 +344,6 @@ impl fmt::Display for Sourcedata {
 					write![f, "(symbol {})", arg]?;
 					spacer = true;
 				}
-				User(ref user) => {
-					spacify![];
-					write![f, "{}", user]?;
-					spacer = true;
-				}
 			}
 			first = false;
 		}
@@ -569,7 +557,6 @@ pub fn data_name(data: &Sourcedata) -> String {
 		Null(..) => "Null",
 		String(..) => "String",
 		Symbol(..) => "Symbol",
-		User(ref user) => user_data_name(user),
 	}.into()
 }
 
