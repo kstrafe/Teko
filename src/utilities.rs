@@ -180,34 +180,27 @@ impl fmt::Debug for Macro {
 /// All Sourcedata can be written in a form such that it can be read again.
 impl fmt::Display for Sourcedata {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		use data_structures::{Boolean, Function, Macro};
-		use data_structures::Commands::*;
-		use data_structures::Coredata::*;
+		use data_structures::{Boolean, Commands::*, Coredata::*, Function, Macro};
 		let mut first = true;
 		let null = &Sourcedata(None, Coredata::Null());
 		let mut queue = Vec::with_capacity(VEC_CAPACITY);
 		let mut spacer = false;
+		macro_rules! spacify { () => { if spacer { write![f, " "]?; } }; }
 		queue.push(self);
 		while let Some(elem) = queue.pop() {
 			match elem.1 {
 				Boolean(true) => {
-					if spacer {
-						write![f, " "]?;
-					}
+					spacify![];
 					write![f, "true"]?;
 					spacer = true;
 				}
 				Boolean(false) => {
-					if spacer {
-						write![f, " "]?;
-					}
+					spacify![];
 					write![f, "false"]?;
 					spacer = true;
 				}
 				Error(ref arg) => {
-					if spacer {
-						write![f, " "]?;
-					}
+					spacify![];
 					write![f, "(error"]?;
 					if let Coredata::Cell(..) = arg.1 {
 						write![f, " ("]?;
@@ -223,16 +216,12 @@ impl fmt::Display for Sourcedata {
 					}
 				}
 				Function(Function::Builtin(.., ref name)) => {
-					if spacer {
-						write![f, " "]?;
-					}
+					spacify![];
 					write![f, "{}", name]?;
 					spacer = true;
 				}
 				Function(Function::Library(ref params, ref code)) => {
-					if spacer {
-						write![f, " "]?;
-					}
+					spacify![];
 					write![f, "(fn ("]?;
 					let mut first = true;
 					for i in params.iter() {
@@ -251,16 +240,12 @@ impl fmt::Display for Sourcedata {
 					spacer = true;
 				}
 				Integer(ref arg) => {
-					if spacer {
-						write![f, " "]?;
-					}
+					spacify![];
 					write![f, "{}", arg]?;
 					spacer = true;
 				}
 				Internal(ref arg) => {
-					if spacer {
-						write![f, " "]?;
-					}
+					spacify![];
 					match *arg {
 						Call(ref callee) => write![f, "(@call {})", callee]?,
 						Prep(ref callee) => write![f, "(@prepare {})", callee]?,
@@ -279,16 +264,12 @@ impl fmt::Display for Sourcedata {
 					spacer = true;
 				}
 				Macro(Macro::Builtin(.., ref name)) => {
-					if spacer {
-						write![f, " "]?;
-					}
+					spacify![];
 					write![f, "{}", name]?;
 					spacer = true;
 				}
 				Macro(Macro::Library(ref param, ref code)) => {
-					if spacer {
-						write![f, " "]?;
-					}
+					spacify![];
 					write![f, "(mo {}", param]?;
 					for i in code.iter().rev() {
 						write![f, " {}", i]?;
@@ -304,11 +285,9 @@ impl fmt::Display for Sourcedata {
 					}
 				}
 				Cell(ref head, ref tail) => {
-					if spacer {
-						write![f, " "]?;
-					}
+					spacify![];
 					if first {
-						write![f, "("]?;
+						write![f, "(list "]?;
 					}
 					queue.push(tail);
 					if let Coredata::Cell(..) = head.1 {
@@ -324,7 +303,7 @@ impl fmt::Display for Sourcedata {
 					}
 				}
 				String(ref arg) => {
-					if spacer { write![f, " "]?; }
+					spacify![];
 					macro_rules! is_plainly_printable {
 						($i:ident) => {
 							// TODO remove () around cast: rustc panics because it thinks it's a generic
@@ -373,16 +352,12 @@ impl fmt::Display for Sourcedata {
 					spacer = true;
 				}
 				Symbol(ref arg) => {
-					if spacer {
-						write![f, " "]?;
-					}
+					spacify![];
 					write![f, "(symbol {})", arg]?;
 					spacer = true;
 				}
 				User(ref user) => {
-					if spacer {
-						write![f, " "]?;
-					}
+					spacify![];
 					write![f, "{}", user]?;
 					spacer = true;
 				}
