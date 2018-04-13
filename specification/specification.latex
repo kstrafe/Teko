@@ -1,7 +1,7 @@
 \documentclass[11pt, a4paper, USenglish]{article}
 
 \usepackage[fleqn]{amsmath}
-\usepackage{amssymb, empheq, hyperref, lipsum, listings, url}
+\usepackage{amssymb, empheq, float, hyperref, lipsum, listings, url}
 \usepackage[margin=0.5in]{geometry}
 \usepackage[utf8x]{inputenc}
 
@@ -10,8 +10,8 @@
 \twocolumn
 \newcommand{\pln}{Teko}
 
-\title{\pln\space Language Specification \\ \small{Version 0.2.0-alpha}}
-\author{Kevin Robert Stravers \\ email \href{mailto:macocio@gmail.com}{macocio@gmail.com}}
+\title{\pln\space Language Specification \\ \small{Version 0.3.0-alpha}}
+\author{Kevin Robert Stravers \\ Email \href{mailto:kefin@stravers.net}{kefin@stravers.net}}
 \begin{document}
 \maketitle
 
@@ -82,7 +82,7 @@ Notation is specified in section \ref{sec: maths}.
 \item $\mathrm{eval(Q, P)}$ calls the evaluate function with program $\mathrm{Q}$ and environment $\mathrm{P}$.
 \item $\mathrm{env_k[a_i := O_j]}$ returns a new environment with $\mathrm{(a_i, (O_j))}$ added to the k-th environment. It is an error if $\mathrm{a_i}$ already exists in $\mathrm{env_k}$.
 \item $\mathrm{env_k[a_i = O_j]}$ mutates $\mathrm{L_{i, 1}}$ by assigning it $\mathrm{O_j}$, returning $\mathrm{env_k}$.
-\item $\mathrm{env_k[a_i \rightarrow O_j]}$ returns a new environment with $\mathrm{O_j}$ prepended to $\mathrm{L_j}$.
+\item $\mathrm{env_k[a_i \rightarrow O_j]}$ returns a new environment with $\mathrm{O_j}$ prepended to $\mathrm{L_i}$.
 \item $\mathrm{env_k.a_i}$ returns the first element of $\mathrm{L_i}$.
 \item $\mathrm{A^*}$ and $\mathrm{A^+}$ denote 0-or-more and 1-or-more respectively. $\mathrm{A}$ in equations \eqref{function}, \eqref{macro}, \eqref{apply} expands to $\mathrm{A_1, A_2, ..., A_m}$.
 \item $\mathrm{\lambda}$ and $\mathrm{\tau}$ are literals used to differentiate functions and macros, respectively.
@@ -99,15 +99,15 @@ The behaviour is outlined in equation \eqref{call}.
 	\mathrm{eval(code(C), f), C\ is\ \lambda} \\
 	\mathrm{eval(eval(code(C), m).return, env), C\ is\ \tau}
 \end{cases} \\
-& \mathrm{let\ f}\ \mathrm{= env[C_{p1} \rightarrow eval(env.parama_1, env), ...]} \nonumber \\
+& \mathrm{let\ f}\ \mathrm{= env[C_{p1} \rightarrow eval(env.params_1, env), ...]} \nonumber \\
 & \mathrm{let\ m}\ \mathrm{= env[C_{p} \rightarrow env.params]} \nonumber &
 \end{empheq}
 
 \section{Environment Initialization}
-Initial environments require various macros, functions, and constants to be defined and immutable; this section specifies these values.
+Initial environments require various macros, functions, and constants to be defined; this section specifies their keys.
 Functions and macros behave as specified by Scheme\cite{R6Rs}.
 \subsection{Constants}
-The environment $ \mathrm{env_1} $ is to be initialized with all gaussian rationals such that atom lookups of numeric forms (e.g. $\mathrm{env_1.`3.14`}$) return numeric objects (e.g. 3.14). \\
+The environment $ \mathrm{env_1} $ is to be initialized with all gaussian rationals such that atom lookups of numeric forms (e.g. $\mathrm{env_1.`3.14'}$) return numeric objects (e.g. 3.14). \\
 Numeric symbol syntax is described by grammar \ref{grammar: numbers}. All numeric symbol-value pairs are immutable.
 \renewcommand{\lstlistingname}{Grammar}
 \begin{lstlisting}[frame=single,caption=\pln\space numeric symbols,label=grammar: numbers]
@@ -124,26 +124,62 @@ integer = digit { digit } ;
 digit   = `1' | `2' | `3' | `4' | `5'
         | `6' | `7' | `8' | `9' | `0' ;
 \end{lstlisting}
-`true' and `false' are unique and immutable objects in the environment.
-`pi' and `e' are to be stored with rational approximations $\mathrm{\pi}$ and $\mathrm{e}$ respectively.
+`true' and `false' are unique and immutable and represent boolean true and false.
+`()' represents null.
+`pi' is mutable and and approximates $\mathrm{\pi}$.
 
 \subsection{Functions}
-The functions `append', `string-append', `take', `drop', `first', `rest', `+', `-', `*', `/', `\%', `exp', `ln', `sqrt', `sin', `cos', `not', `abs', `even?', `odd?', `zero?', `one?', `read', `write', `ceiling', `floor', `round', `read-line', `read-string', `eval', `max', `min'.
+The functions `append', `string-append', `take', `drop', `head', `tail', `+', `-', `*', `/', `\%', `exp', `ln', `sqrt', `sin', `cos', `not', `abs', `even?', `odd?', `zero?', `one?', `read', `write', `ceiling', `floor', `round', `read-line', `read-string', `eval', `max', `min'.
 
 \subsection{Macros}
 The macros `'', `\textless', `\textless=', `\textgreater', `\textgreater=', `=', `equal?', `and', `or', `xor', `bitwise-and', `bitwise-ior', `bitwise-xor',
 
 \subsection{Miscellaneous}
-Further initial macros, functions, and constants may be implemented provided all such symbols begin with `@', which is reserved for the implementation.\\
-The macro `;' shall act as a comment; a program stripped off all `(; ...)' forms shall behave exactly like the program containing the comments.\\
-If the method of computation in section \ref{core} is used as implementation, then `return' and `params' are to renamed to a `@'-form.
+Further initial macros, functions, and constants may be implemented provided all such symbols begin with `@', which is reserved for the implementation. \\
+The macro `;' shall act as a comment and can be defined as `(mo \_ ())'.
 
-\section{Strings}
-" is the macro for generating strings; words are space-separated unless a list is betwixt. A list may contain a single integer, which is converted to a character and inserted. A list may contain an integer N and an expression. The expression is repeated N times and inserted. A list may contain an expression.
+\section{Strings} \label{sec:strings}
+`"' is the macro for generating strings. Space is inserted between each input atom unless two atoms are separated by one or more lists. Table \ref{tbl:str} exemplifies `"' by comparing it with C strings.
+\begin{table}[H]
+\caption{Table}
+\label{tbl:str}
+\begin{tabular}{l | l}
+(") & "" \\
+(" Example) & "Example" \\
+("  Example) & "Example" \\
+(" (32) Lorem (10) ipsum) & " Lorem\textbackslash nipsum" \\
+(" (10)(97)(98)(99)) & "\textbackslash nabc" \\
+\end{tabular}
+\end{table}
+
+\section{Errors \& Winding} \label{sec:wind}
+An error is a builtin data type taking arbitrary data.
+Windings is a \pln\space mechanism for handling exceptional errors.
+
+"unwind" takes arbitrary data and unwinds the stack until "wind" is found.
+
+\renewcommand{\lstlistingname}{Code}
+\begin{lstlisting}[frame=single,caption=\pln\space ,label=lst:err-wind]
+(wind
+	(print (" Before))
+	(unwind (" Lorem ipsum))
+	(print (" After)))
+\end{lstlisting}
+
 
 \section{Comments}
-It can be seen from \eqref{set!} that the \pln\space has dynamic scope and that it is latently typed.\\
-Dynamic scoping may be beneficial to the user in terms of convenience\cite{EMACS}, as well as being easy to implement. In addition to this one gets free parametrization as specified in SRFI-39\cite{SRFI-39}.
+It can be seen from \eqref{set!} that the \pln\space has dynamic scope and that it is latently typed. \\
+Dynamic scoping may be beneficial to the user in terms of convenience\cite{EMACS}, as well as being easy to implement. In addition to this one gets free parametrization as specified in SRFI-39\cite{SRFI-39}. \\
+However, the dynamics of the language allow one to construct functions that are lexically scoped.
+
+
+\newpage
+\section{Rationale}
+\subsection{Why are strings a macro instead of a literal?}
+The parser for the core grammar shall not specialize to interpret any data types other than atoms and lists. Keeping the core grammar simple is prioritized. Writing strings in the format given by section \ref{sec:strings} also reveals all hidden characters. Visibility is considered important.
+
+\subsection{How to initialize the `env' with all gaussian rationals?}
+`env' is not just a key-value store but also an interpreter of atoms. If an input atom conforms to the syntax given by grammar \ref{grammar: numbers} then env shall construct a new object representing the value of the atom.
 
 \onecolumn
 \bibliography{specification}
