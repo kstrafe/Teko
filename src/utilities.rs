@@ -189,14 +189,9 @@ impl fmt::Display for Sourcedata {
 		queue.push(self);
 		while let Some(elem) = queue.pop() {
 			match elem.1 {
-				Boolean(true) => {
+				Boolean(state) => {
 					spacify![];
-					write![f, "true"]?;
-					spacer = true;
-				}
-				Boolean(false) => {
-					spacify![];
-					write![f, "false"]?;
+					write![f, "{}", state]?;
 					spacer = true;
 				}
 				Error(ref arg) => {
