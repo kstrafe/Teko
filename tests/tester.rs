@@ -38,9 +38,9 @@ fn main() {
 
 fn boolean(filename: &str, value: bool) {
 	let result = &file2result(&filename).1;
-	if let Coredata::Boolean(Boolean::True) = *result {
+	if let Coredata::Boolean(true) = *result {
 		assert![value];
-	} else if let Coredata::Boolean(Boolean::False) = *result {
+	} else if let Coredata::Boolean(false) = *result {
 		assert![!value];
 	} else {
 		assert![false];

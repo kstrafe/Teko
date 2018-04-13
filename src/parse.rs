@@ -60,9 +60,9 @@ use data_structures::{Commands, Coredata, ParseState, Program, Sourcedata, Sourc
 ///
 /// Utility function to easily parse a `File`.
 pub fn parse_file(filename: &str) -> Result<Program, ParseState> {
-	let mut file = File::open(filename)?;
+	let mut file = File::open(filename).unwrap();
 	let mut contents = String::new();
-	file.read_to_string(&mut contents)?;
+	file.read_to_string(&mut contents).unwrap();
 	parse_string_with_state(&contents, ParseState::from(filename))
 }
 

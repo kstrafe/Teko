@@ -21,15 +21,15 @@ impl cmp::PartialEq for Coredata {
 			return true;
 		}
 		match *self {
-			Coredata::Boolean(Boolean::True) => {
-				if let Coredata::Boolean(Boolean::True) = *other {
+			Coredata::Boolean(true) => {
+				if let Coredata::Boolean(true) = *other {
 					true
 				} else {
 					false
 				}
 			}
-			Coredata::Boolean(Boolean::False) => {
-				if let Coredata::Boolean(Boolean::False) = *other {
+			Coredata::Boolean(false) => {
+				if let Coredata::Boolean(false) = *other {
 					true
 				} else {
 					false
@@ -190,14 +190,14 @@ impl fmt::Display for Sourcedata {
 		queue.push(self);
 		while let Some(elem) = queue.pop() {
 			match elem.1 {
-				Boolean(Boolean::True) => {
+				Boolean(true) => {
 					if spacer {
 						write![f, " "]?;
 					}
 					write![f, "true"]?;
 					spacer = true;
 				}
-				Boolean(Boolean::False) => {
+				Boolean(false) => {
 					if spacer {
 						write![f, " "]?;
 					}
@@ -324,9 +324,7 @@ impl fmt::Display for Sourcedata {
 					}
 				}
 				String(ref arg) => {
-					if spacer {
-						write![f, " "]?;
-					}
+					if spacer { write![f, " "]?; }
 					macro_rules! is_plainly_printable {
 						($i:ident) => {
 							// TODO remove () around cast: rustc panics because it thinks it's a generic
@@ -334,37 +332,43 @@ impl fmt::Display for Sourcedata {
 							(($i as u32) < 0x7F || $i as u32 > 0x9F)
 						};
 					}
-					let mut l3: char = '_';
-					let mut l2: char;
-					let mut l1: char = ' ';
-					let mut rle = 1; // rle = runtime-length-encoding
 					write![f, "(\""]?;
-					for ch in arg.chars().chain("_".chars()) {
-						l2 = l1;
-						l1 = ch;
-						// Is l2 surrounded by printable characters?
-						if !is_plainly_printable!(l2) {
-							if is_plainly_printable!(l1) && is_plainly_printable!(l3) {
-								match l2 {
-									' ' => write![f, " "]?,
-									_ => write![f, "({})", l2 as u32]?,
-								}
-							} else if l1 == l2 {
-								rle += 1;
+					if arg.len() > 0 { write![f, " "]; }
+					let mut prev_char = ' ';
+					let mut rle = 0;
+					let mut n: usize = 0;
+					let rle_write = |f: &mut fmt::Formatter, prev_char: char, rle: usize| {
+						if rle > 0 {
+							if rle == 1 {
+								write![f, "({})", prev_char as u32];
 							} else {
-								if rle == 1 {
-									write![f, "({})", l2 as u32]?;
-								} else {
-									write![f, "({} {})", l2 as u32, rle]?;
-								}
-								rle = 1;
+								write![f, "({} {})", prev_char as u32, rle];
 							}
-						} else {
-							// l2 is printable, so all is well
-							write![f, "{}", l2]?;
 						}
-						l3 = l2;
+					};
+					for ch in arg.chars() {
+						if is_plainly_printable![ch] {
+							if rle > 0 {
+								if prev_char == ' ' && rle == 1 && n > 1 {
+									write![f, " "];
+								} else {
+									rle_write(f, prev_char, rle);
+								}
+							}
+							write![f, "{}", ch];
+							rle = 0;
+						} else {
+							if ch != prev_char && rle > 0 {
+								rle_write(f, prev_char, rle);
+								rle = 1;
+							} else {
+								rle += 1;
+							}
+						}
+						n += 1;
+						prev_char = ch;
 					}
+					rle_write(f, prev_char, rle);
 					write![f, ")"]?;
 					spacer = true;
 				}
@@ -372,7 +376,7 @@ impl fmt::Display for Sourcedata {
 					if spacer {
 						write![f, " "]?;
 					}
-					write![f, "{}", arg]?;
+					write![f, "(symbol {})", arg]?;
 					spacer = true;
 				}
 				User(ref user) => {
@@ -480,14 +484,6 @@ impl ParseState {
 			column: 1,
 			source: source.into(),
 		};
-		state
-	}
-}
-
-impl convert::From<io::Error> for ParseState {
-	fn from(err: io::Error) -> Self {
-		let mut state = ParseState::default();
-		state.error = Some(err.description().into());
 		state
 	}
 }
@@ -768,4 +764,30 @@ pub fn unwind(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, S
 		}
 	}
 	None
+}
+
+#[cfg(test)]
+mod tests {
+	fn test_string(input: &str, output: &str) {
+		use data_structures::{Coredata, Sourcedata};
+		assert_eq![output, format!["{}", Sourcedata(None, Coredata::String(input.to_string()))]];
+	}
+	#[test]
+	fn string_writing() {
+		test_string("", "(\")");
+		test_string(" ", "(\" (32))");
+		test_string(" X", "(\" (32)X)");
+		test_string("X Y", "(\" X Y)");
+		test_string(" X Y", "(\" (32)X Y)");
+		test_string(" X Y\n", "(\" (32)X Y(10))");
+		test_string("Lorem ipsum dolor sit amet", "(\" Lorem ipsum dolor sit amet)");
+		test_string("  \n  ", "(\" (32 2)(10)(32 2))");
+		test_string("  \n", "(\" (32 2)(10))");
+		test_string(" \n", "(\" (32)(10))");
+		test_string(" \n\t", "(\" (32)(10)(9))");
+		test_string(" \n\n\t", "(\" (32)(10 2)(9))");
+		test_string("A\n\n\t", "(\" A(10 2)(9))");
+		test_string("A\n\nBC\t", "(\" A(10 2)BC(9))");
+		test_string("A\nD\nBC\t", "(\" A(10)D(10)BC(9))");
+	}
 }

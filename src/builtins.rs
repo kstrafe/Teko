@@ -19,6 +19,7 @@
 //! You always want to put the result of your computation inside `env.result`.
 //! You don't need to clear `params` or `program` manually, that's done by the VM for you.
 
+
 // //////////////////////////////////////////////////////////
 // std imports
 // //////////////////////////////////////////////////////////
@@ -61,11 +62,10 @@ to exit press CTRL-D, CTRL-C, or: (exit)";
 /// For user-defined functions and types please see `user/mod.rs`.
 pub fn create_builtin_library_table() -> HashMap<String, Program> {
 	construct_builtins! {
-		// This section contains non-functions and non-macros
+		// This section contains non-functions and non-macro
+		// constants
 		{
 			"help" => Coredata::String(HELP.into()),
-			"true" => Coredata::Boolean(Boolean::True),
-			"false" => Coredata::Boolean(Boolean::False),
 		}
 		// The rest of the table defines functions and macros
 		// Numerics
@@ -189,13 +189,13 @@ macro_rules! extype {
 /// Logical AND.
 teko_simple_function!(and args : 0 => usize::MAX => {
 	for arg in args {
-		if let Coredata::Boolean(Boolean::False) = arg.1 {
+		if let Coredata::Boolean(false) = arg.1 {
 			return Ok(arg.clone());
 		} else {
 			continue;
 		}
 	}
-	Ok(rcs(Coredata::Boolean(Boolean::True)))
+	Ok(rcs(Coredata::Boolean(true)))
 });
 
 /// Count the stack size. Useful for checking if Tail Call Optimization works.
@@ -374,7 +374,7 @@ teko_simple_function!(doc args : 1 => 1 => {
 /// Integer equality comparison.
 teko_simple_function!(eq args : 0 => usize::MAX => {
 	let mut last = None;
-	let mut result = rcs(Coredata::Boolean(Boolean::True));
+	let mut result = rcs(Coredata::Boolean(true));
 	for arg in args.iter() {
 		match **arg {
 			Sourcedata(_, Coredata::Integer(ref integer)) => {
@@ -382,7 +382,7 @@ teko_simple_function!(eq args : 0 => usize::MAX => {
 					if previous == integer {
 						// Do nothing
 					} else {
-						result = rcs(Coredata::Boolean(Boolean::False));
+						result = rcs(Coredata::Boolean(false));
 						break;
 					}
 					last = Some(integer);
@@ -467,7 +467,7 @@ teko_simple_macro!(function args : 2 => usize::MAX => {
 /// The greater-than function for comparing integers.
 teko_simple_function!(gt args : 0 => usize::MAX => {
 	let mut last = None;
-	let mut result = rcs(Coredata::Boolean(Boolean::True));
+	let mut result = rcs(Coredata::Boolean(true));
 	for arg in args.iter() {
 		match **arg {
 			Sourcedata(_, Coredata::Integer(ref integer)) => {
@@ -475,7 +475,7 @@ teko_simple_function!(gt args : 0 => usize::MAX => {
 					if previous > integer {
 						// Do nothing
 					} else {
-						result = rcs(Coredata::Boolean(Boolean::False));
+						result = rcs(Coredata::Boolean(false));
 						break;
 					}
 					last = Some(integer);
@@ -537,14 +537,14 @@ fn if_conditional(program: &mut Program, env: &mut Env) -> Option<(Option<Source
 /// Check if data is the same.
 teko_simple_function!(is_data_eq args : 0 => usize::MAX => {
 	let mut last = None;
-	let mut result = rcs(Coredata::Boolean(Boolean::True));
+	let mut result = rcs(Coredata::Boolean(true));
 	for arg in args.iter() {
 		let data = &arg.1;
 		if let Some(previous) = last {
 			if previous == data {
 				// Do nothing
 			} else {
-				result = rcs(Coredata::Boolean(Boolean::False));
+				result = rcs(Coredata::Boolean(false));
 				break;
 			}
 			last = Some(data);
@@ -559,9 +559,9 @@ teko_simple_function!(is_data_eq args : 0 => usize::MAX => {
 teko_simple_function!(is_error args : 1 => 1 => {
 	let arg = args.first().unwrap();
 	if let Coredata::Error(_) = arg.1 {
-		Ok(rcs(Coredata::Boolean(Boolean::True)))
+		Ok(rcs(Coredata::Boolean(true)))
 	} else {
-		Ok(rcs(Coredata::Boolean(Boolean::False)))
+		Ok(rcs(Coredata::Boolean(false)))
 	}
 });
 
@@ -569,9 +569,9 @@ teko_simple_function!(is_error args : 1 => 1 => {
 teko_simple_function!(is_cell args : 1 => 1 => {
 	let arg = args.first().unwrap();
 	if let Coredata::Cell(..) = arg.1 {
-		Ok(rcs(Coredata::Boolean(Boolean::True)))
+		Ok(rcs(Coredata::Boolean(true)))
 	} else {
-		Ok(rcs(Coredata::Boolean(Boolean::False)))
+		Ok(rcs(Coredata::Boolean(false)))
 	}
 });
 
@@ -579,9 +579,9 @@ teko_simple_function!(is_cell args : 1 => 1 => {
 teko_simple_function!(is_symbol args : 1 => 1 => {
 	let arg = args.first().unwrap();
 	if let Coredata::Symbol(_) = arg.1 {
-		Ok(rcs(Coredata::Boolean(Boolean::True)))
+		Ok(rcs(Coredata::Boolean(true)))
 	} else {
-		Ok(rcs(Coredata::Boolean(Boolean::False)))
+		Ok(rcs(Coredata::Boolean(false)))
 	}
 });
 
@@ -607,7 +607,7 @@ teko_simple_function!(list args : 0 => usize::MAX => {
 /// The less-than function for comparing integers.
 teko_simple_function!(lt args : 0 => usize::MAX => {
 	let mut last = None;
-	let mut result = rcs(Coredata::Boolean(Boolean::True));
+	let mut result = rcs(Coredata::Boolean(true));
 	for arg in args.iter() {
 		match **arg {
 			Sourcedata(_, Coredata::Integer(ref integer)) => {
@@ -615,7 +615,7 @@ teko_simple_function!(lt args : 0 => usize::MAX => {
 					if previous < integer {
 						// Do nothing
 					} else {
-						result = rcs(Coredata::Boolean(Boolean::False));
+						result = rcs(Coredata::Boolean(false));
 						break;
 					}
 					last = Some(integer);
@@ -664,23 +664,23 @@ teko_simple_function!(multiply args : 0 => usize::MAX => {
 /// Boolean NOT.
 teko_simple_function!(not args : 1 => 1 => {
 	let arg = args.first().unwrap();
-	if let Coredata::Boolean(Boolean::False) = arg.1 {
-		Ok(rcs(Coredata::Boolean(Boolean::True)))
+	if let Coredata::Boolean(false) = arg.1 {
+		Ok(rcs(Coredata::Boolean(true)))
 	} else {
-		Ok(rcs(Coredata::Boolean(Boolean::False)))
+		Ok(rcs(Coredata::Boolean(false)))
 	}
 });
 
 /// Boolean (inclusive) OR.
 teko_simple_function!(or args : 0 => usize::MAX => {
 	for arg in args {
-		if let Coredata::Boolean(Boolean::False) = arg.1 {
+		if let Coredata::Boolean(false) = arg.1 {
 			continue;
 		} else {
-			return Ok(rcs(Coredata::Boolean(Boolean::True)));
+			return Ok(rcs(Coredata::Boolean(true)));
 		}
 	}
-	Ok(rcs(Coredata::Boolean(Boolean::False)))
+	Ok(rcs(Coredata::Boolean(false)))
 });
 
 /// Cell value constructor.
@@ -768,7 +768,7 @@ fn read(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	None
 }
 
-/// Used by set internall to set variables.
+/// Used by set internal to set variables.
 fn set_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	if let Some(args) = env.params.last() {
 		if let Some(symbol) = args.first() {
@@ -876,15 +876,15 @@ teko_simple_macro!(string arg : 0 => usize::MAX => {
 		data
 	};
 	let mut ret = String::from("");
-	let mut last_symbol = false;
+	let mut last_was_symbol = false;
 	for i in data {
 		match *i {
 			Sourcedata(_, Coredata::Symbol(ref string)) => {
-				if last_symbol {
+				if last_was_symbol {
 					ret.push(' ');
 				}
 				ret.push_str(string);
-				last_symbol = true;
+				last_was_symbol = true;
 			}
 			Sourcedata(ref src, Coredata::Cell(ref head, ref tail)) => {
 				let repeats = if let Coredata::Null() = tail.1 {
@@ -923,10 +923,10 @@ teko_simple_macro!(string arg : 0 => usize::MAX => {
 						return Err((src.clone(), "value is not an unsigned 32-bit value".into()));
 					}
 				}
-				last_symbol = false;
+				last_was_symbol = false;
 			}
 			_ => {
-				return Err((None, "unable to parse input".into()));
+				return Err((None, "input is not atom or cell".into()));
 			}
 		}
 	}

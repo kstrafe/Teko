@@ -157,7 +157,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				program.push(env.result.clone());
 			}
 			Core::Internal(Cmds::If(ref first, ref second)) => {
-				if let Core::Boolean(Boolean::False) = env.result.1 {
+				if let Core::Boolean(false) = env.result.1 {
 					program.push(second.clone());
 				} else {
 					program.push(first.clone());
@@ -228,6 +228,11 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			Core::Symbol(ref string) => {
 				if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
 					env.result = rc(Srcdata(src.clone(), Core::Integer(number)));
+				// TODO Just copy a reference to a global boolean, since these are immutable
+				} else if string == "true" {
+					env.result = rcs(Coredata::Boolean(true));
+				} else if string == "false" {
+					env.result = rcs(Coredata::Boolean(false));
 				} else {
 					let error = if let Some(value) = env.store.get(string) {
 						if let Some(value) = value.last() {

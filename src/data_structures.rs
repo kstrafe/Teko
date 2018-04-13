@@ -60,34 +60,31 @@ pub enum Macro {
 /// Core data types of the Teko machine
 #[derive(Debug)]
 pub enum Coredata {
+	// TODO Add complex number and representation symbol evaluation
+	// TODO Add quoted form for writing out whatever in plain
 	/// Denote true and false
-	Boolean(Boolean),
+	Boolean(bool),
 	/// A pair of data items
-	Cell(Rc<Sourcedata>, Rc<Sourcedata>),
+	Cell(Rc<Sourcedata>, Rc<Sourcedata>), // TODO Ensure Non-nestedness
 	/// Error type
-	Error(Statement),
+	Error(Statement),  // Really necessary?
 	/// Function type
-	Function(Function),
+	Function(Function), // OK
 	/// Integer numbers
-	Integer(BigInt),
+	Integer(BigInt), // Ok
 	/// Internal commands (used by the implementation)
-	Internal(Commands),
+	Internal(Commands), // Fine,... I guess... but want a different enum for this
 	/// Macro types
-	Macro(Macro),
+	Macro(Macro), 
 	/// Null (an empty list)
-	Null(),
+	Null(), // Do we need this? null Yeah, () is core data
 	/// String type
 	String(String),
 	/// Symbol type
 	Symbol(String),
-	/// User defined data
-	User(Userdata),
-}
 
-#[derive(Debug)]
-pub enum Nore {
-	Pair(Rc<Sourcedata>, Rc<Nore>),
-	Null(),
+	/// User defined data
+	User(Userdata), // Should remove this, unnecessary. All other data can be represented here
 }
 
 /// Environment used by the implementation
@@ -124,6 +121,6 @@ pub struct Source {
 	pub line: usize,
 	/// Column number of the input, starts at 1
 	pub column: usize,
-	/// Free-form string describing the source
-	pub source: String,
+	/// Free-form string describing the source ("tty" from terminal, filename from file,..)
+	pub source: String, // Change to Rc<String>
 }

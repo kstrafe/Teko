@@ -139,6 +139,7 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 
+#![ignore(redundant_closure_call)]
 extern crate num;
 
 #[macro_use]
