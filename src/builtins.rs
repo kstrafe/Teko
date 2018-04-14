@@ -110,6 +110,8 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Function : "doc" => doc,
 		Macro    : "\"" => string,
 		Function : "exit" => exit,
+		Function : "function-code" => function_code,
+		Function : "function-parameters" => function_parameters,
 		// Useful builtins
 		Function : "@program-count" => at_program_count,
 		Function : "@msleep" => msleep,
@@ -311,6 +313,42 @@ fn define(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 	env.params.push(vec![]);
 	None
 }
+
+teko_simple_function!(function_parameters args : 1 => 1 => {
+	use utilities::program_to_cells;
+	let mut top = rcs(Coredata::Null());
+	match **args.first().unwrap() {
+		Sourcedata(ref src, Coredata::Function(Function::Builtin(..))) => {
+			return Err((src.clone(), format!["expected Function but got {}", data_name(args.first().unwrap())]));
+		}
+		Sourcedata(ref src, Coredata::Function(Function::Library(ref params, ref program))) => {
+			for i in params.iter().rev() {
+				top = rcs(Coredata::Cell(rcs(Coredata::Symbol(i.to_string())), top));
+			}
+		}
+		Sourcedata(ref src, ..) => {
+			return Err(extype![src, Function, args.first().unwrap()]);
+		}
+	}
+	Ok(top)
+});
+
+teko_simple_function!(function_code args : 1 => 1 => {
+	use utilities::program_to_cells;
+	let mut top = rcs(Coredata::Null());
+	match **args.first().unwrap() {
+		Sourcedata(ref src, Coredata::Function(Function::Builtin(..))) => {
+			return Err((src.clone(), format!["expected Function but got {}", data_name(args.first().unwrap())]));
+		}
+		Sourcedata(ref src, Coredata::Function(Function::Library(ref params, ref program))) => {
+			top = program_to_cells(program);
+		}
+		Sourcedata(ref src, ..) => {
+			return Err(extype![src, Function, args.first().unwrap()]);
+		}
+	}
+	Ok(top)
+});
 
 /// Mathematical division of integers.
 teko_simple_function!(divide args : 1 => usize::MAX => {
