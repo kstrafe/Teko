@@ -98,6 +98,7 @@ pub fn create_builtin_library_table() -> HashMap<Symbol, Program> {
 		Macro    : "macro" => make_macro,
 		// Some useful features
 		Macro    : "define" => define,
+		Function : "exists?" => exists,
 		Macro    : "local" => local,
 		Macro    : "set!" => set,
 		Macro    : "program" => program,
@@ -213,6 +214,26 @@ fn at_program_count(program: &mut Program, env: &mut Env) -> Option<(Option<Sour
 	let count = program.len();
 	env.set_result(rcs(Coredata::Integer(count.into())));
 	None
+}
+
+fn exists(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
+	let (result, exists) = match env.params.last().unwrap().first() { // env.get_result().head() {
+		Some(ref head) => {
+			match ***head {
+				Sourcedata(_, Coredata::Symbol(ref symbol)) => {
+					(None, env.does_variable_exist(symbol))
+				}
+				Sourcedata(ref src, _) => {
+					(Some(extype![src, Symbol, env.get_result()]), false)
+				}
+			}
+		}
+		None => {
+			(Some((None, String::from(" exists? requires 1 argument"))), false)
+		}
+	};
+	env.set_result(rcs(Coredata::Boolean(exists)));
+	result
 }
 
 /// Count the amount of active variables in the program.
