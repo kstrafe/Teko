@@ -214,14 +214,8 @@ fn at_program_count(program: &mut Program, env: &mut Env) -> Option<(Option<Sour
 }
 
 /// Count the amount of active variables in the program.
-fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
-	let mut count = 0;
-	for i in &env.params {
-		count += i.len();
-	}
-	for values in env.store.values() {
-		count += values.len();
-	}
+fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {	
+	let count = env.count_variables();
 	env.set_result(rcs(Coredata::Integer(count.into())));
 	None
 }
@@ -229,7 +223,7 @@ fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, 
 /// Find all active variables in the dynamic scope.
 fn at_variables(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	let mut builder = rcs(Coredata::Null());
-	for key in env.store.keys() {
+	for key in env.get_variables() {
 		builder = rcs(Coredata::Cell(
 			rcs(Coredata::Symbol(key.clone())),
 			builder,
@@ -246,7 +240,7 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, St
 			match **symbol {
 				Sourcedata(ref source, Coredata::String(ref string)) => {
 					if let Some(rhs) = args.get(1) {
-						if env.store.contains_key(&Symbol::from(string)) {
+						if env.does_variable_exist(&Symbol::from(string)) {
 							return Some((
 								source.clone(),
 								format!["variable already exists: {}", string],

@@ -711,22 +711,10 @@ pub fn optional_source(source: &Option<Source>) -> String {
 pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &Deparize) {
 	for arg in args.into_iter() {
 		use std::convert::Into;
-		if let Some(ref mut entry) = env.store.get_mut(arg) {
-			if entry.pop().is_some() {
-				// OK
-			} else {
-				panic!["Store entry was already empty"];
-			}
+		if let Some(ref mut entry) = env.pop(arg) {
+			// OK
 		} else {
 			panic!["Store entry does not exist"];
-		}
-		let is_empty = if let Some(entry) = env.store.get(arg) {
-			entry.is_empty()
-		} else {
-			panic!["Store entry does not exist"];
-		};
-		if is_empty {
-			env.store.remove(arg);
 		}
 	}
 }

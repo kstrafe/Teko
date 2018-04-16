@@ -155,7 +155,7 @@ pub enum Coredata {
 /// Environment used by the implementation
 pub struct Env {
 	/// Maps variables to stacks of variables (Program)
-	pub store: HashMap<Symbol, Program>,
+	store: HashMap<Symbol, Program>,
 	/// Parameter stack used for function calls
 	pub params: Vec<Program>,
 	/// Register used to store results of previous computations
@@ -176,6 +176,20 @@ impl Env {
 			params: Vec::with_capacity(VEC_CAPACITY),
 			result: rc(Srcdata(None, Core::Null())),
 		}
+	}
+	// TODO Should be changed to an iter when stable
+	pub fn get_variables(&self) -> Vec<&Symbol> {
+		self.store.keys().collect()
+	}
+	pub fn count_variables(&self) -> usize {
+		let mut count = 0;
+		for i in &self.params {
+			count += i.len();
+		}
+		for values in self.store.values() {
+			count += values.len();
+		}
+		count
 	}
 	pub fn set_result(&mut self, value: Statement) {
 		self.result = value;
@@ -204,11 +218,15 @@ impl Env {
 		}
 	}
 	pub fn pop(&mut self, symbol: &Symbol) -> Option<Rc<Sourcedata>> {
-		if let Some(ref mut entry) = self.store.get_mut(symbol) {
-			entry.pop()
+		let (result, empty) = if let Some(ref mut entry) = self.store.get_mut(symbol) {
+			(entry.pop(), entry.is_empty())
 		} else {
-			None
+			(None, false)
+		};
+		if empty {
+			self.store.remove(symbol);
 		}
+		result
 	}
 }
 
