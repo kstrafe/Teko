@@ -12,15 +12,42 @@ use std::iter::Iterator;
 
 /// A symbol is a string of characters that contains no whitespace nor parentheses
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
-struct Symbol {
+pub struct Symbol {
 	value: String,
 }
 
+impl<'a> Into<&'a str> for &'a Symbol {
+	fn into(self) -> &'a str {
+		self.value.as_ref()
+	}
+}
+
+// TODO change to TryFrom once stable
 impl<'a> From<&'a str> for Symbol {
 	fn from(string: &'a str) -> Symbol {
 		// TODO check if the string is a valid symbol
 		Symbol {
 			value: string.to_string()
+		}
+	}
+}
+
+// TODO change to TryFrom once stable
+impl<'a> From<&'a String> for Symbol {
+	fn from(string: &'a String) -> Symbol {
+		// TODO check if the string is a valid symbol
+		Symbol {
+			value: string.clone()
+		}
+	}
+}
+
+// TODO change to TryFrom once stable
+impl From<String> for Symbol {
+	fn from(string: String) -> Symbol {
+		// TODO check if the string is a valid symbol
+		Symbol {
+			value: string
 		}
 	}
 }
@@ -80,7 +107,7 @@ pub enum Function {
 	/// A function written in the implementation language
 	Builtin(Transfer, String),
 	/// Parameter names with a sequence of statements that are inserted into the program when called
-	Library(Vec<String>, Program),
+	Library(Vec<Symbol>, Program),
 }
 
 /// Macro types that can be called by the interpreter
@@ -88,7 +115,7 @@ pub enum Macro {
 	/// A function written in the implementation language
 	Builtin(Transfer, String),
 	/// Parameter name with a sequence of statements that are inserted into the program when called
-	Library(String, Program),
+	Library(Symbol, Program),
 }
 
 /// Core data types of the Teko machine
@@ -115,7 +142,7 @@ pub enum Coredata {
 	/// String type
 	String(String),
 	/// Symbol type. Can not contain any whitespace. Is a valid Teko atom.
-	Symbol(String),
+	Symbol(Symbol),
 }
 
 /// Environment used by the implementation

@@ -10,7 +10,7 @@ use std::fs::File;
 use std::io::Read;
 use std::rc::Rc;
 
-use data_structures::{Commands, Coredata, ParseState, Program, Sourcedata, Source};
+use data_structures::*;
 
 
 // //////////////////////////////////////////////////////////
@@ -246,7 +246,7 @@ fn move_token_to_stack_if_nonempty(state: &mut ParseState) {
 		let currtok = state.token.clone();
 		if let Some(ref mut stack) = state.stack.last_mut() {
 			stack.push(Rc::new(
-				Sourcedata(Some(currlex), Coredata::Symbol(currtok)),
+				Sourcedata(Some(currlex), Coredata::Symbol(Symbol::from(currtok))),
 			));
 		}
 		clear_token(state);

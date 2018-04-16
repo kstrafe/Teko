@@ -124,14 +124,15 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 								);
 								ppush![src, Core::Internal(cmd)];
 								for (counter, parameter) in parameters.iter().enumerate() {
-									if env.store.contains_key(parameter) {
-										env.store.get_mut(parameter).unwrap().push(
+									let t: &str = parameter.into();
+									if env.store.contains_key(t) {
+										env.store.get_mut(t).unwrap().push(
 											arguments[counter]
 												.clone(),
 										);
 									} else {
 										env.store.insert(
-											parameter.clone(),
+											t.to_string(),
 											vec![arguments[counter].clone()],
 										);
 									}
@@ -196,10 +197,11 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					Core::Macro(Macro::Library(ref bound, ref code)) => {
 						ppush![None, Core::Internal(Cmds::Eval)];
 						let command = optimize_tail_call(&mut program, &mut env, &[bound.clone()]);
-						if env.store.contains_key(bound) {
-							env.store.get_mut(bound).unwrap().push(arguments.clone());
+						let t: &str = bound.into();
+						if env.store.contains_key(t) {
+							env.store.get_mut(t).unwrap().push(arguments.clone());
 						} else {
-							env.store.insert(bound.clone(), vec![arguments.clone()]);
+							env.store.insert(t.to_string(), vec![arguments.clone()]);
 						}
 						ppush![
 							src,
@@ -227,7 +229,8 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				ppush![head.0, Core::Internal(Cmds::Prep(tail.clone()))];
 				program.push(head.clone());
 			}
-			Core::Symbol(ref string) => {
+			Core::Symbol(ref symbol) => {
+				let string: &str = symbol.into();
 				if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
 					env.result = rc(Srcdata(src.clone(), Core::Integer(number)));
 				// TODO Just copy a reference to a global boolean, since these are immutable

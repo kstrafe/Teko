@@ -5,8 +5,7 @@ use std::error::Error;
 use std::rc::Rc;
 use std::usize;
 
-use data_structures::{Commands, Coredata, Env, Function, Macro, ParseState, Program, Source,
-                      Sourcedata, Statement};
+use data_structures::*;
 use super::VEC_CAPACITY;
 use user::user_data_name;
 
@@ -140,15 +139,15 @@ impl fmt::Debug for Function {
 				let mut first = true;
 				for i in params.iter() {
 					if first {
-						write![f, "{}", i]?;
+						write![f, "{:?}", i]?;
 					} else {
-						write![f, " {}", i]?;
+						write![f, " {:?}", i]?;
 					}
 					first = false;
 				}
 				write![f, ")"]?;
 				for i in code.iter().rev() {
-					write![f, " {}", i]?;
+					write![f, " {:?}", i]?;
 				}
 				write![f, ")"]?;
 			}
@@ -164,7 +163,7 @@ impl fmt::Debug for Macro {
 				write![f, "{}", name]?;
 			}
 			Macro::Library(ref param, ref code) => {
-				write![f, "(macro {}", param]?;
+				write![f, "(macro {:?}", param]?;
 				for i in code.iter().rev() {
 					write![f, " {}", i]?;
 				}
@@ -219,9 +218,9 @@ impl fmt::Display for Sourcedata {
 					let mut first = true;
 					for i in params.iter() {
 						if first {
-							write![f, "{}", i]?;
+							write![f, "{:?}", i]?;
 						} else {
-							write![f, " {}", i]?;
+							write![f, " {:?}", i]?;
 						}
 						first = false;
 					}
@@ -263,7 +262,7 @@ impl fmt::Display for Sourcedata {
 				}
 				Macro(Macro::Library(ref param, ref code)) => {
 					spacify![];
-					write![f, "(macro {}", param]?;
+					write![f, "(macro {:?}", param]?;
 					for i in code.iter().rev() {
 						write![f, " {}", i]?;
 					}
@@ -348,7 +347,7 @@ impl fmt::Display for Sourcedata {
 				}
 				Symbol(ref arg) => {
 					spacify![];
-					write![f, "{}", arg]?;
+					write![f, "{:?}", arg]?;
 					spacer = true;
 				}
 			}
@@ -503,7 +502,7 @@ pub fn collect_cell_into_revvec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
 }
 
 /// Maps a linked list of symbols into a vector of strings.
-pub fn collect_cell_of_symbols_into_vec_string(data: &Rc<Sourcedata>) -> Option<Vec<String>> {
+pub fn collect_cell_of_symbols_into_vec(data: &Rc<Sourcedata>) -> Option<Vec<Symbol>> {
 	let mut ret = vec![];
 	let mut current = data.clone();
 	if let Coredata::Cell(..) = current.1 {
@@ -515,8 +514,8 @@ pub fn collect_cell_of_symbols_into_vec_string(data: &Rc<Sourcedata>) -> Option<
 	}
 	loop {
 		current = if let Sourcedata(_, Coredata::Cell(ref head, ref tail)) = *current {
-			if let Coredata::Symbol(ref string) = head.1 {
-				ret.push(string.clone());
+			if let Coredata::Symbol(ref symbol) = head.1 {
+				ret.push(symbol.clone());
 				tail.clone()
 			} else {
 				return None;
@@ -527,6 +526,31 @@ pub fn collect_cell_of_symbols_into_vec_string(data: &Rc<Sourcedata>) -> Option<
 	}
 	Some(ret)
 }
+/* /// Maps a linked list of symbols into a vector of strings. */
+/* pub fn collect_cell_of_symbols_into_vec_string(data: &Rc<Sourcedata>) -> Option<Vec<String>> { */
+/* 	let mut ret = vec![]; */
+/* 	let mut current = data.clone(); */
+/* 	if let Coredata::Cell(..) = current.1 { */
+/* 		// Ok */
+/* 	} else if let Coredata::Null() = current.1 { */
+/* 		// Ok */
+/* 	} else { */
+/* 		return None; */
+/* 	} */
+/* 	loop { */
+/* 		current = if let Sourcedata(_, Coredata::Cell(ref head, ref tail)) = *current { */
+/* 			if let Coredata::Symbol(ref string) = head.1 { */
+/* 				ret.push(string.into()); */
+/* 				tail.clone() */
+/* 			} else { */
+/* 				return None; */
+/* 			} */
+/* 		} else { */
+/* 			break; */
+/* 		} */
+/* 	} */
+/* 	Some(ret) */
+/* } */
 
 /// Takes the intersection of two sets.
 pub fn compute_intersection<'a>(a: &'a [String], b: &'a [String]) -> Vec<&'a String> {
@@ -631,7 +655,10 @@ pub fn internal_trace(program: &mut Program, _: &mut Env) -> Rc<Sourcedata> {
 ///
 /// If the top of the stack contains `Commands::Depar`, then the variables to be popped
 /// are merged into that [top] object. This is all that's needed to optimize tail calls.
-pub fn optimize_tail_call(program: &mut Program, env: &mut Env, params: &[String]) -> Vec<String> {
+pub fn optimize_tail_call(program: &mut Program, env: &mut Env, params2: &[Symbol]) -> Vec<String> {
+	let params = &params2.iter()
+	                     .map(|x| Into::<&str>::into(x).to_string())
+	                     .collect::<Vec<String>>()[..];
 	if let Some(top) = program.pop() {
 		match top.1 {
 			Coredata::Internal(Commands::Depar(ref content)) => {

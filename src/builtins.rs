@@ -228,7 +228,7 @@ fn at_variables(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 	env.result = rcs(Coredata::Null());
 	for key in env.store.keys() {
 		env.result = rcs(Coredata::Cell(
-			rcs(Coredata::Symbol(key.clone())),
+			rcs(Coredata::Symbol(Symbol::from(key))),
 			env.result.clone(),
 		));
 	}
@@ -295,14 +295,15 @@ fn local(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String
 		};
 		if let Some(head) = args.head() {
 			match *head {
-				Sourcedata(ref source, Coredata::Symbol(ref string)) => {
+				Sourcedata(ref source, Coredata::Symbol(ref symbol)) => {
 					program.extend(push);
 					program.push(rc(Sourcedata(
 						source.clone(),
 						Coredata::Internal(Commands::Param),
 					)));
+					let t: &str = symbol.into();
 					program.push(rc(
-						Sourcedata(source.clone(), Coredata::String(string.clone())),
+						Sourcedata(source.clone(), Coredata::String(t.to_string())),
 					));
 				}
 				Sourcedata(ref source, ..) => {
@@ -393,14 +394,15 @@ fn define(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 		};
 		if let Some(head) = args.head() {
 			match *head {
-				Sourcedata(ref source, Coredata::Symbol(ref string)) => {
+				Sourcedata(ref source, Coredata::Symbol(ref symbol)) => {
 					program.extend(push);
 					program.push(rc(Sourcedata(
 						source.clone(),
 						Coredata::Internal(Commands::Param),
 					)));
+					let t: &str = symbol.into();
 					program.push(rc(
-						Sourcedata(source.clone(), Coredata::String(string.clone())),
+						Sourcedata(source.clone(), Coredata::String(t.to_string())),
 					));
 				}
 				Sourcedata(ref source, ..) => {
@@ -538,7 +540,7 @@ teko_simple_function!(function_parameters args : 1 => 1 => {
 		}
 		Sourcedata(ref src, Coredata::Function(Function::Library(ref params, ref program))) => {
 			for i in params.iter().rev() {
-				top = rcs(Coredata::Cell(rcs(Coredata::Symbol(i.to_string())), top));
+				top = rcs(Coredata::Cell(rcs(Coredata::Symbol(i.clone())), top));
 			}
 		}
 		Sourcedata(ref src, ..) => {
@@ -587,7 +589,7 @@ teko_simple_function!(exit args : 0 => 1 => {
 /// Construct a function object with dynamic scope.
 teko_simple_macro!(function args : 2 => usize::MAX => {
 	if let Some(head) = args.head() {
-		let params = if let Some(params) = collect_cell_of_symbols_into_vec_string(&head) {
+		let params = if let Some(params) = collect_cell_of_symbols_into_vec(&head) {
 			params
 		} else {
 			return Err((None, "parameter list contains non-symbols".into()));
@@ -994,9 +996,9 @@ fn set(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)>
 		program.push(rcs(Coredata::Internal(Commands::Param)));
 		if let Some(head) = args.head() {
 			match *head {
-				Sourcedata(ref source, Coredata::Symbol(ref string)) => {
+				Sourcedata(ref source, Coredata::Symbol(ref symbol)) => {
 					program.push(Rc::new(
-						Sourcedata(source.clone(), Coredata::String(string.clone())),
+						Sourcedata(source.clone(), Coredata::String(Into::<&str>::into(symbol).to_string())),
 					));
 				}
 				_ => {
@@ -1051,7 +1053,7 @@ teko_simple_macro!(string arg : 0 => usize::MAX => {
 				if last_was_symbol {
 					ret.push(' ');
 				}
-				ret.push_str(string);
+				ret.push_str(string.into());
 				last_was_symbol = true;
 			}
 			Sourcedata(ref src, Coredata::Cell(ref head, ref tail)) => {
@@ -1059,12 +1061,13 @@ teko_simple_macro!(string arg : 0 => usize::MAX => {
 					1
 				} else if let Sourcedata(ref src, Coredata::Cell(ref head, ref tail)) = **tail {
 					if let Sourcedata(ref src, Coredata::Symbol(ref value)) = **head {
-						let code = value.parse::<u32>();
+						let t: &str = value.into();
+						let code = t.parse::<u32>();
 						if let Ok(code) = code {
 							code
 						} else {
 							return Err((src.clone(), format![
-								"unable to parse value to unsigned 32-bit integer: {}",
+								"unable to parse value to unsigned 32-bit integer: {:?}",
 								value,
 							]));
 						}
@@ -1078,7 +1081,8 @@ teko_simple_macro!(string arg : 0 => usize::MAX => {
 					return Err((src.clone(), "string character only accepts a one or two arguments".into()));
 				};
 				if let Sourcedata(ref src, Coredata::Symbol(ref value)) = **head {
-					let code = value.parse::<u32>();
+					let t: &str = value.into();
+					let code = t.parse::<u32>();
 					if let Ok(code) = code {
 						if let Some(code) = char::from_u32(code) {
 							for _ in 0..repeats {
