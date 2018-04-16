@@ -1,13 +1,11 @@
 //! Utilities used by the implementation.
 
-use std::{cmp, convert, fmt, io};
-use std::error::Error;
+use std::{cmp, convert, fmt};
 use std::rc::Rc;
 use std::usize;
 
 use data_structures::*;
 use super::VEC_CAPACITY;
-use user::user_data_name;
 
 pub fn program_to_cells(program: &Program) -> Statement {
 	let mut top = rcs(Coredata::Null());
@@ -302,7 +300,6 @@ impl fmt::Display for Sourcedata {
 					}
 				}
 				String(ref arg) => {
-					use std::fmt::Error;
 					spacify![];
 					macro_rules! is_plainly_printable {
 						($i:ident) => {
@@ -668,9 +665,6 @@ pub fn internal_trace(program: &mut Program, _: &mut Env) -> Rc<Sourcedata> {
 /// If the top of the stack contains `Commands::Deparize`, then the variables to be popped
 /// are merged into that [top] object. This is all that's needed to optimize tail calls.
 pub fn optimize_tail_call(program: &mut Program, env: &mut Env, params2: &[Symbol]) -> Deparize {
-	let params = &params2.iter()
-	                     .map(|x| Into::<&str>::into(x).to_string())
-	                     .collect::<Vec<String>>()[..];
 	if let Some(mut top) = program.pop() {
 		match top.1 {
 			Coredata::Internal(Commands::Deparize(ref content2)) => {
@@ -722,8 +716,7 @@ pub fn optional_source(source: &Option<Source>) -> String {
 /// this function will panic.
 pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &Deparize) {
 	for arg in args.into_iter() {
-		use std::convert::Into;
-		if let Some(ref mut entry) = env.pop(arg) {
+		if let Some(_) = env.pop(arg) {
 			// OK
 		} else {
 			panic!["Store entry does not exist"];
@@ -744,7 +737,7 @@ pub fn rcs(rcs: Coredata) -> Rc<Sourcedata> {
 pub fn find_earliest_depar<'a>(program: &'a mut Program) -> Option<&'a mut Deparize> {
 	for i in program.iter_mut().rev() {
 		match Rc::get_mut(i) {
-			Some(&mut Sourcedata(ref src, Coredata::Internal(Commands::Deparize(ref mut dep)))) => {
+			Some(&mut Sourcedata(_, Coredata::Internal(Commands::Deparize(ref mut dep)))) => {
 				return Some(dep);
 			}
 			_ => {}

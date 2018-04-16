@@ -17,12 +17,10 @@
 //! 	}
 //! }
 //! ```
-use builtins::*;
 use data_structures::*;
 use data_structures::Sourcedata as Srcdata;
 use data_structures::Coredata as Core;
 use data_structures::Commands as Cmds;
-use super::VEC_CAPACITY;
 use utilities::*;
 
 use num::BigInt;
@@ -125,12 +123,12 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					// The type system ought to reflect this
 					_ => {
 						panic!["IMPOSSIBLE!"];
-						err(
-							src,
-							&Some((None, "element not callable".into())),
-							&mut program,
-							&mut env,
-						);
+						/* err( */
+						/* 	src, */
+						/* 	&Some((None, "element not callable".into())), */
+						/* 	&mut program, */
+						/* 	&mut env, */
+						/* ); */
 					}
 				}
 			}

@@ -5,8 +5,6 @@ use std::rc::Rc;
 
 use num::BigInt;
 
-use user::Userdata;
-
 use std::collections::HashSet;
 use std::iter::Iterator;
 use std::convert::Into;
@@ -91,6 +89,11 @@ mod tests {
 		assert![dep.check_preexistence_and_merge_single(&Symbol::from("nice"))];
 	}
 }
+
+/* pub enum Interpreter { */
+/* 	Operations(Commands), */
+/* 	Data(Sourcedata), */
+/* } */
 
 /// Evaluation commands used internally by the interpreter
 ///
@@ -320,6 +323,10 @@ impl Env {
 		} else {
 			self.store.insert(symbol.clone(), vec![value]);
 		}
+	}
+	pub fn set(&mut self, symbol: &Symbol, value: Statement) {
+		self.pop(symbol);
+		self.push(symbol, value);
 	}
 	pub fn pop(&mut self, symbol: &Symbol) -> Option<Rc<Sourcedata>> {
 		let (result, empty) = if let Some(ref mut entry) = self.store.get_mut(symbol) {

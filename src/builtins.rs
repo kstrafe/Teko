@@ -35,7 +35,6 @@ use std::usize;
 // //////////////////////////////////////////////////////////
 use data_structures::*;
 use parse::*;
-use user::*;
 use utilities::*;
 
 // //////////////////////////////////////////////////////////
@@ -237,14 +236,14 @@ fn exists(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 }
 
 /// Count the amount of active variables in the program.
-fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {	
+fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	let count = env.count_variables();
 	env.set_result(rcs(Coredata::Integer(count.into())));
 	None
 }
 
 /// Simply return something that indicates failure
-fn fail(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
+fn fail(_: &mut Program, _: &mut Env) -> Option<(Option<Source>, String)> {
 	Some((Some(Source { line: 1, column: 20, source: "Dude".into() }), "Failure".into()))
 }
 
@@ -347,7 +346,7 @@ fn local(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String
 
 /// Used by define to perform the final step of assigning.
 fn local_internal(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
-	let (key, value) = if let Some(args) = env.params.last() {
+	let (key, value, existed) = if let Some(args) = env.params.last() {
 		if let Some(symbol) = args.first() {
 			match **symbol {
 				Sourcedata(ref source, Coredata::String(ref string)) => {
@@ -356,15 +355,15 @@ fn local_internal(program: &mut Program, env: &mut Env) -> Option<(Option<Source
 						// Problem is what if we're inside a new function?
 						// That's fine, since we have a new depar
 						if let Some(depar) = find_earliest_depar(program) {
-							depar.check_preexistence_and_merge_single(&Symbol::from(string));
-							(Symbol::from(string), rhs.clone())
+							let pre = depar.check_preexistence_and_merge_single(&Symbol::from(string));
+							(Symbol::from(string), rhs.clone(), pre)
 						} else if env.does_variable_exist(&Symbol::from(string)) {
 								return Some((
 									source.clone(),
 									format!["variable already exists: {}", string],
 								));
 						} else {
-							(Symbol::from(string), rhs.clone())
+							(Symbol::from(string), rhs.clone(), false)
 						}
 					} else {
 						return Some((source.clone(), arity_mismatch(2, 2, 1)));
@@ -380,7 +379,11 @@ fn local_internal(program: &mut Program, env: &mut Env) -> Option<(Option<Source
 	} else {
 		return Some((None, "no arg stack".into()));
 	};
-	env.push(&key, value);
+	if existed {
+		env.set(&key, value);
+	} else {
+		env.push(&key, value);
+	}
 	None
 }
 
@@ -551,7 +554,6 @@ teko_simple_function!(function_code args : 1 => 1 => {
 });
 
 teko_simple_function!(function_parameters args : 1 => 1 => {
-	use utilities::program_to_cells;
 	let mut top = rcs(Coredata::Null());
 	match **args.first().unwrap() {
 		Sourcedata(ref src, Coredata::Function(Function::Builtin(..))) => {
