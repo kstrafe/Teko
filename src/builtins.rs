@@ -112,6 +112,7 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Function : "exit" => exit,
 		Function : "function-code" => function_code,
 		Function : "function-parameters" => function_parameters,
+		Function : "current-time-milliseconds" => current_time_milliseconds,
 		// Useful builtins
 		Function : "@program-count" => at_program_count,
 		Function : "@msleep" => msleep,
@@ -737,6 +738,15 @@ teko_simple_function!(cell args : 2 => 2 => {
 	}
 	Ok(rcs(Coredata::Cell(arg1.clone(), arg2.clone())))
 });
+
+teko_simple_function!(current_time_milliseconds args : 0 => 0 => {
+	use time;
+	use num::bigint::ToBigInt;
+	let ts = time::get_time();
+	let millis = ts.sec * 1000 + (ts.nsec as i64) / 1_000_000;
+	Ok(rcs(Coredata::Integer(millis.to_bigint().unwrap())))
+});
+
 
 /// Integer addition. `(+ Integer*) => Integer`
 teko_simple_function!(plus args : 0 => usize::MAX => {
