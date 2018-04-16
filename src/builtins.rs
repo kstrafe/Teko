@@ -121,6 +121,7 @@ pub fn create_builtin_library_table() -> HashMap<Symbol, Program> {
 		Function : "@trace" => trace,
 		Function : "@variable-count" => at_variable_count,
 		Function : "@variables" => at_variables,
+		Function : "@fail" => fail,
 	}
 }
 
@@ -218,6 +219,11 @@ fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, 
 	let count = env.count_variables();
 	env.set_result(rcs(Coredata::Integer(count.into())));
 	None
+}
+
+/// Simply return something that indicates failure
+fn fail(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
+	Some((Some(Source { line: 1, column: 20, source: "Dude".into() }), "Failure".into()))
 }
 
 /// Find all active variables in the dynamic scope.

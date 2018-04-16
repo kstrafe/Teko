@@ -602,21 +602,22 @@ pub fn err(
 	program: &mut Program,
 	env: &mut Env,
 ) {
+	let mut temp = vec![];
 	let error = if let Some((ref src, ref error)) = *error {
 		if src.is_none() {
-			program.push(rc(
+			temp.push(rc(
 				Sourcedata(source.clone(), Coredata::String(error.clone())),
 			));
 		} else {
 			if source != src {
-				program.push(rc(Sourcedata(
+				temp.push(rc(Sourcedata(
 					source.clone(),
 					Coredata::String("called from here".into()),
 				)));
 			}
-			program.push(rc(Sourcedata(src.clone(), Coredata::String(error.clone()))));
+			temp.push(rc(Sourcedata(src.clone(), Coredata::String(error.clone()))));
 		}
-		let trace = internal_trace(program, env);
+		let trace = internal_trace(&mut temp, env);
 		Some(trace)
 	} else {
 		None

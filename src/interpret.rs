@@ -58,6 +58,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			program.push(rc(Srcdata($source.clone(), $data)))
 		};
 	}
+	// TODO put these in the env? See no reason for putting them here. Doesn't matter tho, they're only used here
 	let true_obj = rcs(Coredata::Boolean(true));
 	let false_obj = rcs(Coredata::Boolean(false));
 	while let Some(top) = program.pop() {
@@ -99,7 +100,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				match statement.1 {
 					Core::Function(Function::Builtin(ref transfer, ..)) => {
 						let error = transfer(&mut program, &mut env);
-						env.params.pop();
+						env.deparamize();
 						err(src, &error, &mut program, &mut env);
 					}
 					Core::Function(Function::Library(ref parameters, ref transfer)) => {
@@ -133,6 +134,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					// Can't actually happen, prepare checks it
 					// The type system ought to reflect this
 					_ => {
+						panic!["IMPOSSIBLE!"];
 						err(
 							src,
 							&Some((None, "element not callable".into())),
