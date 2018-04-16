@@ -332,7 +332,7 @@ impl fmt::Display for Sourcedata {
 									rle_write(f, prev_char, rle)?;
 								}
 							}
-							write![f, "{}", ch];
+							write![f, "{}", ch]?;
 							rle = 0;
 						} else {
 							if ch != prev_char && rle > 0 {
@@ -354,7 +354,7 @@ impl fmt::Display for Sourcedata {
 					write![f, "{:?}", arg]?;
 					spacer = true;
 				}
-				Table(ref content) => {
+				Table(_) => {
 					write![f, "{:?}", elem.1]?;
 				}
 			}
@@ -665,7 +665,7 @@ pub fn internal_trace(program: &mut Program, _: &mut Env) -> Rc<Sourcedata> {
 /// If the top of the stack contains `Commands::Deparize`, then the variables to be popped
 /// are merged into that [top] object. This is all that's needed to optimize tail calls.
 pub fn optimize_tail_call(program: &mut Program, env: &mut Env, params2: &[Symbol]) -> Deparize {
-	if let Some(mut top) = program.pop() {
+	if let Some(top) = program.pop() {
 		match top.1 {
 			Coredata::Internal(Commands::Deparize(ref content2)) => {
 				let mut content = content2.clone();

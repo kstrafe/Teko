@@ -211,7 +211,7 @@ fn left_parenthesis(state: &mut ParseState) {
 fn right_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
 	move_token_to_stack_if_nonempty(state);
 	let source = pop_previous_opening_parenthesis(state)?;
-	let mut top = if let Some(mut top) = state.stack.pop() {
+	let top = if let Some(mut top) = state.stack.pop() {
 		top
 	} else {
 		return Err(state.clone());

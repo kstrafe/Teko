@@ -139,7 +139,7 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 
-#![ignore(redundant_closure_call)]
+// #![ignore(redundant_closure_call)]
 extern crate num;
 extern crate time;
 

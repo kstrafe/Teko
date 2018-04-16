@@ -538,19 +538,17 @@ teko_simple_function!(error args : 0 => 1 => {
 
 teko_simple_function!(function_code args : 1 => 1 => {
 	use utilities::program_to_cells;
-	let mut top = rcs(Coredata::Null());
 	match **args.first().unwrap() {
 		Sourcedata(ref src, Coredata::Function(Function::Builtin(..))) => {
-			return Err((src.clone(), format!["expected Function but got {}", data_name(args.first().unwrap())]));
+			Err((src.clone(), format!["expected Function but got {}", data_name(args.first().unwrap())]))
 		}
-		Sourcedata(ref src, Coredata::Function(Function::Library(ref params, ref program))) => {
-			top = program_to_cells(program);
+		Sourcedata(_, Coredata::Function(Function::Library(_, ref program))) => {
+			Ok(program_to_cells(program))
 		}
 		Sourcedata(ref src, ..) => {
-			return Err(extype![src, Function, args.first().unwrap()]);
+			Err(extype![src, Function, args.first().unwrap()])
 		}
 	}
-	Ok(top)
 });
 
 teko_simple_function!(function_parameters args : 1 => 1 => {
@@ -559,7 +557,7 @@ teko_simple_function!(function_parameters args : 1 => 1 => {
 		Sourcedata(ref src, Coredata::Function(Function::Builtin(..))) => {
 			return Err((src.clone(), format!["expected Function but got {}", data_name(args.first().unwrap())]));
 		}
-		Sourcedata(ref src, Coredata::Function(Function::Library(ref params, ref program))) => {
+		Sourcedata(_, Coredata::Function(Function::Library(ref params, _))) => {
 			for i in params.iter().rev() {
 				top = rcs(Coredata::Cell(rcs(Coredata::Symbol(i.clone())), top));
 			}
