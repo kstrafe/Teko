@@ -100,7 +100,7 @@ pub enum Commands {
 	Call(Statement),
 	Prep(Statement),
 	Param,
-	Depar(Deparize),
+	Deparize(Deparize),
 	If(Statement, Statement),
 	Wind,
 	Eval,

@@ -249,7 +249,7 @@ impl fmt::Display for Sourcedata {
 						Call(ref callee) => write![f, "(@call {})", callee]?,
 						Prep(ref callee) => write![f, "(@prepare {})", callee]?,
 						Param => write![f, "(@parameterize)"]?,
-						Depar(ref params) => {
+						Deparize(ref params) => {
 							write![f, "(@deparameterize"]?;
 							for i in params.into_iter() {
 								write![f, " {:?}", i]?;
@@ -665,7 +665,7 @@ pub fn internal_trace(program: &mut Program, _: &mut Env) -> Rc<Sourcedata> {
 
 /// Optimizes tail calls by seeing if the current `params` can be merged with the top of the stack.
 ///
-/// If the top of the stack contains `Commands::Depar`, then the variables to be popped
+/// If the top of the stack contains `Commands::Deparize`, then the variables to be popped
 /// are merged into that [top] object. This is all that's needed to optimize tail calls.
 pub fn optimize_tail_call(program: &mut Program, env: &mut Env, params2: &[Symbol]) -> Deparize {
 	let params = &params2.iter()
@@ -673,7 +673,7 @@ pub fn optimize_tail_call(program: &mut Program, env: &mut Env, params2: &[Symbo
 	                     .collect::<Vec<String>>()[..];
 	if let Some(mut top) = program.pop() {
 		match top.1 {
-			Coredata::Internal(Commands::Depar(ref content2)) => {
+			Coredata::Internal(Commands::Deparize(ref content2)) => {
 				let mut content = content2.clone();
 				for i in params2 {
 					if content.check_preexistence_and_merge_single(i) {
@@ -744,7 +744,7 @@ pub fn rcs(rcs: Coredata) -> Rc<Sourcedata> {
 pub fn find_earliest_depar<'a>(program: &'a mut Program) -> Option<&'a mut Deparize> {
 	for i in program.iter_mut().rev() {
 		match Rc::get_mut(i) {
-			Some(&mut Sourcedata(ref src, Coredata::Internal(Commands::Depar(ref mut dep)))) => {
+			Some(&mut Sourcedata(ref src, Coredata::Internal(Commands::Deparize(ref mut dep)))) => {
 				return Some(dep);
 			}
 			_ => {}
@@ -770,7 +770,7 @@ pub fn unwind(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, S
 	env.set_result(result);
 	while let Some(top) = program.pop() {
 		match top.1 {
-			Coredata::Internal(Commands::Depar(ref arguments)) => {
+			Coredata::Internal(Commands::Deparize(ref arguments)) => {
 				pop_parameters(program, env, arguments);
 			}
 			Coredata::Internal(Commands::Call(..)) => {

@@ -111,7 +111,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 									arity_mismatch(params, params, args.len()))), &mut program, &mut env);
 							} else {
 								// TODO perhaps make this part of optimizer
-								let cmd = Cmds::Depar(optimize_tail_call(&mut program, &mut env, parameters));
+								let cmd = Cmds::Deparize(optimize_tail_call(&mut program, &mut env, parameters));
 								ppush![src, Core::Internal(cmd)];
 								// END (of todo)
 								for (counter, parameter) in parameters.iter().enumerate() {
@@ -134,7 +134,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					}
 				}
 			}
-			Core::Internal(Cmds::Depar(ref arguments)) => {
+			Core::Internal(Cmds::Deparize(ref arguments)) => {
 				pop_parameters(&mut program, &mut env, arguments);
 			}
 			Core::Internal(Cmds::Eval) => {
@@ -175,7 +175,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						env.push(bound, arguments.clone());
 						ppush![
 							src,
-							Core::Internal(Cmds::Depar(command)),
+							Core::Internal(Cmds::Deparize(command)),
 						];
 						program.extend(code.iter().cloned());
 					}
