@@ -329,11 +329,10 @@ fn local_internal(program: &mut Program, env: &mut Env) -> Option<(Option<Source
 						// Problem is what if we're inside a new function?
 						// That's fine, since we have a new depar
 						if let Some(depar) = find_earliest_depar(program) {
-							if depar.contains(string) {
+							if depar.check_preexistence_and_merge_single(&Symbol::from(string)) {
 								env.store.get_mut(string).unwrap().push(rhs.clone());
 								// Just overwrite them. It's fine
 							} else {
-								depar.push(string.clone());
 								if env.store.contains_key(string) {
 									env.store.get_mut(string).unwrap().push(rhs.clone());
 								} else {

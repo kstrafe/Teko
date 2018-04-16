@@ -9,6 +9,7 @@ use user::Userdata;
 
 use std::collections::HashSet;
 use std::iter::Iterator;
+use std::convert::Into;
 
 /// A symbol is a string of characters that contains no whitespace nor parentheses
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
@@ -53,14 +54,20 @@ impl From<String> for Symbol {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-struct Deparize {
+pub struct Deparize {
 	set: HashSet<Symbol>,
 }
 
+use std::collections;
+
 impl Deparize {
 	/// Check if the Symbol already exists in this Deparize and then insert it
-	fn check_preexistence_and_merge_single(&mut self, symbol: &Symbol) -> bool {
+	pub fn check_preexistence_and_merge_single(&mut self, symbol: &Symbol) -> bool {
 		!self.set.insert(symbol.clone())
+	}
+	// TODO put into trait IntoIter
+	pub fn into_iter<'a>(&'a self) -> collections::hash_set::Iter<Symbol> {
+		self.set.iter()
 	}
 }
 
@@ -83,7 +90,7 @@ pub enum Commands {
 	Call(Statement),
 	Prep(Statement),
 	Param,
-	Depar(Vec<String>),
+	Depar(Deparize),
 	If(Statement, Statement),
 	Wind,
 	Eval,

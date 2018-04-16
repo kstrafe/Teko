@@ -244,8 +244,8 @@ impl fmt::Display for Sourcedata {
 						Param => write![f, "(@parameterize)"]?,
 						Depar(ref params) => {
 							write![f, "(@deparameterize"]?;
-							for i in params.iter().rev() {
-								write![f, " {}", i]?;
+							for i in params.into_iter() {
+								write![f, " {:?}", i]?;
 							}
 							write![f, ")"]?;
 						}
@@ -655,33 +655,45 @@ pub fn internal_trace(program: &mut Program, _: &mut Env) -> Rc<Sourcedata> {
 ///
 /// If the top of the stack contains `Commands::Depar`, then the variables to be popped
 /// are merged into that [top] object. This is all that's needed to optimize tail calls.
-pub fn optimize_tail_call(program: &mut Program, env: &mut Env, params2: &[Symbol]) -> Vec<String> {
+pub fn optimize_tail_call(program: &mut Program, env: &mut Env, params2: &[Symbol]) -> Deparize {
 	let params = &params2.iter()
 	                     .map(|x| Into::<&str>::into(x).to_string())
 	                     .collect::<Vec<String>>()[..];
-	if let Some(top) = program.pop() {
+	if let Some(mut top) = program.pop() {
 		match top.1 {
-			Coredata::Internal(Commands::Depar(ref content)) => {
-				for i in compute_intersection(content, params) {
-					if let Some(ref mut entry) = env.store.get_mut(i) {
-						if entry.pop().is_some() {
-							// OK
+			Coredata::Internal(Commands::Depar(ref content2)) => {
+				let mut content = content2.clone();
+				for i in params2 {
+					if content.check_preexistence_and_merge_single(i) {
+						if let Some(ref mut entry) = env.store.get_mut(Into::<&str>::into(i)) {
+							if entry.pop().is_some() {
+								// OK
+							} else {
+								panic!["Store inconsistency; entry empty"];
+							}
 						} else {
-							panic!["Store inconsistency; entry empty"];
+							panic!["Store inconsistency; entry nonexistent"];
 						}
-					} else {
-						panic!["Store inconsistency; entry nonexistent"];
 					}
 				}
-				compute_union(content, params)
+				// TODO remove this clone, quite unnecessary
+				content.clone()
 			}
 			_ => {
+				let mut deparize = Deparize::default();
 				program.push(top.clone()); // Put top back on the program stack
-				params.to_vec()
+				for i in params2 {
+					deparize.check_preexistence_and_merge_single(i);
+				}
+				deparize
 			}
 		}
 	} else {
-		params.to_vec()
+			let mut deparize = Deparize::default();
+			for i in params2 {
+				deparize.check_preexistence_and_merge_single(i);
+			}
+			deparize
 	}
 }
 
@@ -693,15 +705,17 @@ pub fn optional_source(source: &Option<Source>) -> String {
 	}
 }
 
+
 // TODO change from panic to unwind, but can we be safe about such a serious error by
 // unwinding? Maybe a stop function that freezes the interpreter...
 /// Pops the specified parameters from the stack.
 ///
 /// If the parameters do not exist then there's an internal programmer error and
 /// this function will panic.
-pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &[String]) {
-	for arg in args {
-		if let Some(ref mut entry) = env.store.get_mut(arg) {
+pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &Deparize) {
+	for arg in args.into_iter() {
+		use std::convert::Into;
+		if let Some(ref mut entry) = env.store.get_mut(Into::<&str>::into(arg)) {
 			if entry.pop().is_some() {
 				// OK
 			} else {
@@ -710,13 +724,13 @@ pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &[String]) {
 		} else {
 			panic!["Store entry does not exist"];
 		}
-		let is_empty = if let Some(entry) = env.store.get(arg) {
+		let is_empty = if let Some(entry) = env.store.get(Into::<&str>::into(arg)) {
 			entry.is_empty()
 		} else {
 			panic!["Store entry does not exist"];
 		};
 		if is_empty {
-			env.store.remove(arg);
+			env.store.remove(Into::<&str>::into(arg));
 		}
 	}
 }
@@ -731,11 +745,11 @@ pub fn rcs(rcs: Coredata) -> Rc<Sourcedata> {
 	rc(Sourcedata(None, rcs))
 }
 
-pub fn find_earliest_depar<'a>(program: &'a mut Program) -> Option<&'a mut Vec<String>> {
+pub fn find_earliest_depar<'a>(program: &'a mut Program) -> Option<&'a mut Deparize> {
 	for i in program.iter_mut().rev() {
 		match Rc::get_mut(i) {
-			Some(&mut Sourcedata(ref src, Coredata::Internal(Commands::Depar(ref mut vec)))) => {
-				return Some(vec);
+			Some(&mut Sourcedata(ref src, Coredata::Internal(Commands::Depar(ref mut dep)))) => {
+				return Some(dep);
 			}
 			_ => {}
 		}
