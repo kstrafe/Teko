@@ -159,10 +159,24 @@ pub struct Env {
 	/// Parameter stack used for function calls
 	pub params: Vec<Program>,
 	/// Register used to store results of previous computations
-	pub result: Statement,
+	result: Statement,
 }
 
 impl Env {
+	/* pub fn get_parameter_stack(&self) -> Program { */
+	/* } */
+	pub fn default() -> Env {
+		use data_structures::Sourcedata as Srcdata;
+		use utilities::rc;
+		use super::VEC_CAPACITY;
+		use super::builtins::create_builtin_library_table;
+		use data_structures::Coredata as Core;
+		Env {
+			store: create_builtin_library_table(),
+			params: Vec::with_capacity(VEC_CAPACITY),
+			result: rc(Srcdata(None, Core::Null())),
+		}
+	}
 	pub fn set_result(&mut self, value: Statement) {
 		self.result = value;
 	}

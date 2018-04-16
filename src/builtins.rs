@@ -131,23 +131,26 @@ pub fn create_builtin_library_table() -> HashMap<Symbol, Program> {
 macro_rules! teko_simple_function {
 	($name:ident $args:ident : $low:expr => $high:expr => $code:block) => {
 		#[allow(unused_comparisons)]
-		#[allow(redundant_closure_call)]
+		// #[allow(redundant_closure_call)]
 		fn $name(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
-			if let Some($args) = env.params.last() {
+			let (error, result) = if let Some($args) = env.params.last() {
 				if $args.len() < $low || $args.len() > $high {
 					return Some((None, arity_mismatch($low, $high, $args.len())));
 				}
 				let result = (|| $code)();
 				match result {
 					Ok(result) => {
-						env.result = result;
-						None
+						(None, Some(result))
 					}
-					Err((source, error)) => Some((source, error)),
+					Err((source, error)) => (Some((source, error)), None)
 				}
 			} else {
-				Some((None, "fatal: parameter stack empty".into()))
+				(Some((None, "fatal: parameter stack empty".into())), None)
+			};
+			if let Some(result) = result {
+				env.set_result(result);
 			}
+			error
 		}
 	};
 }
@@ -155,7 +158,7 @@ macro_rules! teko_simple_function {
 macro_rules! teko_simple_macro {
 	($name:ident $arg:ident : $low:expr => $high:expr => $code:block) => {
 		#[allow(unused_comparisons)]
-		#[allow(redundant_closure_call)]
+		// #[allow(redundant_closure_call)]
 		fn $name(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 			let $arg = env.get_result();
 			let len = $arg.len();
@@ -169,7 +172,7 @@ macro_rules! teko_simple_macro {
 			let result = (|| $code)();
 			match result {
 				Ok(result) => {
-					env.result = result;
+					env.set_result(result);
 					None
 				}
 				Err((source, error)) => Some((source, error)),

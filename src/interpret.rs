@@ -246,11 +246,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 /// 	teko::interpret::initialize_environment_with_standard_library();
 /// ```
 pub fn initialize_environment_with_standard_library() -> Env {
-	Env {
-		store: create_builtin_library_table(),
-		params: Vec::with_capacity(VEC_CAPACITY),
-		result: rc(Srcdata(None, Core::Null())),
-	}
+	Env::default()
 }
 
 /// Sets up a standard environment and evaluate the program.
