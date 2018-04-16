@@ -118,6 +118,13 @@ impl cmp::PartialEq for Coredata {
 					false
 				}
 			}
+			Coredata::Table(ref lhs) => {
+				if let Coredata::Table(ref rhs) = *other {
+					lhs == rhs
+				} else {
+					false
+				}
+			}
 		}
 	}
 }
@@ -349,6 +356,9 @@ impl fmt::Display for Sourcedata {
 					spacify![];
 					write![f, "{:?}", arg]?;
 					spacer = true;
+				}
+				Table(ref content) => {
+					write![f, "{:?}", elem.1]?;
 				}
 			}
 			first = false;
@@ -588,6 +598,7 @@ pub fn data_name(data: &Sourcedata) -> String {
 		Coredata::Null(..) => "Null",
 		Coredata::String(..) => "String",
 		Coredata::Symbol(..) => "Symbol",
+		Coredata::Table(..) => "Table",
 	}.into()
 }
 
@@ -602,8 +613,8 @@ pub fn err(
 	program: &mut Program,
 	env: &mut Env,
 ) {
-	let mut temp = vec![];
 	let error = if let Some((ref src, ref error)) = *error {
+		let mut temp = vec![];
 		if src.is_none() {
 			temp.push(rc(
 				Sourcedata(source.clone(), Coredata::String(error.clone())),

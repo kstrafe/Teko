@@ -115,6 +115,7 @@ pub fn create_builtin_library_table() -> HashMap<Symbol, Program> {
 		Function : "function-parameters" => function_parameters,
 		Function : "load" => load,
 		Function : "current-time-milliseconds" => current_time_milliseconds,
+		// Function : "table" => create_table,
 		// Useful builtins
 		Function : "@program-count" => at_program_count,
 		Function : "@msleep" => msleep,

@@ -58,6 +58,16 @@ pub struct Deparize {
 	set: HashSet<Symbol>,
 }
 
+use std::hash::{Hash, Hasher};
+
+impl Hash for Deparize {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		for i in self.set.iter() {
+			i.hash(state);
+		}
+	}
+}
+
 use std::collections;
 
 impl Deparize {
@@ -85,7 +95,7 @@ mod tests {
 /// Evaluation commands used internally by the interpreter
 ///
 /// When put on the stack these values have different effects on the interpreter.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, Hash, PartialEq)]
 pub enum Commands {
 	Call(Statement),
 	Prep(Statement),
@@ -97,7 +107,7 @@ pub enum Commands {
 }
 
 /// Top level data structure used by the parser and interpreter
-#[derive(Debug)]
+#[derive(Debug, Eq, Hash)]
 pub struct Sourcedata(pub Option<Source>, pub Coredata);
 /// Top level statements are reference counted `Sourcedata`
 pub type Statement = Rc<Sourcedata>;
@@ -117,6 +127,43 @@ pub enum Function {
 	Library(Vec<Symbol>, Program),
 }
 
+impl Hash for Function {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		match *self {
+			Function::Builtin(_, ref name) => {
+				name.hash(state);
+			}
+			Function::Library(ref params, ref code) => {
+				params.hash(state);
+				code.hash(state);
+			}
+		}
+	}
+}
+
+impl PartialEq for Function {
+	fn eq(&self, other: &Function) -> bool {
+		match *self {
+			Function::Builtin(_, ref lhs) => {
+				if let Function::Builtin(_, ref rhs) = *other {
+					lhs == rhs
+				} else {
+					false
+				}
+			}
+			Function::Library(ref params_lhs, ref program_lhs) => {
+				if let Function::Library(ref params_rhs, ref program_rhs) = *other {
+					params_lhs == params_rhs && program_lhs == program_rhs
+				} else {
+					false
+				}
+			}
+		}
+	}
+}
+
+impl Eq for Function { }
+
 /// Macro types that can be called by the interpreter
 pub enum Macro {
 	/// A function written in the implementation language
@@ -125,8 +172,60 @@ pub enum Macro {
 	Library(Symbol, Program),
 }
 
+impl Hash for Macro {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		match *self {
+			Macro::Builtin(_, ref name) => {
+				name.hash(state);
+			}
+			Macro::Library(ref params, ref code) => {
+				params.hash(state);
+				code.hash(state);
+			}
+		}
+	}
+}
+
+impl PartialEq for Macro {
+	fn eq(&self, other: &Macro) -> bool {
+		match *self {
+			Macro::Builtin(_, ref lhs) => {
+				if let Macro::Builtin(_, ref rhs) = *other {
+					lhs == rhs
+				} else {
+					false
+				}
+			}
+			Macro::Library(ref params_lhs, ref program_lhs) => {
+				if let Macro::Library(ref params_rhs, ref program_rhs) = *other {
+					params_lhs == params_rhs && program_lhs == program_rhs
+				} else {
+					false
+				}
+			}
+		}
+	}
+}
+
+impl Eq for Macro { }
+
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Table {
+	table: HashMap<Statement, Statement>
+}
+
+impl Hash for Table {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		for (k, v) in self.table.iter() {
+			k.hash(state);
+			v.hash(state);
+		}
+	}
+}
+
 /// Core data types of the Teko machine
-#[derive(Debug)]
+#[derive(Debug, Eq, Hash)]
 pub enum Coredata {
 	// TODO Add complex number and representation symbol evaluation
 	// TODO Add quoted form for writing out whatever in plain
@@ -150,6 +249,8 @@ pub enum Coredata {
 	String(String),
 	/// Symbol type. Can not contain any whitespace. Is a valid Teko atom.
 	Symbol(Symbol),
+	/// Table type, holds arbitrary data
+	Table(Table),
 }
 
 /// Environment used by the implementation
@@ -251,7 +352,7 @@ pub struct ParseState {
 }
 
 /// Information about the source of data.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Source {
 	/// Line number of the input, starts at 1
 	pub line: usize,

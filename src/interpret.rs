@@ -99,33 +99,23 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				let source = &statement.0;
 				match statement.1 {
 					Core::Function(Function::Builtin(ref transfer, ..)) => {
-						let error = transfer(&mut program, &mut env);
+						let maybe_error = transfer(&mut program, &mut env);
 						env.deparamize();
-						err(src, &error, &mut program, &mut env);
+						err(src, &maybe_error, &mut program, &mut env);
 					}
 					Core::Function(Function::Library(ref parameters, ref transfer)) => {
-						if let Some(arguments) = env.params.pop() {
-							if arguments.len() != parameters.len() {
-								err(
-									src,
-									&Some((
-										source.clone(),
-										arity_mismatch(
-											parameters.len(),
-											parameters.len(),
-											arguments.len(),
-										),
-									)),
-									&mut program,
-									&mut env,
-								);
+						if let Some(args) = env.params.pop() {
+							if args.len() != parameters.len() {
+								let params = parameters.len();
+								err(src, &Some((source.clone(),
+									arity_mismatch(params, params, args.len()))), &mut program, &mut env);
 							} else {
-								let cmd = Cmds::Depar(
-									optimize_tail_call(&mut program, &mut env, parameters),
-								);
+								// TODO perhaps make this part of optimizer
+								let cmd = Cmds::Depar(optimize_tail_call(&mut program, &mut env, parameters));
 								ppush![src, Core::Internal(cmd)];
+								// END (of todo)
 								for (counter, parameter) in parameters.iter().enumerate() {
-									env.push(parameter, arguments[counter].clone());
+									env.push(parameter, args[counter].clone());
 								}
 								program.extend(transfer.iter().cloned());
 							}
@@ -182,7 +172,6 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					Core::Macro(Macro::Library(ref bound, ref code)) => {
 						ppush![None, Core::Internal(Cmds::Eval)];
 						let command = optimize_tail_call(&mut program, &mut env, &[bound.clone()]);
-						let t: &str = bound.into();
 						env.push(bound, arguments.clone());
 						ppush![
 							src,
@@ -214,7 +203,6 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				let string: &str = symbol.into();
 				if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
 					env.set_result(rc(Srcdata(src.clone(), Core::Integer(number))));
-				// TODO Just copy a reference to a global boolean, since these are immutable
 				} else if string == "true" {
 					env.set_result(true_obj.clone());
 				} else if string == "false" {
