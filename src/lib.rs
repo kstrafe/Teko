@@ -55,7 +55,7 @@
 //! use num_traits::cast::ToPrimitive;
 //! fn main() {
 //! 	let program = teko::parse::parse_string("
-//! 	(def factorial (fn (n accum)
+//! 	(define factorial (function (n accum)
 //! 	                   (if (= n 1)
 //! 	                       accum
 //! 	                       (factorial (- n 1) (* n accum)))))
@@ -141,6 +141,7 @@
 
 #![ignore(redundant_closure_call)]
 extern crate num;
+extern crate time;
 
 #[macro_use]
 mod macros;

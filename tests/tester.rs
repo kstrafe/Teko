@@ -3,7 +3,6 @@ extern crate teko;
 
 use std::rc::Rc;
 
-use teko::data_structures::Boolean;
 use teko::data_structures::Coredata;
 use teko::interpret::interpret;
 use teko::parse::parse_file;

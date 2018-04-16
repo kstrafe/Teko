@@ -7,20 +7,59 @@ use num::BigInt;
 
 use user::Userdata;
 
+use std::collections::HashSet;
+use std::iter::Iterator;
+
+/// A symbol is a string of characters that contains no whitespace nor parentheses
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
+struct Symbol {
+	value: String,
+}
+
+impl<'a> From<&'a str> for Symbol {
+	fn from(string: &'a str) -> Symbol {
+		// TODO check if the string is a valid symbol
+		Symbol {
+			value: string.to_string()
+		}
+	}
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct Deparize {
+	set: HashSet<Symbol>,
+}
+
+impl Deparize {
+	/// Check if the Symbol already exists in this Deparize and then insert it
+	fn check_preexistence_and_merge_single(&mut self, symbol: &Symbol) -> bool {
+		!self.set.insert(symbol.clone())
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	#[test]
+	fn test_deparize() {
+		use super::*;
+		let mut dep = Deparize::default();
+		assert![!dep.check_preexistence_and_merge_single(&Symbol::from("nice"))];
+		assert![dep.check_preexistence_and_merge_single(&Symbol::from("nice"))];
+	}
+}
+
 /// Evaluation commands used internally by the interpreter
 ///
 /// When put on the stack these values have different effects on the interpreter.
 #[derive(Debug, PartialEq)]
 pub enum Commands {
-	Call(Statement), // Should this be arbitrary data? Change to Transfer or macro!
-	// Cmo(Macro),
-	// Cfn(Function),
-	Prep(Statement), // Should be arbitrary data! But shorten to Prep
-	Param, // Shorten to Param
-	Depar(Vec<String>), // Shorten to Depar
+	Call(Statement),
+	Prep(Statement),
+	Param,
+	Depar(Vec<String>),
 	If(Statement, Statement),
 	Wind,
-	Eval, // Shorten to Eval
+	Eval,
 }
 
 /// Top level data structure used by the parser and interpreter
@@ -35,11 +74,6 @@ pub type Program = Vec<Statement>;
 ///
 pub type Transfer = fn(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)>;
 /// Boolean values
-#[derive(Debug, PartialEq)]
-pub enum Boolean {
-	True,
-	False,
-}
 
 /// Function types that can be called by the interpreter
 pub enum Function {
@@ -65,22 +99,22 @@ pub enum Coredata {
 	/// Denote true and false
 	Boolean(bool),
 	/// A pair of data items
-	Cell(Rc<Sourcedata>, Rc<Sourcedata>), // TODO Ensure Non-nestedness
+	Cell(Rc<Sourcedata>, Rc<Sourcedata>),
 	/// Error type
-	Error(Statement),  // Really necessary?
+	Error(Statement),
 	/// Function type
-	Function(Function), // OK
+	Function(Function),
 	/// Integer numbers
-	Integer(BigInt), // Ok
+	Integer(BigInt),
 	/// Internal commands (used by the implementation)
-	Internal(Commands), // Fine,... I guess... but want a different enum for this
+	Internal(Commands),
 	/// Macro types
 	Macro(Macro), 
 	/// Null (an empty list)
-	Null(), // Do we need this? null Yeah, () is core data
+	Null(),
 	/// String type
 	String(String),
-	/// Symbol type
+	/// Symbol type. Can not contain any whitespace. Is a valid Teko atom.
 	Symbol(String),
 }
 
@@ -119,5 +153,5 @@ pub struct Source {
 	/// Column number of the input, starts at 1
 	pub column: usize,
 	/// Free-form string describing the source ("tty" from terminal, filename from file,..)
-	pub source: String, // Change to Rc<String>
+	pub source: String, // Change to Rc<String>?
 }

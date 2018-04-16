@@ -6,9 +6,17 @@ use std::rc::Rc;
 use std::usize;
 
 use data_structures::{Commands, Coredata, Env, Function, Macro, ParseState, Program, Source,
-                      Sourcedata};
+                      Sourcedata, Statement};
 use super::VEC_CAPACITY;
 use user::user_data_name;
+
+pub fn program_to_cells(program: &Program) -> Statement {
+	let mut top = rcs(Coredata::Null());
+	for i in program {
+		top = rcs(Coredata::Cell(i.clone(), top.clone()));
+	}
+	top
+}
 
 // //////////////////////////////////////////////////////////
 // Impls
@@ -16,7 +24,6 @@ use user::user_data_name;
 
 impl cmp::PartialEq for Coredata {
 	fn eq(&self, other: &Self) -> bool {
-		use data_structures::Boolean;
 		if self as *const Coredata == other as *const Coredata {
 			return true;
 		}
@@ -157,7 +164,7 @@ impl fmt::Debug for Macro {
 				write![f, "{}", name]?;
 			}
 			Macro::Library(ref param, ref code) => {
-				write![f, "(mo {}", param]?;
+				write![f, "(macro {}", param]?;
 				for i in code.iter().rev() {
 					write![f, " {}", i]?;
 				}
@@ -173,7 +180,7 @@ impl fmt::Debug for Macro {
 /// All Sourcedata can be written in a form such that it can be read again.
 impl fmt::Display for Sourcedata {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		use data_structures::{Boolean, Commands::*, Coredata::*, Function, Macro};
+		use data_structures::{Commands::*, Coredata::*, Function, Macro};
 		let mut first = true;
 		let null = &Sourcedata(None, Coredata::Null());
 		let mut queue = Vec::with_capacity(VEC_CAPACITY);
@@ -191,11 +198,9 @@ impl fmt::Display for Sourcedata {
 					spacify![];
 					write![f, "(error"]?;
 					if let Coredata::Cell(..) = arg.1 {
-						write![f, " ("]?;
 						queue.push(arg);
 						spacer = false;
 					} else if let Coredata::Null() = arg.1 {
-						write![f, ")"]?;
 						spacer = true;
 					} else {
 						queue.push(null);
@@ -210,7 +215,7 @@ impl fmt::Display for Sourcedata {
 				}
 				Function(Function::Library(ref params, ref code)) => {
 					spacify![];
-					write![f, "(fn ("]?;
+					write![f, "(function ("]?;
 					let mut first = true;
 					for i in params.iter() {
 						if first {
@@ -258,7 +263,7 @@ impl fmt::Display for Sourcedata {
 				}
 				Macro(Macro::Library(ref param, ref code)) => {
 					spacify![];
-					write![f, "(mo {}", param]?;
+					write![f, "(macro {}", param]?;
 					for i in code.iter().rev() {
 						write![f, " {}", i]?;
 					}
@@ -279,7 +284,7 @@ impl fmt::Display for Sourcedata {
 					}
 					queue.push(tail);
 					if let Coredata::Cell(..) = head.1 {
-						write![f, "("]?;
+						write![f, "(list "]?;
 						queue.push(head);
 						spacer = false;
 					} else if let Coredata::Null() = head.1 {
@@ -291,6 +296,7 @@ impl fmt::Display for Sourcedata {
 					}
 				}
 				String(ref arg) => {
+					use std::fmt::Error;
 					spacify![];
 					macro_rules! is_plainly_printable {
 						($i:ident) => {
@@ -300,33 +306,34 @@ impl fmt::Display for Sourcedata {
 						};
 					}
 					write![f, "(\""]?;
-					if arg.len() > 0 { write![f, " "]; }
+					if arg.len() > 0 { write![f, " "]?; }
 					let mut prev_char = ' ';
 					let mut rle = 0;
 					let mut n: usize = 0;
-					let rle_write = |f: &mut fmt::Formatter, prev_char: char, rle: usize| {
+					let rle_write = |f: &mut fmt::Formatter, prev_char: char, rle: usize| -> Result<(), fmt::Error> {
 						if rle > 0 {
 							if rle == 1 {
-								write![f, "({})", prev_char as u32];
+								write![f, "({})", prev_char as u32]?;
 							} else {
-								write![f, "({} {})", prev_char as u32, rle];
+								write![f, "({} {})", prev_char as u32, rle]?;
 							}
 						}
+						Ok(())
 					};
 					for ch in arg.chars() {
 						if is_plainly_printable![ch] {
 							if rle > 0 {
 								if prev_char == ' ' && rle == 1 && n > 1 {
-									write![f, " "];
+									write![f, " "]?;
 								} else {
-									rle_write(f, prev_char, rle);
+									rle_write(f, prev_char, rle)?;
 								}
 							}
 							write![f, "{}", ch];
 							rle = 0;
 						} else {
 							if ch != prev_char && rle > 0 {
-								rle_write(f, prev_char, rle);
+								rle_write(f, prev_char, rle)?;
 								rle = 1;
 							} else {
 								rle += 1;
@@ -335,13 +342,13 @@ impl fmt::Display for Sourcedata {
 						n += 1;
 						prev_char = ch;
 					}
-					rle_write(f, prev_char, rle);
+					rle_write(f, prev_char, rle)?;
 					write![f, ")"]?;
 					spacer = true;
 				}
 				Symbol(ref arg) => {
 					spacify![];
-					write![f, "(symbol {})", arg]?;
+					write![f, "{}", arg]?;
 					spacer = true;
 				}
 			}
@@ -545,18 +552,18 @@ pub fn compute_union(a: &[String], b: &[String]) -> Vec<String> {
 
 /// Get the name associated with the data type.
 pub fn data_name(data: &Sourcedata) -> String {
-	use data_structures::Coredata::*;
 	match data.1 {
-		Boolean(..) => "Boolean",
-		Cell(..) => "Cell",
-		Error(..) => "Error",
-		Function(..) => "Function",
-		Integer(..) => "Integer",
-		Internal(..) => "Internal",
-		Macro(..) => "Macro",
-		Null(..) => "Null",
-		String(..) => "String",
-		Symbol(..) => "Symbol",
+		Coredata::Boolean(..) => "Boolean",
+		Coredata::Cell(..) => "Cell",
+		Coredata::Error(..) => "Error",
+		Coredata::Function(Function::Builtin(..)) => "Builtin Function",
+		Coredata::Function(Function::Library(..)) => "Function",
+		Coredata::Integer(..) => "Integer",
+		Coredata::Internal(..) => "Internal",
+		Coredata::Macro(..) => "Macro",
+		Coredata::Null(..) => "Null",
+		Coredata::String(..) => "String",
+		Coredata::Symbol(..) => "Symbol",
 	}.into()
 }
 
@@ -695,6 +702,18 @@ pub fn rc<T>(rc: T) -> Rc<T> {
 /// Alias for `Rc::new(Sourcedata(None, _))`.
 pub fn rcs(rcs: Coredata) -> Rc<Sourcedata> {
 	rc(Sourcedata(None, rcs))
+}
+
+pub fn find_earliest_depar<'a>(program: &'a mut Program) -> Option<&'a mut Vec<String>> {
+	for i in program.iter_mut().rev() {
+		match Rc::get_mut(i) {
+			Some(&mut Sourcedata(ref src, Coredata::Internal(Commands::Depar(ref mut vec)))) => {
+				return Some(vec);
+			}
+			_ => {}
+		}
+	}
+	None
 }
 
 /// Unwinds the stack until first wind is encountered.

@@ -94,10 +94,11 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Function : "tail" => tail,
 		Function : "cell" => cell,
 		Function : "cell?" => is_cell,
-		Macro    : "fn" => function,
-		Macro    : "mo" => make_macro,
+		Macro    : "function" => function,
+		Macro    : "macro" => make_macro,
 		// Some useful features
-		Macro    : "def" => define,
+		Macro    : "define" => define,
+		Macro    : "local" => local,
 		Macro    : "set!" => set,
 		Macro    : "program" => program,
 		Function : "read" => read,
@@ -112,6 +113,7 @@ pub fn create_builtin_library_table() -> HashMap<String, Program> {
 		Function : "exit" => exit,
 		Function : "function-code" => function_code,
 		Function : "function-parameters" => function_parameters,
+		Function : "load" => load,
 		Function : "current-time-milliseconds" => current_time_milliseconds,
 		// Useful builtins
 		Function : "@program-count" => at_program_count,
@@ -264,6 +266,104 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, St
 	None
 }
 
+/// Define a local variable by pushing and deparameterizing
+fn local(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
+	{
+		let args = env.result.clone();
+		let sub = rcs(Coredata::Function(Function::Builtin(
+			local_internal,
+			"@local-internal".into(),
+		)));
+		let push = if let Some(ref tail) = args.tail() {
+			match tail.1 {
+				Coredata::Cell(ref head, _) => {
+					vec![
+						rcs(Coredata::Internal(Commands::Call(sub))),
+						rcs(Coredata::Internal(Commands::Param)),
+						head.clone(),
+					]
+				}
+				Coredata::Null() => {
+					return Some((None, arity_mismatch(2, 2, 1)));
+				}
+				_ => {
+					return Some((None, format!["expecting Cell but got: {}", tail]));
+				}
+			}
+		} else {
+			return Some((None, arity_mismatch(2, 2, 0)));
+		};
+		if let Some(head) = args.head() {
+			match *head {
+				Sourcedata(ref source, Coredata::Symbol(ref string)) => {
+					program.extend(push);
+					program.push(rc(Sourcedata(
+						source.clone(),
+						Coredata::Internal(Commands::Param),
+					)));
+					program.push(rc(
+						Sourcedata(source.clone(), Coredata::String(string.clone())),
+					));
+				}
+				Sourcedata(ref source, ..) => {
+					return Some(extype![source, Symbol, head]);
+				}
+			}
+		} else {
+			return Some((None, arity_mismatch(2, 2, 1)));
+		}
+	}
+	env.params.push(vec![]);
+	None
+}
+
+/// Used by define to perform the final step of assigning.
+fn local_internal(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
+	if let Some(args) = env.params.last() {
+		if let Some(symbol) = args.first() {
+			match **symbol {
+				Sourcedata(ref source, Coredata::String(ref string)) => {
+					if let Some(rhs) = args.get(1) {
+						// Find earliest Depar
+						// Problem is what if we're inside a new function?
+						// That's fine, since we have a new depar
+						if let Some(depar) = find_earliest_depar(program) {
+							if depar.contains(string) {
+								env.store.get_mut(string).unwrap().push(rhs.clone());
+								// Just overwrite them. It's fine
+							} else {
+								depar.push(string.clone());
+								if env.store.contains_key(string) {
+									env.store.get_mut(string).unwrap().push(rhs.clone());
+								} else {
+									env.store.insert(string.clone(), vec![rhs.clone()]);
+								}
+							}
+						} else if env.store.contains_key(string) {
+								return Some((
+									source.clone(),
+									format!["variable already exists: {}", string],
+								));
+						} else {
+							env.store.insert(string.clone(), vec![rhs.clone()]);
+						}
+					} else {
+						return Some((source.clone(), arity_mismatch(2, 2, 1)));
+					}
+				}
+				Sourcedata(ref source, ..) => {
+					return Some(extype![source, String, symbol]);
+				}
+			}
+		} else {
+			return Some((None, arity_mismatch(2, 2, 0)));
+		}
+	} else {
+		return Some((None, "no arg stack".into()));
+	}
+	None
+}
+
 /// Define a variable to be some value.
 fn define(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	{
@@ -314,42 +414,6 @@ fn define(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 	env.params.push(vec![]);
 	None
 }
-
-teko_simple_function!(function_parameters args : 1 => 1 => {
-	use utilities::program_to_cells;
-	let mut top = rcs(Coredata::Null());
-	match **args.first().unwrap() {
-		Sourcedata(ref src, Coredata::Function(Function::Builtin(..))) => {
-			return Err((src.clone(), format!["expected Function but got {}", data_name(args.first().unwrap())]));
-		}
-		Sourcedata(ref src, Coredata::Function(Function::Library(ref params, ref program))) => {
-			for i in params.iter().rev() {
-				top = rcs(Coredata::Cell(rcs(Coredata::Symbol(i.to_string())), top));
-			}
-		}
-		Sourcedata(ref src, ..) => {
-			return Err(extype![src, Function, args.first().unwrap()]);
-		}
-	}
-	Ok(top)
-});
-
-teko_simple_function!(function_code args : 1 => 1 => {
-	use utilities::program_to_cells;
-	let mut top = rcs(Coredata::Null());
-	match **args.first().unwrap() {
-		Sourcedata(ref src, Coredata::Function(Function::Builtin(..))) => {
-			return Err((src.clone(), format!["expected Function but got {}", data_name(args.first().unwrap())]));
-		}
-		Sourcedata(ref src, Coredata::Function(Function::Library(ref params, ref program))) => {
-			top = program_to_cells(program);
-		}
-		Sourcedata(ref src, ..) => {
-			return Err(extype![src, Function, args.first().unwrap()]);
-		}
-	}
-	Ok(top)
-});
 
 /// Mathematical division of integers.
 teko_simple_function!(divide args : 1 => usize::MAX => {
@@ -446,6 +510,42 @@ teko_simple_function!(error args : 0 => 1 => {
 	} else {
 		Ok(rcs(Coredata::Error(rcs(Coredata::Null()))))
 	}
+});
+
+teko_simple_function!(function_code args : 1 => 1 => {
+	use utilities::program_to_cells;
+	let mut top = rcs(Coredata::Null());
+	match **args.first().unwrap() {
+		Sourcedata(ref src, Coredata::Function(Function::Builtin(..))) => {
+			return Err((src.clone(), format!["expected Function but got {}", data_name(args.first().unwrap())]));
+		}
+		Sourcedata(ref src, Coredata::Function(Function::Library(ref params, ref program))) => {
+			top = program_to_cells(program);
+		}
+		Sourcedata(ref src, ..) => {
+			return Err(extype![src, Function, args.first().unwrap()]);
+		}
+	}
+	Ok(top)
+});
+
+teko_simple_function!(function_parameters args : 1 => 1 => {
+	use utilities::program_to_cells;
+	let mut top = rcs(Coredata::Null());
+	match **args.first().unwrap() {
+		Sourcedata(ref src, Coredata::Function(Function::Builtin(..))) => {
+			return Err((src.clone(), format!["expected Function but got {}", data_name(args.first().unwrap())]));
+		}
+		Sourcedata(ref src, Coredata::Function(Function::Library(ref params, ref program))) => {
+			for i in params.iter().rev() {
+				top = rcs(Coredata::Cell(rcs(Coredata::Symbol(i.to_string())), top));
+			}
+		}
+		Sourcedata(ref src, ..) => {
+			return Err(extype![src, Function, args.first().unwrap()]);
+		}
+	}
+	Ok(top)
 });
 
 /// Evals the argument as if it's a program.
@@ -642,6 +742,26 @@ teko_simple_function!(list args : 0 => usize::MAX => {
 	}
 	Ok(result)
 });
+
+/// Load a file
+fn load(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
+	use parse::parse_file;
+	assert![env.params.len() == 1];
+	let input = &**env.params.last().unwrap().first().unwrap();
+	if let Coredata::String(ref string) = input.1 {
+		let parse = parse_file(string);
+		match parse {
+			Ok(tree) => {
+				program.extend(tree);
+				None
+			}
+			Err(e) => { Some((input.0.clone(), format!["{:?}", e])) }
+		}
+	} else {
+		println!["{}", data_name(&input)];
+		Some((input.0.clone(), "expected String but got X".to_string()))
+	}
+}
 
 /// The less-than function for comparing integers.
 teko_simple_function!(lt args : 0 => usize::MAX => {

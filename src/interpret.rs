@@ -58,6 +58,8 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			program.push(rc(Srcdata($source.clone(), $data)))
 		};
 	}
+	let true_obj = rcs(Coredata::Boolean(true));
+	let false_obj = rcs(Coredata::Boolean(false));
 	while let Some(top) = program.pop() {
 		// This part requires some explanation. The program is simply a Vec containing
 		// Rc<Srcdata>. The top element is interpreted and matches one of the cases in
@@ -230,9 +232,9 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 					env.result = rc(Srcdata(src.clone(), Core::Integer(number)));
 				// TODO Just copy a reference to a global boolean, since these are immutable
 				} else if string == "true" {
-					env.result = rcs(Coredata::Boolean(true));
+					env.result = true_obj.clone();
 				} else if string == "false" {
-					env.result = rcs(Coredata::Boolean(false));
+					env.result = false_obj.clone();
 				} else {
 					let error = if let Some(value) = env.store.get(string) {
 						if let Some(value) = value.last() {
