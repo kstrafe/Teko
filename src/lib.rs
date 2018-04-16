@@ -62,7 +62,7 @@
 //! 	(write (factorial 5 1))").ok().unwrap();
 //! 	let env = teko::interpret::interpret(program);
 //!
-//! 	match env.result.1 {
+//! 	match env.get_result().1 {
 //! 		teko::data_structures::Coredata::Integer(ref value) => {
 //! 			assert_eq![value.to_i32().unwrap(), 120];
 //! 		}

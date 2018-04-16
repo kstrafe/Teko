@@ -7,7 +7,7 @@
 //! fn main() {
 //! 	let program = teko::parse::parse_string("(+ 1 2 4) (+ 1 2)").ok().unwrap();
 //! 	let env = teko::interpret::interpret(program);
-//! 	match env.result.1 {
+//! 	match env.get_result().1 {
 //! 		teko::data_structures::Coredata::Integer(ref value) => {
 //! 			assert_eq![value.to_i32().unwrap(), 3];
 //! 		}
@@ -30,7 +30,7 @@ use num::BigInt;
 /// Evals a program with a given environment.
 ///
 /// The `program` is considered completely evaluated when it is empty. The result of the program
-/// is stored in `env.result`. This function is mainly used to evaluate a program in some
+/// is stored using `env.set_result`. This function is mainly used to evaluate a program in some
 /// environment context.
 ///
 /// ```
@@ -41,7 +41,7 @@ use num::BigInt;
 /// 	let program = teko::parse::parse_string("(+ 1 2 4) (+ 1 2)").ok().unwrap();
 /// 	let env = teko::interpret::initialize_environment_with_standard_library();
 /// 	let env = teko::interpret::eval(program, env);
-/// 	match env.result.1 {
+/// 	match env.get_result().1 {
 /// 		teko::data_structures::Coredata::Integer(ref value) => {
 /// 			assert_eq![value.to_i32().unwrap(), 3];
 /// 		}
@@ -146,32 +146,26 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				pop_parameters(&mut program, &mut env, arguments);
 			}
 			Core::Internal(Cmds::Eval) => {
-				program.push(env.result.clone());
+				program.push(env.get_result());
 			}
 			Core::Internal(Cmds::If(ref first, ref second)) => {
-				if let Core::Boolean(false) = env.result.1 {
+				if let Core::Boolean(false) = env.get_result().1 {
 					program.push(second.clone());
 				} else {
 					program.push(first.clone());
 				}
 			}
 			Core::Internal(Cmds::Param) => {
-				let condition = if let Some(ref mut last) = env.params.last_mut() {
-					last.push(env.result.clone());
-					None
-				} else {
-					Some((src.clone(), "parameter stack nonexistent".into()))
-				};
-				err(&None, &condition, &mut program, &mut env);
+				env.paramize();
 			}
 			Core::Internal(Cmds::Prep(ref arguments)) => {
-				let source = &env.result.clone().0;
-				match env.result.clone().1 {
+				let source = &env.get_result().0;
+				match env.get_result().1 {
 					Core::Function(..) => {
 						env.params.push(vec![]);
 						ppush![
 							src,
-							Core::Internal(Cmds::Call(env.result.clone())),
+							Core::Internal(Cmds::Call(env.get_result())),
 						];
 						for argument in collect_cell_into_revvec(arguments) {
 							ppush![None, Core::Internal(Cmds::Param)];
@@ -179,7 +173,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						}
 					}
 					Core::Macro(Macro::Builtin(ref transfer, ..)) => {
-						env.result = arguments.clone();
+						env.set_result(arguments.clone());
 						let error = transfer(&mut program, &mut env);
 						err(src, &error, &mut program, &mut env);
 					}
@@ -217,12 +211,12 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 			Core::Symbol(ref symbol) => {
 				let string: &str = symbol.into();
 				if let Some(number) = BigInt::parse_bytes(string.as_bytes(), 10) {
-					env.result = rc(Srcdata(src.clone(), Core::Integer(number)));
+					env.set_result(rc(Srcdata(src.clone(), Core::Integer(number))));
 				// TODO Just copy a reference to a global boolean, since these are immutable
 				} else if string == "true" {
-					env.result = true_obj.clone();
+					env.set_result(true_obj.clone());
 				} else if string == "false" {
-					env.result = false_obj.clone();
+					env.set_result(false_obj.clone());
 				} else {
 					let (error, result) = if let Some(value) = env.get(&Symbol::from(string)) {
 						(None, Some(value.clone()))
@@ -237,7 +231,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				}
 			}
 			_ => {
-				env.result = top.clone();
+				env.set_result(top.clone());
 			}
 		}
 	}
@@ -270,7 +264,7 @@ pub fn initialize_environment_with_standard_library() -> Env {
 /// fn main() {
 /// 	let program = teko::parse::parse_string("(+ 1 2 4) (+ 1 2)").ok().unwrap();
 /// 	let env = teko::interpret::interpret(program);
-/// 	match env.result.1 {
+/// 	match env.get_result().1 {
 /// 		teko::data_structures::Coredata::Integer(ref value) => {
 /// 			assert_eq![value.to_i32().unwrap(), 3];
 /// 		}

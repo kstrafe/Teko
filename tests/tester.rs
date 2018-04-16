@@ -59,7 +59,7 @@ fn file2result(filename: &str) -> Rc<teko::data_structures::Sourcedata> {
 		.ok()
 		.unwrap();
 	let env = interpret(program);
-	env.result.clone()
+	env.get_result()
 }
 
 fn integer(filename: &str, number: &str) {

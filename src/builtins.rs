@@ -157,7 +157,7 @@ macro_rules! teko_simple_macro {
 		#[allow(unused_comparisons)]
 		#[allow(redundant_closure_call)]
 		fn $name(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
-			let $arg = env.result.clone();
+			let $arg = env.get_result();
 			let len = $arg.len();
 			if let Some(len) = len {
 				if len < $low || len > $high {
@@ -206,7 +206,7 @@ teko_simple_function!(and args : 0 => usize::MAX => {
 /// Count the stack size. Useful for checking if Tail Call Optimization works.
 fn at_program_count(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	let count = program.len();
-	env.result = rcs(Coredata::Integer(count.into()));
+	env.set_result(rcs(Coredata::Integer(count.into())));
 	None
 }
 
@@ -219,19 +219,20 @@ fn at_variable_count(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, 
 	for values in env.store.values() {
 		count += values.len();
 	}
-	env.result = rcs(Coredata::Integer(count.into()));
+	env.set_result(rcs(Coredata::Integer(count.into())));
 	None
 }
 
 /// Find all active variables in the dynamic scope.
 fn at_variables(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
-	env.result = rcs(Coredata::Null());
+	let mut builder = rcs(Coredata::Null());
 	for key in env.store.keys() {
-		env.result = rcs(Coredata::Cell(
+		builder = rcs(Coredata::Cell(
 			rcs(Coredata::Symbol(key.clone())),
-			env.result.clone(),
+			builder,
 		));
 	}
+	env.set_result(builder);
 	None
 }
 
@@ -270,7 +271,7 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, St
 /// Define a local variable by pushing and deparameterizing
 fn local(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	{
-		let args = env.result.clone();
+		let args = env.get_result();
 		let sub = rcs(Coredata::Function(Function::Builtin(
 			local_internal,
 			"@local-internal".into(),
@@ -361,7 +362,7 @@ fn local_internal(program: &mut Program, env: &mut Env) -> Option<(Option<Source
 /// Define a variable to be some value.
 fn define(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	{
-		let args = env.result.clone();
+		let args = env.get_result();
 		let sub = rcs(Coredata::Function(Function::Builtin(
 			define_internal,
 			"@define-internal".into(),
@@ -640,7 +641,7 @@ teko_simple_function!(head args : 1 => 1 => {
 
 /// Conditional branching primitive.
 fn if_conditional(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
-	let arg = env.result.clone();
+	let arg = env.get_result();
 	if let Some(head) = arg.head() {
 		if let Some(tail) = arg.tail() {
 			if let Some(head_of_tail) = tail.head() {
@@ -918,7 +919,7 @@ fn read(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 				let result = finish_parsing_characters(parser);
 				if let Ok(tree) = result {
 					match tree.first() {
-						Some(tree) => env.result = tree.clone(),
+						Some(tree) => env.set_result(tree.clone()),
 						None => return Some((None, "parse error: ".into())),
 					}
 				}
@@ -966,7 +967,7 @@ fn set_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 /// Set a variable in the environment.
 fn set(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	{
-		let args = env.result.clone();
+		let args = env.get_result();
 		let sub = rcs(Coredata::Function(
 			Function::Builtin(set_internal, "@set-internal".into()),
 		));
@@ -1026,7 +1027,7 @@ teko_simple_function!(msleep args : 1 => 1 => {
 });
 
 fn program(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
-	program.extend(collect_cell_into_revvec(&env.result));
+	program.extend(collect_cell_into_revvec(&env.get_result()));
 	None
 }
 
@@ -1161,13 +1162,14 @@ teko_simple_function!(to_string args : 1 => 1 => {
 /// to be unbounded in the amount of tail calls, there's no way to definitively
 /// store all calls.
 fn trace(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
-	env.result = internal_trace(program, env);
+	let result = internal_trace(program, env);
+	env.set_result(result);
 	None
 }
 
 /// Set up a "catch-all" that catches all errors
 fn wind(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
-	let args = env.result.clone();
+	let args = env.get_result();
 	let code = collect_cell_into_revvec(&args);
 	program.push(rcs(Coredata::Internal(Commands::Wind)));
 	program.extend(code.iter().cloned());

@@ -757,11 +757,17 @@ pub fn find_earliest_depar<'a>(program: &'a mut Program) -> Option<&'a mut Depar
 ///
 /// Preserves stack consistency (pops parameters when necessary).
 pub fn unwind(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
+	let result;
 	if let Some(param) = env.params.last() {
 		if let Some(last) = param.last() {
-			env.result = last.clone();
+			result = last.clone();
+		} else {
+			result = rcs(Coredata::Null());
 		}
+	} else {
+		result = rcs(Coredata::Null());
 	}
+	env.set_result(result);
 	while let Some(top) = program.pop() {
 		match top.1 {
 			Coredata::Internal(Commands::Depar(ref arguments)) => {

@@ -169,6 +169,9 @@ impl Env {
 	pub fn get_result(&self) -> Statement {
 		self.result.clone()
 	}
+	pub fn paramize(&mut self) {
+		self.params.last_mut().unwrap().push(self.result.clone());
+	}
 	pub fn does_variable_exist(&self, symbol: &Symbol) -> bool {
 		self.store.contains_key(symbol)
 	}
