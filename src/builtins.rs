@@ -60,7 +60,7 @@ to exit press CTRL-D, CTRL-C, or: (exit)";
 /// that actually implements your functionality.
 ///
 /// For user-defined functions and types please see `user/mod.rs`.
-pub fn create_builtin_library_table() -> HashMap<String, Program> {
+pub fn create_builtin_library_table() -> HashMap<Symbol, Program> {
 	construct_builtins! {
 		// This section contains non-functions and non-macro
 		// constants
@@ -228,7 +228,7 @@ fn at_variables(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 	env.result = rcs(Coredata::Null());
 	for key in env.store.keys() {
 		env.result = rcs(Coredata::Cell(
-			rcs(Coredata::Symbol(Symbol::from(key))),
+			rcs(Coredata::Symbol(key.clone())),
 			env.result.clone(),
 		));
 	}
@@ -237,18 +237,18 @@ fn at_variables(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 
 /// Used by define to perform the final step of assigning.
 fn define_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
-	if let Some(args) = env.params.last() {
+	let (key, value) = if let Some(args) = env.params.last() {
 		if let Some(symbol) = args.first() {
 			match **symbol {
 				Sourcedata(ref source, Coredata::String(ref string)) => {
 					if let Some(rhs) = args.get(1) {
-						if env.store.contains_key(string) {
+						if env.store.contains_key(&Symbol::from(string)) {
 							return Some((
 								source.clone(),
 								format!["variable already exists: {}", string],
 							));
 						}
-						env.store.insert(string.clone(), vec![rhs.clone()]);
+						(Symbol::from(string.clone()), rhs.clone())
 					} else {
 						return Some((source.clone(), arity_mismatch(2, 2, 1)));
 					}
@@ -262,7 +262,8 @@ fn define_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, St
 		}
 	} else {
 		return Some((None, "no arg stack".into()));
-	}
+	};
+	env.push(&key, value);
 	None
 }
 
@@ -320,7 +321,7 @@ fn local(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String
 
 /// Used by define to perform the final step of assigning.
 fn local_internal(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
-	if let Some(args) = env.params.last() {
+	let (key, value) = if let Some(args) = env.params.last() {
 		if let Some(symbol) = args.first() {
 			match **symbol {
 				Sourcedata(ref source, Coredata::String(ref string)) => {
@@ -329,23 +330,15 @@ fn local_internal(program: &mut Program, env: &mut Env) -> Option<(Option<Source
 						// Problem is what if we're inside a new function?
 						// That's fine, since we have a new depar
 						if let Some(depar) = find_earliest_depar(program) {
-							if depar.check_preexistence_and_merge_single(&Symbol::from(string)) {
-								env.store.get_mut(string).unwrap().push(rhs.clone());
-								// Just overwrite them. It's fine
-							} else {
-								if env.store.contains_key(string) {
-									env.store.get_mut(string).unwrap().push(rhs.clone());
-								} else {
-									env.store.insert(string.clone(), vec![rhs.clone()]);
-								}
-							}
-						} else if env.store.contains_key(string) {
+							depar.check_preexistence_and_merge_single(&Symbol::from(string));
+							(Symbol::from(string), rhs.clone())
+						} else if env.does_variable_exist(&Symbol::from(string)) {
 								return Some((
 									source.clone(),
 									format!["variable already exists: {}", string],
 								));
 						} else {
-							env.store.insert(string.clone(), vec![rhs.clone()]);
+							(Symbol::from(string), rhs.clone())
 						}
 					} else {
 						return Some((source.clone(), arity_mismatch(2, 2, 1)));
@@ -360,7 +353,8 @@ fn local_internal(program: &mut Program, env: &mut Env) -> Option<(Option<Source
 		}
 	} else {
 		return Some((None, "no arg stack".into()));
-	}
+	};
+	env.push(&key, value);
 	None
 }
 
@@ -939,18 +933,18 @@ fn read(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 
 /// Used by set internal to set variables.
 fn set_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
-	if let Some(args) = env.params.last() {
+	let (key, value) = if let Some(args) = env.params.last() {
 		if let Some(symbol) = args.first() {
 			match **symbol {
 				Sourcedata(ref source, Coredata::String(ref string)) => {
 					if let Some(rhs) = args.get(1) {
-						if !env.store.contains_key(string) {
+						if !env.does_variable_exist(&Symbol::from(string)) {
 							return Some((
 								source.clone(),
 								format!["variable does not exist, {}", string],
 							));
 						}
-						env.store.insert(string.clone(), vec![rhs.clone()]);
+						(Symbol::from(string), rhs.clone())
 					} else {
 						return Some((None, arity_mismatch(2, 2, 1)));
 					}
@@ -964,7 +958,8 @@ fn set_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 		}
 	} else {
 		return Some((None, "no arg stack".into()));
-	}
+	};
+	env.push(&key, value);
 	None
 }
 

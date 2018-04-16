@@ -124,18 +124,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 								);
 								ppush![src, Core::Internal(cmd)];
 								for (counter, parameter) in parameters.iter().enumerate() {
-									let t: &str = parameter.into();
-									if env.store.contains_key(t) {
-										env.store.get_mut(t).unwrap().push(
-											arguments[counter]
-												.clone(),
-										);
-									} else {
-										env.store.insert(
-											t.to_string(),
-											vec![arguments[counter].clone()],
-										);
-									}
+									env.push(parameter, arguments[counter].clone());
 								}
 								program.extend(transfer.iter().cloned());
 							}
@@ -198,11 +187,7 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 						ppush![None, Core::Internal(Cmds::Eval)];
 						let command = optimize_tail_call(&mut program, &mut env, &[bound.clone()]);
 						let t: &str = bound.into();
-						if env.store.contains_key(t) {
-							env.store.get_mut(t).unwrap().push(arguments.clone());
-						} else {
-							env.store.insert(t.to_string(), vec![arguments.clone()]);
-						}
+						env.push(bound, arguments.clone());
 						ppush![
 							src,
 							Core::Internal(Cmds::Depar(command)),
@@ -239,19 +224,16 @@ pub fn eval(mut program: Program, mut env: Env) -> Env {
 				} else if string == "false" {
 					env.result = false_obj.clone();
 				} else {
-					let error = if let Some(value) = env.store.get(string) {
-						if let Some(value) = value.last() {
-							env.result = value.clone();
-							None
-						} else {
-							// TODO what is an empty store entry doing here?
-							// Should we panic or yield some other error?
-							Some((src.clone(), not_found(string)))
-						}
+					let (error, result) = if let Some(value) = env.get(&Symbol::from(string)) {
+						(None, Some(value.clone()))
 					} else {
-						Some((src.clone(), not_found(string)))
+						(Some((src.clone(), not_found(string))), None)
 					};
-					err(src, &error, &mut program, &mut env);
+					if let Some(result) = result {
+						env.set_result(result);
+					} else {
+						err(src, &error, &mut program, &mut env);
+					}
 				}
 			}
 			_ => {

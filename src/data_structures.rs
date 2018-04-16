@@ -141,7 +141,7 @@ pub enum Coredata {
 	/// Integer numbers
 	Integer(BigInt),
 	/// Internal commands (used by the implementation)
-	Internal(Commands),
+	Internal(Commands), // TODO remove this. It's not actually data
 	/// Macro types
 	Macro(Macro), 
 	/// Null (an empty list)
@@ -155,11 +155,44 @@ pub enum Coredata {
 /// Environment used by the implementation
 pub struct Env {
 	/// Maps variables to stacks of variables (Program)
-	pub store: HashMap<String, Program>,
+	pub store: HashMap<Symbol, Program>,
 	/// Parameter stack used for function calls
 	pub params: Vec<Program>,
 	/// Register used to store results of previous computations
 	pub result: Statement,
+}
+
+impl Env {
+	pub fn set_result(&mut self, value: Statement) {
+		self.result = value;
+	}
+	pub fn get_result(&self) -> Statement {
+		self.result.clone()
+	}
+	pub fn does_variable_exist(&self, symbol: &Symbol) -> bool {
+		self.store.contains_key(symbol)
+	}
+	pub fn get(&self, symbol: &Symbol) -> Option<&Rc<Sourcedata>> {
+		if let Some(value) = self.store.get(symbol) {
+			value.last()
+		} else {
+			None
+		}
+	}
+	pub fn push(&mut self, symbol: &Symbol, value: Rc<Sourcedata>) {
+		if self.does_variable_exist(symbol) {
+			self.store.get_mut(symbol).unwrap().push(value);
+		} else {
+			self.store.insert(symbol.clone(), vec![value]);
+		}
+	}
+	pub fn pop(&mut self, symbol: &Symbol) -> Option<Rc<Sourcedata>> {
+		if let Some(ref mut entry) = self.store.get_mut(symbol) {
+			entry.pop()
+		} else {
+			None
+		}
+	}
 }
 
 /// State used by the parser internally

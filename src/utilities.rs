@@ -665,14 +665,10 @@ pub fn optimize_tail_call(program: &mut Program, env: &mut Env, params2: &[Symbo
 				let mut content = content2.clone();
 				for i in params2 {
 					if content.check_preexistence_and_merge_single(i) {
-						if let Some(ref mut entry) = env.store.get_mut(Into::<&str>::into(i)) {
-							if entry.pop().is_some() {
-								// OK
-							} else {
-								panic!["Store inconsistency; entry empty"];
-							}
+						if env.pop(i).is_some() {
+							// OK
 						} else {
-							panic!["Store inconsistency; entry nonexistent"];
+							panic!["Store inconsistency; entry empty"];
 						}
 					}
 				}
@@ -715,7 +711,7 @@ pub fn optional_source(source: &Option<Source>) -> String {
 pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &Deparize) {
 	for arg in args.into_iter() {
 		use std::convert::Into;
-		if let Some(ref mut entry) = env.store.get_mut(Into::<&str>::into(arg)) {
+		if let Some(ref mut entry) = env.store.get_mut(arg) {
 			if entry.pop().is_some() {
 				// OK
 			} else {
@@ -724,13 +720,13 @@ pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &Deparize) {
 		} else {
 			panic!["Store entry does not exist"];
 		}
-		let is_empty = if let Some(entry) = env.store.get(Into::<&str>::into(arg)) {
+		let is_empty = if let Some(entry) = env.store.get(arg) {
 			entry.is_empty()
 		} else {
 			panic!["Store entry does not exist"];
 		};
 		if is_empty {
-			env.store.remove(Into::<&str>::into(arg));
+			env.store.remove(arg);
 		}
 	}
 }

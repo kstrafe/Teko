@@ -2,12 +2,12 @@
 macro_rules! construct_builtins {
 	({$($c:expr => $x:expr),*,} $($t:ident: $e:expr => $i:ident),*,) => {
 		{
-			let mut functions_and_macros : HashMap<String, Program> = [
+			let mut functions_and_macros : HashMap<Symbol, Program> = [
 				$(
 					($e.into(), vec![Rc::new(Sourcedata(None, Coredata::$t($t::Builtin($i, $e.into()))))])
 				),*
 			].iter().cloned().collect();
-			let constants : HashMap<String, Program> = [
+			let constants : HashMap<Symbol, Program> = [
 				$(
 					($c.into(), vec![Rc::new(Sourcedata(None, $x))])
 				),*
