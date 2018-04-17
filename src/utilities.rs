@@ -185,180 +185,193 @@ impl fmt::Debug for Macro {
 impl fmt::Display for Sourcedata {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		use data_structures::{Commands::*, Coredata::*, Function, Macro};
-		let mut first = true;
 		let null = &Sourcedata(None, Coredata::Null());
-		let mut queue = Vec::with_capacity(VEC_CAPACITY);
+		// What needs to be printed
+		enum Queue<'a> {
+			Close,
+			Data(&'a Sourcedata, Context),
+		}
+		#[derive(Clone, Copy)]
+		enum Context {
+			Cell, // The nested cell in the top level
+			Runnable, // The nested function of a function or macro
+			Run, // The top level of a function or macro
+			TopLevel, // The base level used for printing arbitrary things
+		}
+		let mut queue: Vec<Queue> = Vec::with_capacity(VEC_CAPACITY);
+		// Current printing context, if it's a function or macro we do not write (symbol X)
+		// Is it ONLY used for symbols? It should be... let me think...
+		// Yes. Let's try it. We just store false/true
 		let mut spacer = false;
-		macro_rules! spacify { () => { if spacer { write![f, " "]?; } }; }
-		queue.push(self);
+		queue.push(Queue::Data(self, Context::TopLevel));
 		while let Some(elem) = queue.pop() {
-			match elem.1 {
-				Boolean(state) => {
-					spacify![];
-					write![f, "{}", state]?;
-					spacer = true;
-				}
-				Error(ref arg) => {
-					spacify![];
-					write![f, "(error"]?;
-					if let Coredata::Cell(..) = arg.1 {
-						queue.push(arg);
-						spacer = false;
-					} else if let Coredata::Null() = arg.1 {
-						spacer = true;
-					} else {
-						queue.push(null);
-						queue.push(arg);
-						spacer = true;
-					}
-				}
-				Function(Function::Builtin(.., ref name)) => {
-					spacify![];
-					write![f, "{}", name]?;
-					spacer = true;
-				}
-				Function(Function::Library(ref params, ref code)) => {
-					spacify![];
-					write![f, "(function ("]?;
-					let mut first = true;
-					for i in params.iter() {
-						if first {
-							write![f, "{:?}", i]?;
-						} else {
-							write![f, " {:?}", i]?;
-						}
-						first = false;
-					}
+			macro_rules! spacify { () => { if spacer { write![f, " "]?; } }; }
+			match elem {
+				Queue::Close => {
 					write![f, ")"]?;
-					for i in code.iter().rev() {
-						write![f, " {}", i]?;
-					}
-					write![f, ")"]?;
-					spacer = true;
 				}
-				Integer(ref arg) => {
-					spacify![];
-					write![f, "{}", arg]?;
-					spacer = true;
-				}
-				Internal(ref arg) => {
-					spacify![];
-					match *arg {
-						Call(ref callee) => write![f, "(@call {})", callee]?,
-						Prep(ref callee) => write![f, "(@prepare {})", callee]?,
-						Param => write![f, "(@parameterize)"]?,
-						Deparize(ref params) => {
-							write![f, "(@deparameterize"]?;
-							for i in params.into_iter() {
-								write![f, " {:?}", i]?;
-							}
-							write![f, ")"]?;
+				Queue::Data(ref data, ref context) => {
+					match data.1 {
+						Boolean(state) => {
+							spacify![];
+							write![f, "{}", state]?;
+							spacer = true;
 						}
-						If(ref former, ref latter) => write![f, "(@if {} {})", former, latter]?,
-						Wind => write![f, "(@wind)"]?,
-						Eval => write![f, "(@evaluate)"]?,
-					}
-					spacer = true;
-				}
-				Macro(Macro::Builtin(.., ref name)) => {
-					spacify![];
-					write![f, "{}", name]?;
-					spacer = true;
-				}
-				Macro(Macro::Library(ref param, ref code)) => {
-					spacify![];
-					write![f, "(macro {:?}", param]?;
-					for i in code.iter().rev() {
-						write![f, " {}", i]?;
-					}
-					write![f, ")"]?;
-					spacer = true;
-				}
-				Null() => {
-					if first {
-						write![f, "()"]?;
-					} else {
-						write![f, ")"]?;
-					}
-				}
-				Cell(ref head, ref tail) => {
-					spacify![];
-					if first {
-						write![f, "(list "]?;
-					}
-					queue.push(tail);
-					if let Coredata::Cell(..) = head.1 {
-						write![f, "(list "]?;
-						queue.push(head);
-						spacer = false;
-					} else if let Coredata::Null() = head.1 {
-						write![f, "()"]?;
-						spacer = true;
-					} else {
-						queue.push(head);
-						spacer = false;
-					}
-				}
-				String(ref arg) => {
-					spacify![];
-					macro_rules! is_plainly_printable {
-						($i:ident) => {
-							// TODO remove () around cast: rustc panics because it thinks it's a generic
-							!$i.is_whitespace() && $i != '(' && $i != ')' && $i as u32 > 0x1F &&
-							(($i as u32) < 0x7F || $i as u32 > 0x9F)
-						};
-					}
-					write![f, "(\""]?;
-					if arg.len() > 0 { write![f, " "]?; }
-					let mut prev_char = ' ';
-					let mut rle = 0;
-					let mut n: usize = 0;
-					let rle_write = |f: &mut fmt::Formatter, prev_char: char, rle: usize| -> Result<(), fmt::Error> {
-						if rle > 0 {
-							if rle == 1 {
-								write![f, "({})", prev_char as u32]?;
-							} else {
-								write![f, "({} {})", prev_char as u32, rle]?;
-							}
-						}
-						Ok(())
-					};
-					for ch in arg.chars() {
-						if is_plainly_printable![ch] {
-							if rle > 0 {
-								if prev_char == ' ' && rle == 1 && n > 1 {
-									write![f, " "]?;
-								} else {
-									rle_write(f, prev_char, rle)?;
+						Cell(ref head, ref tail) => {
+							spacify![];
+							match *context {
+								Context::Run => {
+									write![f, "("]?;
+									queue.push(Queue::Close);
+								}
+								Context::Cell => {}
+								Context::Runnable => {}
+								Context::TopLevel => {
+									write![f, "(list "]?;
+									queue.push(Queue::Close);
 								}
 							}
-							write![f, "{}", ch]?;
-							rle = 0;
-						} else {
-							if ch != prev_char && rle > 0 {
-								rle_write(f, prev_char, rle)?;
-								rle = 1;
-							} else {
-								rle += 1;
-							}
+							queue.push(Queue::Data(tail,
+								if let Context::Run = *context { Context::Runnable }
+								else if let Context::Runnable = *context { Context::Runnable }
+								else { Context::Cell }));
+							queue.push(Queue::Data(head,
+								if let Context::Run = *context { Context::Run }
+								else if let Context::Runnable = *context { Context::Run }
+								else { Context::TopLevel }));
+							spacer = false;
 						}
-						n += 1;
-						prev_char = ch;
+						Error(ref arg) => {
+							spacify![];
+							write![f, "(error"]?;
+							if let Coredata::Null() = arg.1 {
+								write![f, ")"]?;
+							} else {
+								queue.push(Queue::Close);
+								queue.push(Queue::Data(arg, Context::TopLevel));
+							}
+							spacer = true;
+						}
+						Function(Function::Builtin(.., ref name)) => {
+							spacify![];
+							write![f, "{}", name]?;
+							spacer = true;
+						}
+						Function(Function::Library(ref params, ref code)) => {
+							spacify![];
+							// HEADER and PARAMETER LIST
+							write![f, "(function ("]?;
+							let mut first = true;
+							for i in params.iter() {
+									if ! first {
+										write![f, " "]?;
+									}
+									write![f, "{}", Into::<&str>::into(i)]?;
+									first = false;
+							}
+							write![f, ")"]?;
+							// QUEUE code
+							queue.push(Queue::Close);
+							for i in code.iter() {
+								queue.push(Queue::Data(i, Context::Run));
+							}
+							spacer = true;
+						}
+						Integer(ref arg) => {
+							spacify![];
+							write![f, "{}", arg]?;
+							spacer = true;
+						}
+						Macro(Macro::Builtin(.., ref name)) => {
+							spacify![];
+							write![f, "{}", name]?;
+							spacer = true;
+						}
+						Macro(Macro::Library(ref param, ref code)) => {
+							spacify![];
+							write![f, "(macro {}", Into::<&str>::into(param)]?;
+							// QUEUE code
+							queue.push(Queue::Close);
+							for i in code.iter() {
+								queue.push(Queue::Data(i, Context::Run));
+							}
+							spacer = true;
+						}
+						Null() => {
+							if let &Context::Cell = context {
+							} else if let &Context::Runnable = context {
+								// Do nothing
+							} else {
+								spacify![];
+								write![f, "()"]?;
+							}
+							spacer = true;
+						}
+						String(ref arg) => {
+							spacify![];
+							macro_rules! is_plainly_printable {
+								($i:ident) => {
+									// TODO remove () around cast: rustc panics because it thinks it's a generic
+									!$i.is_whitespace() && $i != '(' && $i != ')' && $i as u32 > 0x1F &&
+									(($i as u32) < 0x7F || $i as u32 > 0x9F)
+								};
+							}
+							write![f, "(\""]?;
+							if arg.len() > 0 { write![f, " "]?; }
+							let mut prev_char = ' ';
+							let mut rle = 0;
+							let mut n: usize = 0;
+							let rle_write = |f: &mut fmt::Formatter, prev_char: char, rle: usize| -> Result<(), fmt::Error> {
+								if rle > 0 {
+									if rle == 1 {
+										write![f, "({})", prev_char as u32]?;
+									} else {
+										write![f, "({} {})", prev_char as u32, rle]?;
+									}
+								}
+								Ok(())
+							};
+							for ch in arg.chars() {
+								if is_plainly_printable![ch] {
+									if rle > 0 {
+										if prev_char == ' ' && rle == 1 && n > 1 {
+											write![f, " "]?;
+										} else {
+											rle_write(f, prev_char, rle)?;
+										}
+									}
+									write![f, "{}", ch]?;
+									rle = 0;
+								} else {
+									if ch != prev_char && rle > 0 {
+										rle_write(f, prev_char, rle)?;
+										rle = 1;
+									} else {
+										rle += 1;
+									}
+								}
+								n += 1;
+								prev_char = ch;
+							}
+							rle_write(f, prev_char, rle)?;
+							write![f, ")"]?;
+							spacer = true;
+						}
+						Symbol(ref symbol) => {
+							spacify![];
+							if let Context::Runnable = *context {
+								write![f, "{}", Into::<&str>::into(symbol)]?;
+							} else if let Context::Run = *context {
+								write![f, "{}", Into::<&str>::into(symbol)]?;
+							} else {
+								write![f, "(@ {})", Into::<&str>::into(symbol)]?;
+							}
+							spacer = true;
+						}
+						_ => {}
 					}
-					rle_write(f, prev_char, rle)?;
-					write![f, ")"]?;
-					spacer = true;
-				}
-				Symbol(ref arg) => {
-					spacify![];
-					write![f, "{:?}", arg]?;
-					spacer = true;
-				}
-				Table(_) => {
-					write![f, "{:?}", elem.1]?;
 				}
 			}
-			first = false;
 		}
 		Ok(())
 	}
