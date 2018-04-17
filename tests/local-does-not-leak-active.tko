@@ -1,0 +1,10 @@
+(define f
+  (function ()
+    (local x 1)
+    ((function ()
+      (local x 2)
+      x
+    ))))
+(define x (@variable-count))
+(and (= (+ x 1) (@variable-count))
+     (= (f) 2))

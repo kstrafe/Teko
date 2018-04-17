@@ -1,0 +1,6 @@
+(define x (@variable-count))
+((function ()
+  (local x 1)
+  ((function ()
+    (local x 2)))))
+(= (+ x 1) (@variable-count))

@@ -19,6 +19,10 @@ fn main() {
 	boolean("boolean-5.tko", false);
 	boolean("boolean-6.tko", true);
 
+	boolean("local-does-not-leak.tko", true);
+	boolean("local-does-not-leak-tail.tko", true);
+	boolean("local-does-not-leak-active.tko", true);
+
 	error("divide-by-zero.tko");
 	error("define-0.tko");
 	error("define-1.tko");
