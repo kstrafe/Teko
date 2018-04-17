@@ -773,7 +773,6 @@ teko_simple_function!(list args : 0 => usize::MAX => {
 /// Load a file
 fn load(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	use parse::parse_file;
-	assert![env.params.len() == 1];
 	let input = &**env.params.last().unwrap().first().unwrap();
 	if let Coredata::String(ref string) = input.1 {
 		let parse = parse_file(string);
@@ -1018,6 +1017,22 @@ fn set_internal(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, Strin
 fn set(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	{
 		let args = env.get_result();
+		// CHECK ARGS
+		if let Some(head) = args.head() {
+			match *head {
+				Sourcedata(ref source, Coredata::Symbol(ref symbol)) => {
+					program.push(Rc::new(
+						Sourcedata(source.clone(), Coredata::String(Into::<&str>::into(symbol).to_string())),
+					));
+				}
+				_ => {
+					return Some(extype![head.0, Symbol, head]);
+				}
+			}
+		} else {
+			return Some((None, arity_mismatch(2, 2, 1)));
+		}
+
 		let sub = rcs(Coredata::Function(
 			Function::Builtin(set_internal, "@set-internal".into()),
 		));
