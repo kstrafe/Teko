@@ -86,7 +86,8 @@ pub fn create_builtin_library_table() -> HashMap<Symbol, Program> {
 		Function : "unwind" => unwind,
 		// Lisp primitives
 		Macro    : "if" => if_conditional,
-		Macro    : "quote" => quote,
+		Macro    : "_quote" => quote,
+		Macro    : "@" => quote2,
 		Function : "same?" => is_data_eq,
 		Function : "symbol?" => is_symbol,
 		Function : "head" => head,
@@ -106,6 +107,9 @@ pub fn create_builtin_library_table() -> HashMap<Symbol, Program> {
 		Function : "list" => list,
 		Function : "len" => list_length,
 		Function : "->string" => to_string,
+		Function : "symbol->string" => symbol_to_string,
+		Function : "string->symbol" => string_to_symbol,
+		Function : "symbol-append" => symbol_append,
 		Function : "write" => write,
 		Function : "print" => print,
 		Function : "doc" => doc,
@@ -928,6 +932,25 @@ fn quote(_: &mut Program, _: &mut Env) -> Option<(Option<Source>, String)> {
 	None
 }
 
+fn quote2(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
+	match *env.get_result() {
+		Sourcedata(ref src, Coredata::Cell(ref head, ref tail)) => {
+			if let Sourcedata(_, Coredata::Null(..)) = **tail {
+				env.set_result(head.clone());
+			} else {
+				return Some((src.clone(), arity_mismatch(1, 1, tail.len().unwrap() + 1)));
+			}
+		}
+		Sourcedata(ref src, Coredata::Null()) => {
+			return Some((src.clone(), arity_mismatch(1, 1, 0)));
+		}
+		_ => {
+			panic!["Can not happen in macros"];
+		}
+	}
+	None
+}
+
 fn read(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 	let mut parser = ParseState::from("tty");
 	for ch in io::stdin().bytes() {
@@ -1178,6 +1201,45 @@ teko_simple_function!(tail args : 1 => 1 => {
 teko_simple_function!(to_string args : 1 => 1 => {
 	let arg = args.first().unwrap();
 	Ok(rcs(Coredata::String(format!["{}", arg])))
+});
+
+teko_simple_function!(symbol_to_string args : 1 => 1 => {
+	let arg = args.first().unwrap();
+	match **arg {
+		Sourcedata(ref src, Coredata::Symbol(ref symbol)) => {
+			Ok(rcs(Coredata::String(Into::<&str>::into(symbol).to_string())))
+		}
+		Sourcedata(ref src, ..) => {
+			Err(extype![src, Symbol, *arg])
+		}
+	}
+});
+
+teko_simple_function!(string_to_symbol args : 1 => 1 => {
+	let arg = args.first().unwrap();
+	match **arg {
+		Sourcedata(ref src, Coredata::String(ref string)) => {
+			Ok(rcs(Coredata::Symbol(Symbol::from(string))))
+		}
+		Sourcedata(ref src, ..) => {
+			Err(extype![src, String, *arg])
+		}
+	}
+});
+
+teko_simple_function!(symbol_append args : 1 => usize::MAX => {
+	let mut state = Symbol::from("");
+	for i in args {
+		match **i {
+			Sourcedata(ref src, Coredata::Symbol(ref symbol)) => {
+				state = state.append(symbol);
+			}
+			Sourcedata(ref src, ..) => {
+				return Err(extype![src, Symbol, *i]);
+			}
+		}
+	}
+	Ok(rcs(Coredata::Symbol(state)))
 });
 
 /// Return a stack trace.

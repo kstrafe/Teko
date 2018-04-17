@@ -15,6 +15,12 @@ pub struct Symbol {
 	value: String,
 }
 
+impl Symbol {
+	pub fn append(&self, other: &Symbol) -> Symbol {
+		Symbol::from(self.value.clone() + &other.value)
+	}
+}
+
 impl<'a> Into<&'a str> for &'a Symbol {
 	fn into(self) -> &'a str {
 		self.value.as_ref()
