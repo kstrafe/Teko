@@ -110,6 +110,8 @@ pub fn create_builtin_library_table() -> HashMap<Symbol, Program> {
 		Function : "symbol->string" => symbol_to_string,
 		Function : "string->symbol" => string_to_symbol,
 		Function : "symbol-append" => symbol_append,
+		Function : "string-append" => string_append,
+		Function : "string-at" => string_at,
 		Function : "write" => write,
 		Function : "print" => print,
 		Function : "doc" => doc,
@@ -1240,6 +1242,51 @@ teko_simple_function!(symbol_append args : 1 => usize::MAX => {
 		}
 	}
 	Ok(rcs(Coredata::Symbol(state)))
+});
+
+teko_simple_function!(string_at args : 2 => 2 => {
+	let arg = &args[0];
+	let index = &args[1];
+	let mut start = String::from("");
+	match **arg {
+		Sourcedata(ref src, Coredata::String(ref string)) => {
+			match **index {
+				Sourcedata(ref src, Coredata::Integer(ref value)) => {
+					if let Some(value) = value.to_usize() {
+						if value < string.len() {
+							start.push(string.chars().nth(value).unwrap());
+						} else {
+							return Ok(rcs(Coredata::Null()))
+						}
+					} else {
+						return Err((src.clone(), "Integer not valid".to_string()));
+					}
+				}
+				Sourcedata(ref src, ..) => {
+					return Err(extype![src, Integer, index]);
+				}
+			}
+		}
+		Sourcedata(ref src, ..) => {
+			return Err(extype![src, String, arg]);
+		}
+	}
+	Ok(rcs(Coredata::String(start)))
+});
+
+teko_simple_function!(string_append args : 1 => usize::MAX => {
+	let mut state = String::from("");
+	for i in args {
+		match **i {
+			Sourcedata(ref src, Coredata::String(ref string)) => {
+				state = state + string;
+			}
+			Sourcedata(ref src, ..) => {
+				return Err(extype![src, String, *i]);
+			}
+		}
+	}
+	Ok(rcs(Coredata::String(state)))
 });
 
 /// Return a stack trace.
