@@ -135,7 +135,7 @@ The functions `append', `string-append', `take', `drop', `head', `tail', `+', `-
 The macros `'', `\textless', `\textless=', `\textgreater', `\textgreater=', `=', `equal?', `and', `or', `xor', `bitwise-and', `bitwise-ior', `bitwise-xor',
 
 \subsection{Miscellaneous}
-Further initial macros, functions, and constants may be implemented provided all such symbols begin with `@', which is reserved for the implementation. \\
+Further initial macros, functions, and constants may be implemented provided all such symbols begin with `\_', which is reserved for the implementation. \\
 The macro `;' shall act as a comment and can be defined as `(mo \_ ())'.
 
 \section{Strings} \label{sec:strings}
