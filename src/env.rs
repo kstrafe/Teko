@@ -7,13 +7,14 @@
 use std::{collections::HashMap,
           hash::Hash,
           mem,
+          result::Result,
           slice,
           vec};
 
 #[derive(Default)]
 pub struct Env<K: Eq + Hash, V: Default> {
 	/// Arguments to the next call are stored here.
-	arguments: Vec<V>,
+	arguments: Vec<Vec<V>>,
 	/// The result of the last computation
 	result: V,
 	/// The (key list(value)) store
@@ -25,29 +26,41 @@ impl<K: Eq + Hash, V: Default> Env<K, V> {
 	/// Moves the result to the arguments list
 	///
 	/// This method resets the result.
-	pub fn push_arguments(&mut self) {
-		let value = self.fet_result();
-		self.arguments.push(value);
+	pub fn push_arguments(&mut self) -> Result<(), ()> {
+		if let Some(vector) = self.arguments.last_mut() {
+			let value = mem::replace(&mut self.result, V::default());
+			vector.push(value);
+			Ok(())
+		} else {
+			Err(())
+		}
+	}
+
+	/// Push a new argument stack
+	pub fn push_arguments_stack(&mut self) {
+		self.arguments.push(Vec::with_capacity(10));
 	}
 
 	/// Pops all arguments and returns an owning iterator over them
-	pub fn pop_arguments(&mut self) -> vec::IntoIter<V> {
-		mem::replace(&mut self.arguments, vec![]).into_iter()
+	pub fn pop_arguments_stack(&mut self) -> Option<vec::IntoIter<V>> {
+		self.arguments.pop().map(|x| x.into_iter())
 	}
+
 
 	/// Pops all arguments and returns a referencing iterator over them
-	pub fn get_arguments(&self) -> slice::Iter<V> {
-		self.arguments.iter()
+	pub fn get_arguments(&self) -> Option<slice::Iter<V>> {
+		self.arguments.last().map(|x| x.iter())
 	}
 
-	pub fn count_arguments(&self) -> usize {
-		self.arguments.len()
+	/// Count the total number of arguments on the current stack
+	pub fn count_arguments(&self) -> Option<usize> {
+		self.arguments.last().map(|x| x.len())
 	}
 
 	// Result block ///////////////////////////////////////
 	/// Set the result value in the environment
-	pub fn set_result(&mut self, value: V) {
-		mem::replace(&mut self.result, value);
+	pub fn set_result(&mut self, value: V) -> V {
+		mem::replace(&mut self.result, value)
 	}
 
 	/// Fet the result value in the environment
@@ -87,6 +100,19 @@ impl<K: Eq + Hash, V: Default> Env<K, V> {
 		value
 	}
 
+	/// Set the top value associated with the key
+	///
+	/// If the key does not exist, nothing is done.
+	pub fn set(&mut self, key: &K, value: V) -> Result<(), ()> {
+		if let Some(vector) = self.store.get_mut(key) {
+			vector.push(value);
+			Ok(())
+		} else {
+			Err(())
+		}
+	}
+
+
 	/// Get a reference to the current top value associated with the key
 	pub fn get(&self, key: &K) -> Option<&V> {
 		if let Some(vector) = self.store.get(key) {
@@ -115,7 +141,7 @@ impl<K: Eq + Hash, V: Default> Env<K, V> {
 	/// An iterator to all keys in the store
 	pub fn keys(&self) -> vec::IntoIter<&K> {
 		self.store.iter()
-		          .map(|(k, v)| k)
+		          .map(|(k, _)| k)
 		          .collect::<Vec<&K>>()
 		          .into_iter()
 
