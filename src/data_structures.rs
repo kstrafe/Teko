@@ -66,7 +66,7 @@ use std::hash::{Hash, Hasher};
 
 impl Hash for Deparize {
 	fn hash<H: Hasher>(&self, state: &mut H) {
-		for i in self.set.iter() {
+		for i in &self.set {
 			i.hash(state);
 		}
 	}
@@ -80,7 +80,7 @@ impl Deparize {
 		!self.set.insert(symbol.clone())
 	}
 	// TODO put into trait IntoIter
-	pub fn into_iter<'a>(&'a self) -> collections::hash_set::Iter<Symbol> {
+	pub fn iter(&self) -> collections::hash_set::Iter<Symbol> {
 		self.set.iter()
 	}
 }
@@ -122,6 +122,10 @@ pub struct Sourcedata(pub Option<Source>, pub Coredata);
 pub type Statement = Arc<Sourcedata>;
 /// A program is an ordered sequence of `Statement`
 pub type Program = Vec<Statement>;
+
+/* struct Program { */
+/* 	program: Vec<Arc<Statement>>, */
+/* } */
 
 /// Denotes a "transfer function" that transform the state of the program
 ///
@@ -226,7 +230,7 @@ pub struct Table {
 
 impl Hash for Table {
 	fn hash<H: Hasher>(&self, state: &mut H) {
-		for (k, v) in self.table.iter() {
+		for (k, v) in &self.table {
 			k.hash(state);
 			v.hash(state);
 		}

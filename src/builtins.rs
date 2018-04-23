@@ -139,7 +139,7 @@ pub fn create_builtin_library_table() -> HashMap<Symbol, Program> {
 macro_rules! teko_simple_function {
 	($name:ident $args:ident : $low:expr => $high:expr => $code:block) => {
 		#[allow(unused_comparisons)]
-		// #[allow(redundant_closure_call)]
+		#[allow(redundant_closure_call)]
 		fn $name(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 			let (error, result) = if let Some($args) = env.params.last() {
 				if $args.len() < $low || $args.len() > $high {
@@ -166,7 +166,7 @@ macro_rules! teko_simple_function {
 macro_rules! teko_simple_macro {
 	($name:ident $arg:ident : $low:expr => $high:expr => $code:block) => {
 		#[allow(unused_comparisons)]
-		// #[allow(redundant_closure_call)]
+		#[allow(redundant_closure_call)]
 		fn $name(_: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)> {
 			let $arg = env.get_result();
 			let len = $arg.len();
@@ -889,7 +889,7 @@ teko_simple_function!(current_time_milliseconds args : 0 => 0 => {
 	use time;
 	use num::bigint::ToBigInt;
 	let ts = time::get_time();
-	let millis = ts.sec * 1000 + (ts.nsec as i64) / 1_000_000;
+	let millis = ts.sec * 1000 + i64::from(ts.nsec / 1_000_000);
 	Ok(rcs(Coredata::Integer(millis.to_bigint().unwrap())))
 });
 
@@ -1223,7 +1223,7 @@ teko_simple_function!(to_string args : 1 => 1 => {
 teko_simple_function!(symbol_to_string args : 1 => 1 => {
 	let arg = args.first().unwrap();
 	match **arg {
-		Sourcedata(ref src, Coredata::Symbol(ref symbol)) => {
+		Sourcedata(_, Coredata::Symbol(ref symbol)) => {
 			Ok(rcs(Coredata::String(Into::<&str>::into(symbol).to_string())))
 		}
 		Sourcedata(ref src, ..) => {
@@ -1235,7 +1235,7 @@ teko_simple_function!(symbol_to_string args : 1 => 1 => {
 teko_simple_function!(string_to_symbol args : 1 => 1 => {
 	let arg = args.first().unwrap();
 	match **arg {
-		Sourcedata(ref src, Coredata::String(ref string)) => {
+		Sourcedata(_, Coredata::String(ref string)) => {
 			Ok(rcs(Coredata::Symbol(Symbol::from(string))))
 		}
 		Sourcedata(ref src, ..) => {
@@ -1248,7 +1248,7 @@ teko_simple_function!(symbol_append args : 1 => usize::MAX => {
 	let mut state = Symbol::from("");
 	for i in args {
 		match **i {
-			Sourcedata(ref src, Coredata::Symbol(ref symbol)) => {
+			Sourcedata(_, Coredata::Symbol(ref symbol)) => {
 				state = state.append(symbol);
 			}
 			Sourcedata(ref src, ..) => {
@@ -1264,7 +1264,7 @@ teko_simple_function!(string_at args : 2 => 2 => {
 	let index = &args[1];
 	let mut start = String::from("");
 	match **arg {
-		Sourcedata(ref src, Coredata::String(ref string)) => {
+		Sourcedata(_, Coredata::String(ref string)) => {
 			match **index {
 				Sourcedata(ref src, Coredata::Integer(ref value)) => {
 					if let Some(value) = value.to_usize() {
@@ -1293,7 +1293,7 @@ teko_simple_function!(string_append args : 1 => usize::MAX => {
 	let mut state = String::from("");
 	for i in args {
 		match **i {
-			Sourcedata(ref src, Coredata::String(ref string)) => {
+			Sourcedata(_, Coredata::String(ref string)) => {
 				state = state + string;
 			}
 			Sourcedata(ref src, ..) => {

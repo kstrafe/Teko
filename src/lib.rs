@@ -127,7 +127,7 @@
 //   Colorize errors
 //   Create extension interface (not sure if feasible atm)
 // ✓ Reconsider access to program stack
-//   Split project - user a subtree
+// ✗ Split project - user a subtree          - Too much work, no higher kindedness in Rust
 //   Flesh out specification
 // ✓ Make builtins more declarative (specify arg count etc)
 // ✓ Clean up builtins, make these minimal to some degree
@@ -139,10 +139,10 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 
-// #![ignore(redundant_closure_call)]
 extern crate num;
 extern crate time;
 
+// Useful macros used throughout
 #[macro_use]
 mod macros;
 

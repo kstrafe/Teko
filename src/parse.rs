@@ -126,13 +126,11 @@ pub fn finish_parsing_characters(mut state: ParseState) -> Result<Program, Parse
 		Err(set_error(&mut state, "Unmatched opening parenthesis"))
 	} else if state.error.is_some() {
 		Err(state)
+	} else if let Some(mut first) = state.stack.pop() {
+		first.reverse();
+		Ok(first.clone())
 	} else {
-		if let Some(mut first) = state.stack.pop() {
-			first.reverse();
-			Ok(first.clone())
-		} else {
-			Err(state)
-		}
+		Err(state)
 	}
 }
 
@@ -228,7 +226,7 @@ fn right_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
 		stack.push(active);
 		return Ok(());
 	}
-	return Err(set_error(state, "Last state stack unavailable"));
+	Err(set_error(state, "Last state stack unavailable"))
 }
 
 fn otherwise(character: char, state: &mut ParseState) {

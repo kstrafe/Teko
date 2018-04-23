@@ -1,7 +1,7 @@
 extern crate num;
 extern crate teko;
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use teko::data_structures::Coredata;
 use teko::interpret::interpret;
@@ -58,7 +58,7 @@ fn error(filename: &str) {
 	}
 }
 
-fn file2result(filename: &str) -> Rc<teko::data_structures::Sourcedata> {
+fn file2result(filename: &str) -> Arc<teko::data_structures::Sourcedata> {
 	let program = parse_file(&(String::from("tests/") + filename))
 		.ok()
 		.unwrap();

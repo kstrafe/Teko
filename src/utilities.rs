@@ -1,9 +1,6 @@
 //! Utilities used by the implementation.
 
-use std::{cmp, convert, fmt};
-use std::rc::Rc;
-use std::usize;
-use std::sync::Arc;
+use std::{cmp, convert, fmt, sync::Arc, usize};
 
 use data_structures::*;
 use super::VEC_CAPACITY;
@@ -185,8 +182,7 @@ impl fmt::Debug for Macro {
 /// All Sourcedata can be written in a form such that it can be read again.
 impl fmt::Display for Sourcedata {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		use data_structures::{Commands::*, Coredata::*, Function, Macro};
-		let null = &Sourcedata(None, Coredata::Null());
+		use data_structures::{Coredata::*, Function, Macro};
 		// What needs to be printed
 		enum Queue<'a> {
 			Close,
@@ -299,8 +295,8 @@ impl fmt::Display for Sourcedata {
 							spacer = true;
 						}
 						Null() => {
-							if let &Context::Cell = context {
-							} else if let &Context::Runnable = context {
+							if let Context::Cell = context {
+							} else if let Context::Runnable = context {
 								// Do nothing
 							} else {
 								spacify![];
@@ -318,10 +314,9 @@ impl fmt::Display for Sourcedata {
 								};
 							}
 							write![f, "(\""]?;
-							if arg.len() > 0 { write![f, " "]?; }
+							if !arg.is_empty() { write![f, " "]?; }
 							let mut prev_char = ' ';
 							let mut rle = 0;
-							let mut n: usize = 0;
 							let rle_write = |f: &mut fmt::Formatter, prev_char: char, rle: usize| -> Result<(), fmt::Error> {
 								if rle > 0 {
 									if rle == 1 {
@@ -332,7 +327,7 @@ impl fmt::Display for Sourcedata {
 								}
 								Ok(())
 							};
-							for ch in arg.chars() {
+							for (n, ch) in arg.chars().enumerate() {
 								if is_plainly_printable![ch] {
 									if rle > 0 {
 										if prev_char == ' ' && rle == 1 && n > 1 {
@@ -343,15 +338,12 @@ impl fmt::Display for Sourcedata {
 									}
 									write![f, "{}", ch]?;
 									rle = 0;
+								} else if ch != prev_char && rle > 0 {
+									rle_write(f, prev_char, rle)?;
+									rle = 1;
 								} else {
-									if ch != prev_char && rle > 0 {
-										rle_write(f, prev_char, rle)?;
-										rle = 1;
-									} else {
-										rle += 1;
-									}
+									rle += 1;
 								}
-								n += 1;
 								prev_char = ch;
 							}
 							rle_write(f, prev_char, rle)?;
@@ -729,8 +721,8 @@ pub fn optional_source(source: &Option<Source>) -> String {
 /// If the parameters do not exist then there's an internal programmer error and
 /// this function will panic.
 pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &Deparize) {
-	for arg in args.into_iter() {
-		if let Some(_) = env.pop(arg) {
+	for arg in args.iter() {
+		if env.pop(arg).is_some() {
 			// OK
 		} else {
 			panic!["Store entry does not exist"];
@@ -748,13 +740,10 @@ pub fn rcs(rcs: Coredata) -> Arc<Sourcedata> {
 	rc(Sourcedata(None, rcs))
 }
 
-pub fn find_earliest_depar<'a>(program: &'a mut Program) -> Option<&'a mut Deparize> {
+pub fn find_earliest_depar(program: &mut Program) -> Option<&mut Deparize> {
 	for i in program.iter_mut().rev() {
-		match Arc::get_mut(i) {
-			Some(&mut Sourcedata(_, Coredata::Internal(Commands::Deparize(ref mut dep)))) => {
-				return Some(dep);
-			}
-			_ => {}
+		if let Some(&mut Sourcedata(_, Coredata::Internal(Commands::Deparize(ref mut dep)))) = Arc::get_mut(i) {
+			return Some(dep);
 		}
 	}
 	None
