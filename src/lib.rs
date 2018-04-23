@@ -102,16 +102,12 @@
 // ✗ ` quasiquote                            - Can be built from primitives
 // ✗ Test different TCO strategies (HashSet, sorted Vec,..)  - Not important
 // ✗ Implement powers for numbers                            - Implemented using primitives
-// ✗ Rational parsing + promotion            - Not minimal
-// ✗ Complex parsing + promotion             - Not minimal
 // ✓ <, >, =, <=, >=, != number comparison   - Only < and == builtin, others derived
 // ✓ Boolean not, and, or
 // ✗ Create a builtin error registry         - Not minimal, keep errors short
 // ✓ quote ✓ symbol?  ✓ same?  ✓ pair?  ✓ head ✓ tail ✓ pair ✓ if ✓ fn ✓ mo
 // ✗ Create FFI for C                        - Not minimal
 // ✗ Functional map/set/trie/fingertree      - Not very minimal
-// ✗ Multithreading                          - Not part of the idealized language
-// ✗ Channels                                - As above
 // ✗ Make Userdata easily editable           - Is only a reference impl, no need
 // ✓ Replace all panics with unwinds
 // ✓ Sort imports and uses where possible
@@ -123,16 +119,22 @@
 // ✓ Make readme and build instructions
 // ✓ Escape strings during printing
 // ✓ Add builtin doc to retrieve documentation about functions
-//   Pretty printing
-//   Colorize errors
-//   Create extension interface (not sure if feasible atm)
+// ✗ Colorize errors                         - This is the job of the repl
 // ✓ Reconsider access to program stack
 // ✗ Split project - user a subtree          - Too much work, no higher kindedness in Rust
-//   Flesh out specification
 // ✓ Make builtins more declarative (specify arg count etc)
 // ✓ Clean up builtins, make these minimal to some degree
 // ✓ Formalize more errors as functions
 // ✓ Perhaps return Source from builtins, since it's useful
+//   Abstract data creation and access
+//   Flesh out specification
+//   Multithreading
+//   Pretty printing
+//   Create extension interface (not sure if feasible atm)
+//   Channels
+//   Table data type
+//   Rational parsing + promotion
+//   Complex parsing + promotion
 //
 // //////////////////////////////////////////////////////////
 
