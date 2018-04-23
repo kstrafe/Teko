@@ -77,6 +77,7 @@ pub fn create_builtin_library_table() -> HashMap<Symbol, Program> {
 		Function : "not" => not,
 		// Error handling
 		Function : "error" => error,
+		Function : "error-data" => error_data,
 		Function : "error?" => is_error,
 		Macro    : "wind" => wind,
 		Function : "unwind" => unwind,
@@ -533,6 +534,18 @@ teko_simple_function!(eq args : 0 => usize::MAX => {
 teko_simple_function!(error args : 0 => 1 => {
 	if let Some(arg) = args.first() {
 		Ok(rcs(Coredata::Error(arg.clone())))
+	} else {
+		Ok(rcs(Coredata::Error(rcs(Coredata::Null()))))
+	}
+});
+
+teko_simple_function!(error_data args : 1 => 1 => {
+	if let Some(arg) = args.first() {
+		if let Sourcedata(_, Coredata::Error(ref err_data)) = **arg {
+			Ok(err_data.clone())
+		} else {
+			Ok(rcs(Coredata::Error(rcs(Coredata::Null()))))
+		}
 	} else {
 		Ok(rcs(Coredata::Error(rcs(Coredata::Null()))))
 	}
