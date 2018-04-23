@@ -40,10 +40,10 @@
 //! function.
 //!
 //! ```text
-//! (def factorial (fn (n accum)
-//!                    (if (= n 1)
-//!                        accum
-//!                        (factorial (- n 1) (* n accum)))))
+//! (define factorial (function (n accum)
+//!                     (if (= n 1)
+//!                       accum
+//!                       (factorial (- n 1) (* n accum)))))
 //! (factorial 5 1)
 //! ```
 //! # Usage #
@@ -56,9 +56,9 @@
 //! fn main() {
 //! 	let program = teko::parse::parse_string("
 //! 	(define factorial (function (n accum)
-//! 	                   (if (= n 1)
-//! 	                       accum
-//! 	                       (factorial (- n 1) (* n accum)))))
+//! 	                    (if (= n 1)
+//! 	                      accum
+//! 	                      (factorial (- n 1) (* n accum)))))
 //! 	(write (factorial 5 1))").ok().unwrap();
 //! 	let env = teko::interpret::interpret(program);
 //!
@@ -139,19 +139,19 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 
-extern crate num;
-extern crate time;
-
-// Useful macros used throughout
 #[macro_use]
 mod macros;
 
-pub mod builtins;
-pub mod data_structures;
-pub mod interpret;
-pub mod parse;
-pub mod user;
-pub mod utilities;
+externs![num time];
+
+pubmods![
+	builtins
+	data_structures
+	interpret
+	parse
+	user
+	utilities
+];
 
 // Preallocate buffers for each Vec
 const VEC_CAPACITY: usize = 100;

@@ -17,3 +17,21 @@ macro_rules! construct_builtins {
 		}
 	};
 }
+
+/// Allows us to specify externs as a list instead of tediously repeating extern crate
+macro_rules! externs {
+	($($i:ident)*) => {
+		$(
+			extern crate $i;
+		)*
+	};
+}
+
+/// Same as externs but for pub mod
+macro_rules! pubmods {
+	($($i:ident)*) => {
+		$(
+			pub mod $i;
+		)*
+	};
+}

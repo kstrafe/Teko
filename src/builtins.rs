@@ -23,12 +23,8 @@
 // //////////////////////////////////////////////////////////
 // std imports
 // //////////////////////////////////////////////////////////
-use std::char;
-use std::collections::HashMap;
-use std::io::{self, Read};
-use std::{time, thread};
-use std::usize;
-use std::sync::Arc;
+use std::{char, collections::HashMap, io::{self, Read},
+          time, thread, usize, sync::Arc};
 
 // //////////////////////////////////////////////////////////
 // Internal data structures used by Teko
@@ -1270,6 +1266,12 @@ teko_simple_function!(string_at args : 2 => 2 => {
 					if let Some(value) = value.to_usize() {
 						if value < string.len() {
 							start.push(string.chars().nth(value).unwrap());
+						} else {
+							return Ok(rcs(Coredata::Null()))
+						}
+					} else if let Some(value) = value.to_isize() {
+						if (-value as usize) <= string.len() {
+							start.push(string.chars().nth(string.len() - (-value as usize)).unwrap());
 						} else {
 							return Ok(rcs(Coredata::Null()))
 						}
