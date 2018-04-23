@@ -3,6 +3,7 @@
 use std::{cmp, convert, fmt};
 use std::rc::Rc;
 use std::usize;
+use std::sync::Arc;
 
 use data_structures::*;
 use super::VEC_CAPACITY;
@@ -379,7 +380,7 @@ impl fmt::Display for Sourcedata {
 
 impl Sourcedata {
 	/// Return the head of a cell, unwind if not a cell.
-	pub fn head(&self) -> Option<Rc<Sourcedata>> {
+	pub fn head(&self) -> Option<Arc<Sourcedata>> {
 		if let Sourcedata(_, Coredata::Cell(ref head, _)) = *self {
 			Some(head.clone())
 		} else {
@@ -387,7 +388,7 @@ impl Sourcedata {
 		}
 	}
 	/// Return the tail of a cell, unwind if not a cell.
-	pub fn tail(&self) -> Option<Rc<Sourcedata>> {
+	pub fn tail(&self) -> Option<Arc<Sourcedata>> {
 		if let Sourcedata(_, Coredata::Cell(_, ref tail)) = *self {
 			Some(tail.clone())
 		} else {
@@ -434,8 +435,8 @@ impl fmt::Display for Source {
 	}
 }
 
-impl<'a> convert::From<&'a Source> for Rc<Sourcedata> {
-	fn from(src: &'a Source) -> Rc<Sourcedata> {
+impl<'a> convert::From<&'a Source> for Arc<Sourcedata> {
+	fn from(src: &'a Source) -> Arc<Sourcedata> {
 		use data_structures::Coredata::*;
 		rcs(Cell(
 			rcs(Integer(src.line.into())),
@@ -506,7 +507,7 @@ pub fn not_found(string: &str) -> String {
 }
 
 /// Maps a linked list of data into a vector of data.
-pub fn collect_cell_into_revvec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
+pub fn collect_cell_into_revvec(data: &Arc<Sourcedata>) -> Vec<Arc<Sourcedata>> {
 	let mut to_return = vec![];
 	let mut current = data.clone();
 	loop {
@@ -522,7 +523,7 @@ pub fn collect_cell_into_revvec(data: &Rc<Sourcedata>) -> Vec<Rc<Sourcedata>> {
 }
 
 /// Maps a linked list of symbols into a vector of strings.
-pub fn collect_cell_of_symbols_into_vec(data: &Rc<Sourcedata>) -> Option<Vec<Symbol>> {
+pub fn collect_cell_of_symbols_into_vec(data: &Arc<Sourcedata>) -> Option<Vec<Symbol>> {
 	let mut ret = vec![];
 	let mut current = data.clone();
 	if let Coredata::Cell(..) = current.1 {
@@ -653,7 +654,7 @@ pub fn err(
 }
 
 /// Create a string of the entire program stack.
-pub fn internal_trace(program: &mut Program, _: &mut Env) -> Rc<Sourcedata> {
+pub fn internal_trace(program: &mut Program, _: &mut Env) -> Arc<Sourcedata> {
 	use data_structures::Coredata::*;
 	let null = rcs(Coredata::Null());
 	let mut lst = null.clone();
@@ -738,18 +739,18 @@ pub fn pop_parameters(_: &mut Program, env: &mut Env, args: &Deparize) {
 }
 
 /// Alias for `Rc::new(_)`.
-pub fn rc<T>(rc: T) -> Rc<T> {
-	Rc::new(rc)
+pub fn rc<T>(rc: T) -> Arc<T> {
+	Arc::new(rc)
 }
 
 /// Alias for `Rc::new(Sourcedata(None, _))`.
-pub fn rcs(rcs: Coredata) -> Rc<Sourcedata> {
+pub fn rcs(rcs: Coredata) -> Arc<Sourcedata> {
 	rc(Sourcedata(None, rcs))
 }
 
 pub fn find_earliest_depar<'a>(program: &'a mut Program) -> Option<&'a mut Deparize> {
 	for i in program.iter_mut().rev() {
-		match Rc::get_mut(i) {
+		match Arc::get_mut(i) {
 			Some(&mut Sourcedata(_, Coredata::Internal(Commands::Deparize(ref mut dep)))) => {
 				return Some(dep);
 			}

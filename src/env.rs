@@ -155,7 +155,7 @@ mod tests {
 	use super::*;
 	#[test]
 	fn test_exists_0() {
-		let mut env = Env::<&str, usize>::default();
+		let env = Env::<&str, usize>::default();
 		assert![!env.exists(&"key")];
 	}
 	#[test]

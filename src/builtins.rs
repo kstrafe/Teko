@@ -26,9 +26,9 @@
 use std::char;
 use std::collections::HashMap;
 use std::io::{self, Read};
-use std::rc::Rc;
 use std::{time, thread};
 use std::usize;
+use std::sync::Arc;
 
 // //////////////////////////////////////////////////////////
 // Internal data structures used by Teko
@@ -1021,7 +1021,7 @@ fn set(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)>
 		if let Some(head) = args.head() {
 			match *head {
 				Sourcedata(ref source, Coredata::Symbol(ref symbol)) => {
-					program.push(Rc::new(
+					program.push(Arc::new(
 						Sourcedata(source.clone(), Coredata::String(Into::<&str>::into(symbol).to_string())),
 					));
 				}
@@ -1057,7 +1057,7 @@ fn set(program: &mut Program, env: &mut Env) -> Option<(Option<Source>, String)>
 		if let Some(head) = args.head() {
 			match *head {
 				Sourcedata(ref source, Coredata::Symbol(ref symbol)) => {
-					program.push(Rc::new(
+					program.push(Arc::new(
 						Sourcedata(source.clone(), Coredata::String(Into::<&str>::into(symbol).to_string())),
 					));
 				}

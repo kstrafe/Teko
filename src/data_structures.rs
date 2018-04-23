@@ -1,13 +1,13 @@
 //! Data structures used by the Teko library
 
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use num::BigInt;
 
 use std::collections::HashSet;
 use std::iter::Iterator;
 use std::convert::Into;
+use std::sync::Arc;
 
 /// A symbol is a string of characters that contains no whitespace nor parentheses
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
@@ -119,7 +119,7 @@ pub enum Commands {
 #[derive(Debug, Eq, Hash)]
 pub struct Sourcedata(pub Option<Source>, pub Coredata);
 /// Top level statements are reference counted `Sourcedata`
-pub type Statement = Rc<Sourcedata>;
+pub type Statement = Arc<Sourcedata>;
 /// A program is an ordered sequence of `Statement`
 pub type Program = Vec<Statement>;
 
@@ -241,7 +241,7 @@ pub enum Coredata {
 	/// Denote true and false
 	Boolean(bool),
 	/// A pair of data items
-	Cell(Rc<Sourcedata>, Rc<Sourcedata>),
+	Cell(Arc<Sourcedata>, Arc<Sourcedata>),
 	/// Error type
 	Error(Statement),
 	/// Function type
@@ -316,14 +316,14 @@ impl Env {
 	pub fn does_variable_exist(&self, symbol: &Symbol) -> bool {
 		self.store.contains_key(symbol)
 	}
-	pub fn get(&self, symbol: &Symbol) -> Option<&Rc<Sourcedata>> {
+	pub fn get(&self, symbol: &Symbol) -> Option<&Arc<Sourcedata>> {
 		if let Some(value) = self.store.get(symbol) {
 			value.last()
 		} else {
 			None
 		}
 	}
-	pub fn push(&mut self, symbol: &Symbol, value: Rc<Sourcedata>) {
+	pub fn push(&mut self, symbol: &Symbol, value: Arc<Sourcedata>) {
 		if self.does_variable_exist(symbol) {
 			self.store.get_mut(symbol).unwrap().push(value);
 		} else {
@@ -334,7 +334,7 @@ impl Env {
 		self.pop(symbol);
 		self.push(symbol, value);
 	}
-	pub fn pop(&mut self, symbol: &Symbol) -> Option<Rc<Sourcedata>> {
+	pub fn pop(&mut self, symbol: &Symbol) -> Option<Arc<Sourcedata>> {
 		let (result, empty) = if let Some(ref mut entry) = self.store.get_mut(symbol) {
 			(entry.pop(), entry.is_empty())
 		} else {

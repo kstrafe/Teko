@@ -8,7 +8,7 @@
 //! ```
 use std::fs::File;
 use std::io::Read;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use data_structures::*;
 
@@ -216,9 +216,9 @@ fn right_parenthesis(state: &mut ParseState) -> Result<(), ParseState> {
 	} else {
 		return Err(state.clone());
 	};
-	let mut active = Rc::new(Sourcedata(Some(source), Coredata::Null()));
+	let mut active = Arc::new(Sourcedata(Some(source), Coredata::Null()));
 	for top in top.iter().rev() {
-		active = Rc::new(Sourcedata(
+		active = Arc::new(Sourcedata(
 			top.0.clone(),
 			Coredata::Cell(top.clone(), active),
 		));
@@ -245,7 +245,7 @@ fn move_token_to_stack_if_nonempty(state: &mut ParseState) {
 		let currlex = state.start_of_current_lexeme.clone();
 		let currtok = state.token.clone();
 		if let Some(ref mut stack) = state.stack.last_mut() {
-			stack.push(Rc::new(
+			stack.push(Arc::new(
 				Sourcedata(Some(currlex), Coredata::Symbol(Symbol::from(currtok))),
 			));
 		}
